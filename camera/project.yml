@@ -1,0 +1,40 @@
+name: CourtsideCamera
+options:
+  bundleIdPrefix: $(COURTSIDE_BUNDLE_PREFIX)
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "16.0"
+
+packages:
+  HaishinKit:
+    url: https://github.com/shogo4405/HaishinKit.swift
+    from: "2.0.0"
+
+targets:
+  CourtsideCamera:
+    type: application
+    platform: iOS
+    sources:
+      - CourtsideCamera
+    configFiles:
+      Debug: Config.xcconfig
+      Release: Config.xcconfig
+    dependencies:
+      - package: HaishinKit
+        product: HaishinKit
+      - package: HaishinKit
+        product: RTMPHaishinKit
+    settings:
+      base:
+        INFOPLIST_KEY_NSCameraUsageDescription: "Kameran används för att sända live"
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Mikrofonen används för ljud i livesändningen"
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
+        INFOPLIST_KEY_UIBackgroundModes: audio
+        SWIFT_EMIT_LOC_STRINGS: true
+        GENERATE_INFOPLIST_FILE: true
+        INFOPLIST_FILE: CourtsideCamera/Info.plist
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 1.0
+        PRODUCT_BUNDLE_IDENTIFIER: $(COURTSIDE_BUNDLE_PREFIX).CourtsideCamera
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        DEVELOPMENT_TEAM: ""

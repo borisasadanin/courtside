@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="description" content="">
+  <meta property="og:title" content="">
+  <meta property="og:description" content="">
+  <meta property="og:image" content="icon.png">
+  <meta property="og:url" content="">
+  <meta property="og:type" content="website">
+  <meta name="courtside:api-url" content="">
+  <title>Courtside</title>
+  <link rel="icon" href="icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+  <script src="runtime-config.js"></script>
+</head>
+<body data-title-suffix="Live">
+  <header>
+    <div class="header-inner">
+      <img src="icon.png" alt="" data-club-logo class="logo">
+      <div class="header-text">
+        <h1 data-club-name>Courtside</h1>
+        <div class="status-row">
+          <span class="status-dot offline" id="statusDot"></span>
+          <p class="subtitle" id="headerStatus">Live</p>
+        </div>
+      </div>
+      <button class="header-logout-btn hidden" id="headerLogout" aria-label="Logga ut">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+    <nav class="tab-nav" id="tabNav">
+      <button class="tab-btn active" data-tab="live">Live</button>
+      <button class="tab-btn" data-tab="vod">Repriser</button>
+      <button class="tab-btn hidden" data-tab="admin" id="adminTab">Admin</button>
+    </nav>
+  </header>
+
+  <main>
+    <div id="offlineBanner" class="offline-banner hidden">Ingen internetanslutning</div>
+
+    <!-- PIN entry view -->
+    <section id="pinView" class="hidden">
+      <div class="pin-container">
+        <img src="icon.png" alt="" data-club-logo class="pin-logo">
+        <h2 class="pin-title">Privat sändning</h2>
+        <p class="pin-desc">Ange koden för att se matcher</p>
+        <div class="pin-input-group">
+          <input type="tel" id="pinInput" maxlength="6" placeholder="000000" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+        </div>
+        <button id="pinSubmit" class="pin-btn">Öppna</button>
+        <p class="pin-error hidden" id="pinError">Fel kod — försök igen</p>
+      </div>
+    </section>
+
+    <!-- Stream list view -->
+    <section id="streamListView">
+      <div class="stream-grid" id="streamGrid">
+        <!-- Filled by JS -->
+      </div>
+      <div class="empty-state" id="emptyState">
+        <div class="empty-bg" id="emptyBg"></div>
+        <div class="empty-content">
+          <img src="icon.png" alt="" data-club-logo class="empty-logo" id="emptyLogo">
+          <p id="emptyTitle">Ingen sänder just nu</p>
+          <p class="empty-sub" id="emptySub">Sändningen visas här automatiskt när den startar</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- VOD list view -->
+    <section id="vodListView" class="hidden">
+      <div class="match-list" id="vodGrid">
+        <!-- Filled by JS -->
+      </div>
+      <div class="empty-state" id="vodEmptyState">
+        <img src="icon.png" alt="" data-club-logo class="empty-logo">
+        <p>Inga repriser ännu</p>
+        <p class="empty-sub">Inspelade matcher visas här efter sändning</p>
+      </div>
+    </section>
+
+    <!-- Mini-player for highlight clips (used on VOD page) -->
+    <div class="clip-player hidden" id="clipPlayer">
+      <div class="clip-player-header">
+        <span class="clip-player-label">Höjdpunkt</span>
+        <button class="clip-player-close" id="clipPlayerClose">&times;</button>
+      </div>
+      <video id="clipVideo" playsinline controls></video>
+    </div>
+
+    <!-- Player view (hidden until a stream is selected) -->
+    <section id="playerView" class="hidden">
+      <button class="back-btn" id="backBtn">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <span id="backBtnText">Alla sändningar</span>
+      </button>
+
+      <div class="player-container">
+        <div class="video-wrapper" id="videoWrapper">
+          <video id="video" playsinline></video>
+
+          <div class="controls" id="controls">
+            <div class="progress-bar-container" id="progressContainer">
+              <span class="time-display" id="timeElapsed">0:00</span>
+              <div class="progress-bar" id="progressBar">
+                <div class="progress-buffered" id="progressBuffered"></div>
+                <div class="progress-filled" id="progressFilled"></div>
+                <div class="progress-handle" id="progressHandle"></div>
+              </div>
+              <span class="time-display" id="timeDuration">0:00</span>
+            </div>
+            <button id="playBtn" class="control-btn" aria-label="Spela">
+              <svg class="icon icon-play" viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>
+              <svg class="icon icon-pause" viewBox="0 0 24 24" style="display:none"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>
+            </button>
+
+            <div class="live-badge offline" id="liveBadge">OFFLINE</div>
+            <button id="backToLiveBtn" class="back-to-live-btn hidden" aria-label="Tillbaka till live">LIVE &#x25B6;</button>
+
+            <div class="volume-group">
+              <button id="muteBtn" class="control-btn" aria-label="Ljud">
+                <svg class="icon icon-vol" viewBox="0 0 24 24"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M15.54 8.46a5 5 0 010 7.07" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19.07 4.93a10 10 0 010 14.14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <svg class="icon icon-muted" viewBox="0 0 24 24" style="display:none"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="17" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </button>
+              <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1" class="volume-slider">
+            </div>
+
+            <div class="spacer"></div>
+
+            <div class="quality-group">
+              <button id="qualityBtn" class="control-btn quality-btn" aria-label="Kvalitet">
+                <span id="qualityLabel">Auto</span>
+              </button>
+              <div class="quality-menu" id="qualityMenu"></div>
+            </div>
+
+            <button id="pipBtn" class="control-btn" aria-label="Bild-i-bild" style="display:none">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <rect x="12" y="9" width="8" height="6" rx="1" fill="currentColor" opacity="0.3"/>
+              </svg>
+            </button>
+
+            <button id="fullscreenBtn" class="control-btn" aria-label="Helskärm">
+              <svg class="icon icon-fs-enter" viewBox="0 0 24 24"><polyline points="15,3 21,3 21,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="9,21 3,21 3,15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="21,3 14,10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="3,21 10,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <svg class="icon icon-fs-exit" viewBox="0 0 24 24" style="display:none"><polyline points="4,14 10,14 10,20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="20,10 14,10 14,4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14,10 21,3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="10,14 3,21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+
+          <div class="overlay" id="overlay">
+            <div class="overlay-content">
+              <img src="icon.png" alt="" data-club-logo class="overlay-logo">
+              <div class="spinner" id="overlaySpinner"></div>
+              <p class="overlay-text">Ansluter till sändningen…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="info-section">
+        <h2 id="streamTitle">Livesändning</h2>
+        <p id="streamDesc">Följ matchen live.</p>
+      </section>
+
+    </section>
+
+    <!-- Admin view (hidden until admin login) -->
+    <section id="adminView" class="hidden">
+      <div class="admin-header">
+        <h2 class="admin-title">Admin</h2>
+        <button class="admin-logout-btn" id="adminLogout">Logga ut</button>
+      </div>
+      <div class="admin-storage-summary" id="adminStorageSummary">
+        <div class="spinner"></div>
+      </div>
+      <div class="admin-vod-list" id="adminVodList"></div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>&copy; <span data-club-name>Courtside</span></p>
+  </footer>
+
+  <script type="module" src="player.js"></script>
+</body>
+</html>

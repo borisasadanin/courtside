@@ -1,0 +1,17 @@
+// Copy to Config.xcconfig and fill in. Config.xcconfig is gitignored.
+//
+// Until the app can be paired from a QR code, each installation builds the app
+// with its own backend details.
+
+// Bundle identifier prefix, e.g. com.myclub
+COURTSIDE_BUNDLE_PREFIX = com.example
+
+// Your Courtside backend, without a trailing slash.
+// Note: "//" must be escaped in xcconfig files.
+COURTSIDE_BASE_URL = https:$(/)$(/)api.example.com
+
+// The API_KEY from your backend's .env
+COURTSIDE_API_KEY = your-api-key-here
+
+// Optional: public website, used only for the health indicator.
+COURTSIDE_SITE_URL = https:$(/)$(/)live.example.com

@@ -1,0 +1,33 @@
+# Publishes the built website.
+#
+# Set the OSC_SITE_NAME repository variable and the OSC_ACCESS_TOKEN secret.
+#
+# Note: dist/runtime-config.js points the site at your backend. Publishing
+# overwrites it, so keep the value in the committed runtime-config.js.
+name: Deploy
+on: workflow_dispatch
+jobs:
+  deploy-website:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Install OSC CLI
+        run: npm install -g @osaas/cli
+      - name: Deploy website
+        env:
+          OSC_ACCESS_TOKEN: ${{ secrets.OSC_ACCESS_TOKEN }}
+          SITE_NAME: ${{ vars.OSC_SITE_NAME }}
+        run: |
+          if [ -z "$SITE_NAME" ]; then
+            echo "Set the OSC_SITE_NAME repository variable first." >&2
+            exit 1
+          fi
+          osc web publish "$SITE_NAME" dist --sync

@@ -1,0 +1,20 @@
+{
+  "name": "courtside-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "node build.mjs",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-legacy": "^8.0.1",
+    "esbuild": "^0.27.4",
+    "terser": "^5.46.1",
+    "vite": "^8.0.3"
+  },
+  "dependencies": {
+    "hls.js": "^1.5.17"
+  },
+  "description": "Courtside website \u2014 live, replays and highlights, themed at runtime per club"
+}

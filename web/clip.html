@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="description" content="">
+  <meta property="og:title" content="">
+  <meta property="og:description" content="Se höjdpunkten från matchen.">
+  <meta property="og:image" content="icon.png">
+  <meta property="og:type" content="website">
+  <meta name="courtside:api-url" content="">
+  <title>Courtside</title>
+  <link rel="icon" href="icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+  <script src="runtime-config.js"></script>
+  <style>
+    .clip-page {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: calc(100vh - 80px);
+      padding: 32px 16px;
+    }
+    .clip-page-card {
+      width: 100%;
+      max-width: 640px;
+    }
+    .clip-page-video {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: var(--radius) var(--radius) 0 0;
+      display: block;
+    }
+    .clip-page-info {
+      background: var(--surface);
+      border: 1px solid #222;
+      border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .clip-page-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .clip-page-dur {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .clip-page-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .clip-page-download:hover {
+      background: var(--accent-dim);
+    }
+    .clip-page-download:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+    .clip-play-overlay {
+      position: absolute;
+      inset: 0;
+      bottom: auto;
+      height: 0;
+      padding-bottom: 56.25%; /* 16:9 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.35);
+      border: none;
+      border-radius: var(--radius) var(--radius) 0 0;
+      cursor: pointer;
+      z-index: 10;
+      transition: background 0.15s;
+    }
+    .clip-play-overlay svg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+      opacity: 0.9;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .clip-play-overlay:hover svg {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.1);
+    }
+    .clip-play-overlay:hover {
+      background: rgba(0,0,0,0.5);
+    }
+    .clip-page-error {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .clip-page-error h2 {
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .clip-page-loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    /* Header link style override — no tab nav on clip page */
+    .clip-page-header .header-inner {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body data-title-suffix="Höjdpunkt">
+  <header class="clip-page-header">
+    <a href="/" class="header-inner" style="text-decoration:none;color:inherit">
+      <img src="icon.png" alt="" data-club-logo class="logo">
+      <div class="header-text">
+        <h1 data-club-name>Courtside</h1>
+      </div>
+    </a>
+  </header>
+
+  <main class="clip-page">
+    <div id="loading" class="clip-page-loading">
+      <div class="spinner"></div>
+      <p>Laddar klipp...</p>
+    </div>
+
+    <div id="error" class="clip-page-error" style="display:none">
+      <h2>Klippet hittades inte</h2>
+      <p>Länken kan vara felaktig eller klippet har tagits bort.</p>
+      <p style="margin-top:16px"><a href="index.html" style="color:var(--accent)">Till startsidan</a></p>
+    </div>
+
+    <div id="clipCard" class="clip-page-card" style="display:none">
+      <video id="clipVideo" class="clip-page-video" playsinline controls preload="auto"></video>
+      <div class="clip-page-info">
+        <div>
+          <div class="clip-page-label" id="clipLabel"></div>
+          <div class="clip-page-dur" id="clipDur"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="clip-page-download" id="shareBtn" style="display:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            Dela
+          </button>
+          <button class="clip-page-download" id="downloadBtn" style="display:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Ladda ner
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; <span data-club-name>Courtside</span></p>
+  </footer>
+
+  <script type="module" src="clip.js"></script>
+</body>
+</html>

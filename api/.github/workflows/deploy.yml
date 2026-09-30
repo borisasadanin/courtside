@@ -1,0 +1,37 @@
+# Deploys the backend to OSC Web Runner.
+#
+# Installation-specific values come from repository settings, not from this
+# file, so a fork does not deploy over someone else's installation:
+#   Variables: OSC_APP_NAME, OSC_SOURCE_URL
+#   Secrets:   OSC_ACCESS_TOKEN
+#
+# Web Runner has no rolling update, so this removes and recreates the app —
+# in-flight streams are dropped. Do not run it during a match.
+name: Deploy
+on: workflow_dispatch
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci && npm run build
+      - name: Install OSC CLI
+        run: npm install -g @osaas/cli
+      - name: Deploy backend
+        env:
+          OSC_ACCESS_TOKEN: ${{ secrets.OSC_ACCESS_TOKEN }}
+          APP_NAME: ${{ vars.OSC_APP_NAME }}
+          SOURCE_URL: ${{ vars.OSC_SOURCE_URL }}
+        run: |
+          if [ -z "$APP_NAME" ] || [ -z "$SOURCE_URL" ]; then
+            echo "Set the OSC_APP_NAME and OSC_SOURCE_URL repository variables first." >&2
+            exit 1
+          fi
+          echo "yes" | osc remove eyevinn-web-runner "$APP_NAME" || true
+          sleep 5
+          osc create eyevinn-web-runner "$APP_NAME" \
+            -o SourceUrl="$SOURCE_URL" \
+            -o OscAccessToken="${OSC_ACCESS_TOKEN}"
