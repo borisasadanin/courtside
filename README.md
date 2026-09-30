@@ -112,9 +112,15 @@ than a rewrite. Today only basketball is defined.
   defaults. `openssl rand -hex 24` for the key.
 - **Set a `VIEWER_PIN`.** Without one, anyone with the link can watch. This is
   usually youth sport.
-- **Recordings are currently world-readable** if someone has the segment URL.
-  The PIN protects the API, not the media files. Closing that gap is the next
-  security item on the roadmap — consider it before opening your installation up.
+- **Recordings are private.** The storage bucket has no public-read policy, and
+  every segment, MP4 and thumbnail is reached through the API, which checks who
+  is asking before redirecting to a short-lived signed URL. Video bytes still
+  travel straight from storage to the viewer — the backend decides, it does not
+  carry the traffic.
+- **A shared clip link deliberately works without the PIN**, because that is the
+  point of sending a highlight to a grandparent. A clip only exposes its own
+  files: knowing one clip link never opens the rest of the match. Clip ids are
+  64 bits, so they cannot be guessed.
 
 ## Privacy
 

@@ -5,7 +5,7 @@
 import Hls from "hls.js";
 import { CONFIG } from "./config.js";
 import { state, dom, MAX_RECONNECT_ATTEMPTS } from "./state.js";
-import { formatTime } from "./utils.js";
+import { formatTime, mediaUrl } from "./utils.js";
 import { authHeaders } from "./auth.js";
 import { stopListPolling } from "./streams.js";
 import { stopVodPolling } from "./vod.js";
@@ -195,6 +195,14 @@ function startHlsVod() {
     levelLoadingMaxRetry: 3,
     fragLoadingTimeOut: 15000,
     fragLoadingMaxRetry: 3,
+    // Recordings sit behind the viewer PIN now: the playlist and every segment
+    // request goes to the backend, which authorises before redirecting.
+    xhrSetup: (xhr) => {
+      const headers = authHeaders();
+      if (headers.Authorization) {
+        xhr.setRequestHeader("Authorization", headers.Authorization);
+      }
+    },
   });
 
   state.hls.loadSource(state.currentStreamUrl);
@@ -338,7 +346,7 @@ async function checkIfStreamStopped() {
     } else {
       // Stream still exists — update URL and try reconnecting
       if (stream.hlsUrl) {
-        state.currentStreamUrl = stream.hlsUrl;
+        state.currentStreamUrl = mediaUrl(stream.hlsUrl);
       }
       state.hlsReconnectAttempts++;
       if (state.hlsReconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
@@ -768,7 +776,7 @@ function playNextHighlight(isFirst = false) {
         maxBufferLength: 10,
         maxMaxBufferLength: 20,
       });
-      state.highlightHls.loadSource(clip.hlsUrl);
+      state.highlightHls.loadSource(mediaUrl(clip.hlsUrl));
       state.highlightHls.attachMedia(dom.video);
       state.highlightHls.on(Hls.Events.MANIFEST_PARSED, () => {
         if (!state.isPlayingHighlights) return;
@@ -805,7 +813,7 @@ function playNextHighlight(isFirst = false) {
       });
     } else if (dom.video.canPlayType("application/vnd.apple.mpegurl")) {
       // Safari native HLS
-      dom.video.src = clip.hlsUrl;
+      dom.video.src = mediaUrl(clip.hlsUrl);
       dom.video.addEventListener(
         "loadedmetadata",
         () => {
@@ -944,7 +952,7 @@ async function pollCurrentStream() {
           state.currentStreamUrl = `${CONFIG.API_URL}${stream.dvrUrl}`;
           state.isDvrMode = true;
         } else if (stream.hlsUrl) {
-          state.currentStreamUrl = stream.hlsUrl;
+          state.currentStreamUrl = mediaUrl(stream.hlsUrl);
         }
         setStatus("connecting");
         tryConnect();
@@ -1001,7 +1009,7 @@ export function openPlayer(hlsUrl, name, streamId, dvrUrl) {
 
   state.isVodMode = false;
   // Use DVR playlist for catch-up capability; fall back to memfs live URL
-  state.currentStreamUrl = dvrUrl ? `${CONFIG.API_URL}${dvrUrl}` : hlsUrl;
+  state.currentStreamUrl = dvrUrl ? `${CONFIG.API_URL}${dvrUrl}` : mediaUrl(hlsUrl);
   state.currentStreamId = streamId;
   state.isDvrMode = !!dvrUrl;
   state.hlsReconnectAttempts = 0;
@@ -1031,7 +1039,7 @@ export function openPlayer(hlsUrl, name, streamId, dvrUrl) {
  */
 export function openVodPlayer(hlsUrl, title, vodId) {
   state.isVodMode = true;
-  state.currentStreamUrl = hlsUrl;
+  state.currentStreamUrl = mediaUrl(hlsUrl);
   state.currentStreamId = vodId;
   stopListPolling();
   stopVodPolling();

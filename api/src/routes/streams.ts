@@ -129,7 +129,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         awayTeam,
         matchDate: new Date().toISOString().slice(0, 10),
         cameraName: name.trim(),
-        hlsUrl: minio.hlsUrl(streamId),
+        hlsUrl: `/api/vod/${streamId}/playlist.m3u8`,
         createdAt: info.createdAt,
       };
 

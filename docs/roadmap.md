@@ -110,12 +110,12 @@ Först, för att allt annat bygger på roterade nycklar.
 
 ### P1 — Konfigurerbart och paketerbart (kärnan i prio 1)
 
-- [ ] **ABL-007** Klubbmanifest. Bort med hårdkodad tenant, domän, region, instans- och bucketnamn.
+- [x] **ABL-007** Klubbmanifest. Bort med hårdkodad tenant, domän, region, instans- och bucketnamn.
       Inklusive **CORS-listan i `index.ts`**, som är låst till `altacourtside.se` och tyst skulle
       blockera varje annan klubb.
 - [ ] **ABL-008** Backend som OSC-katalogtjänst med deklarerad konfiguration. Bort från Web Runner,
       bort med inbakade defaults, faila hårt vid avsaknad. Ger rullande deploy som bieffekt.
-- [ ] **ABL-009** Frontend: en bundle för alla. Klubbidentitet och tema från `/api/club`,
+- [x] **ABL-009** Frontend: en bundle för alla. Klubbidentitet och tema från `/api/club`,
       färger som CSS-variabler. *Mekaniken för steg 2.*
 - [ ] **ABL-010** Kameraapp utan inbakad backend: QR-parning och per-enhetstokens som ersätter den
       delade API-nyckeln.
@@ -125,9 +125,9 @@ Först, för att allt annat bygger på roterade nycklar.
 - [ ] **ABL-012** Preflight. En främling har ingen att fråga. Verifiera tenant, tjänstekvot, att
       Restreamer svarar, att RTMP är påslaget, att lagringen går att skriva till — och skriv ut vad
       som är fel. `/health` är grunden.
-- [ ] **ABL-013** VOD-playlist serveras av API:et i stället för som statisk fil i lagringen.
+- [x] **ABL-013** VOD-playlist serveras av API:et i stället för som statisk fil i lagringen.
       Förutsättning för ABL-014.
-- [ ] **ABL-014** Privat media. Stäng publik läsning; injicera kortlivade signerade segment-URL:er i
+- [x] **ABL-014** Privat media. Stäng publik läsning; injicera kortlivade signerade segment-URL:er i
       de playlists vi redan genererar server-side (DVR, klipp, och VOD via ABL-013).
 
 ### P2 — Solutionen

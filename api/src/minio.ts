@@ -1,13 +1,14 @@
 import {
   S3Client,
   CreateBucketCommand,
-  PutBucketPolicyCommand,
+  DeleteBucketPolicyCommand,
   GetObjectCommand,
   PutObjectCommand,
   HeadBucketCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { VodEntry, HighlightClip } from "./types.js";
 import { config } from "./config.js";
 
@@ -48,7 +49,17 @@ export class MinioClient {
     });
   }
 
-  /** Ensure the "recordings" bucket exists with public-read policy */
+  /**
+   * Ensure the recordings bucket exists and is NOT publicly readable.
+   *
+   * Earlier versions attached a public-read policy so browsers could fetch HLS
+   * segments directly.  That made every recording readable by anyone who knew
+   * or guessed a URL, regardless of the viewer PIN — the PIN guarded the API,
+   * not the media.  Segments are now reached through short-lived presigned
+   * URLs issued by the media routes, so the policy is actively removed rather
+   * than merely not set: an installation that was public before becomes
+   * private on the next start.
+   */
   async ensureBucket(): Promise<void> {
     try {
       await this.s3.send(new HeadBucketCommand({ Bucket: BUCKET }));
@@ -56,26 +67,36 @@ export class MinioClient {
       await this.s3.send(new CreateBucketCommand({ Bucket: BUCKET }));
     }
 
-    // Set public-read policy so HLS segments are accessible from browsers
-    const policy = {
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Sid: "PublicRead",
-          Effect: "Allow",
-          Principal: "*",
-          Action: ["s3:GetObject"],
-          Resource: [`arn:aws:s3:::${BUCKET}/*`],
-        },
-      ],
-    };
+    try {
+      await this.s3.send(new DeleteBucketPolicyCommand({ Bucket: BUCKET }));
+    } catch {
+      // No policy to remove — already private.
+    }
+  }
 
-    await this.s3.send(
-      new PutBucketPolicyCommand({
-        Bucket: BUCKET,
-        Policy: JSON.stringify(policy),
-      })
+  /**
+   * Short-lived presigned GET URL for one object.
+   *
+   * Expiry is deliberately short: the media routes presign at request time and
+   * redirect, so a URL only has to survive the fetch that follows it.  A leaked
+   * URL is then useless within minutes.
+   */
+  async presignGet(key: string, expiresInSeconds = 300): Promise<string> {
+    return getSignedUrl(
+      this.s3,
+      new GetObjectCommand({ Bucket: BUCKET, Key: key }),
+      { expiresIn: expiresInSeconds }
     );
+  }
+
+  /** True when the object exists. Used to reject media requests for unknown keys. */
+  async objectExists(key: string): Promise<boolean> {
+    try {
+      await this.s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** Read the VOD index from MinIO. Returns [] if not found. */
@@ -176,29 +197,24 @@ export class MinioClient {
     });
   }
 
-  /** Public URL for an HLS recording in the recordings bucket */
-  hlsUrl(streamId: string): string {
-    return `${this.endpoint}/${BUCKET}/${streamId}/index.m3u8`;
+  /** Storage key of the stitched VOD playlist for a recording. */
+  vodPlaylistKey(streamId: string): string {
+    return `${streamId}/index.m3u8`;
   }
 
-  /** Public URL for a highlight clip manifest */
-  clipHlsUrl(streamId: string, clipId: string): string {
-    return `${this.endpoint}/${BUCKET}/clips/${streamId}/${clipId}.m3u8`;
+  /** Storage key of a highlight clip's manifest. */
+  clipManifestKey(streamId: string, clipId: string): string {
+    return `clips/${streamId}/${clipId}.m3u8`;
   }
 
-  /** Public URL for a highlight clip MP4 */
-  clipMp4Url(streamId: string, clipId: string): string {
-    return `${this.endpoint}/${BUCKET}/clips/${streamId}/${clipId}.mp4`;
+  /** Storage key of a highlight clip's MP4. */
+  clipMp4Key(streamId: string, clipId: string): string {
+    return `clips/${streamId}/${clipId}.mp4`;
   }
 
-  /** Public URL for a highlight clip thumbnail */
-  clipThumbnailUrl(streamId: string, clipId: string): string {
-    return `${this.endpoint}/${BUCKET}/clips/${streamId}/${clipId}.jpg`;
-  }
-
-  /** Public URL for a segment in the recordings bucket */
-  segmentUrl(key: string): string {
-    return `${this.endpoint}/${BUCKET}/${key}`;
+  /** Storage key of a highlight clip's thumbnail. */
+  clipThumbnailKey(streamId: string, clipId: string): string {
+    return `clips/${streamId}/${clipId}.jpg`;
   }
 
   /** Get total size of all objects under a prefix (streamId/) in bytes */

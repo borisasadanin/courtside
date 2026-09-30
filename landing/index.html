@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Courtside – livesändning och inspelning för idrottsföreningar</title>
+  <meta name="description" content="Sänd lagets matcher live med en mobil, spara varje match som repris och bjud publiken på highlights i pauserna. Körs på Open Source Cloud, i föreningens eget konto.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0a;
+      --bg-raise: #121214;
+      --card: rgba(255, 255, 255, 0.035);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --card-border-strong: rgba(255, 255, 255, 0.15);
+      --text: #e1e4e8;
+      --text-strong: #ffffff;
+      --text-muted: #a1a1aa;
+      --accent: #7c3aed;
+      --accent-hover: #6d28d9;
+      --accent-soft: #a78bfa;
+      --accent-weak: rgba(124, 58, 237, 0.14);
+      --live: #ef4444;
+      --ok: #22c55e;
+      --wood: #3a2a1c;
+      --font: "Inter", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+      --wrap: 1120px;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --section-y: 96px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 17px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    a { color: var(--accent-soft); text-decoration: none; }
+    a:hover { color: var(--text-strong); }
+    a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible {
+      outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+    }
+    .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; }
+    h1, h2, h3 { color: var(--text-strong); }
+    h2 {
+      font-size: clamp(28px, 4vw, 36px); font-weight: 700; line-height: 1.15;
+      letter-spacing: -0.02em; margin: 0 0 0.75rem;
+    }
+    h3 { font-size: 19px; font-weight: 600; margin: 0 0 0.4rem; line-height: 1.3; }
+    .eyebrow {
+      display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--accent-soft); margin-bottom: 0.75rem;
+    }
+    .section-head { text-align: center; max-width: 740px; margin: 0 auto 3rem; }
+    .subline { color: var(--text-muted); margin: 0; }
+    main > section { padding: var(--section-y) 0; border-bottom: 1px solid var(--card-border); }
+
+    /* ---- header ---- */
+    .site-header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(10, 10, 10, 0.85);
+      backdrop-filter: saturate(140%) blur(10px);
+      -webkit-backdrop-filter: saturate(140%) blur(10px);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 64px; }
+    .wordmark { display: flex; align-items: center; gap: 0.55rem; font-weight: 700; font-size: 18px; color: var(--text-strong); }
+    .wordmark svg { width: 26px; height: 26px; }
+    .site-nav { display: flex; gap: 1.6rem; }
+    .site-nav a { color: var(--text-muted); font-size: 15px; font-weight: 500; }
+    .site-nav a:hover { color: var(--text-strong); }
+
+    /* ---- buttons ---- */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+      min-height: 44px; padding: 12px 24px; border-radius: var(--radius-sm);
+      font: 600 16px/1.2 var(--font); cursor: pointer; border: 1px solid transparent;
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 0 24px rgba(124, 58, 237, 0.35); }
+    .btn-primary:hover { background: var(--accent-hover); color: #fff; transform: translateY(-1px); }
+    .btn-secondary { background: rgba(255, 255, 255, 0.05); color: var(--text); border-color: var(--card-border-strong); }
+    .btn-secondary:hover { color: #fff; border-color: var(--text-muted); }
+    .btn-sm { min-height: 38px; padding: 8px 16px; font-size: 15px; }
+    .btn-block { width: 100%; }
+
+    /* ---- hero ---- */
+    .hero { position: relative; overflow: hidden; padding-top: 88px; }
+    .hero::before {
+      content: ""; position: absolute; top: -220px; left: 50%; transform: translateX(-60%);
+      width: 1100px; height: 700px; pointer-events: none;
+      background: radial-gradient(ellipse at center, rgba(124, 58, 237, 0.28), transparent 62%);
+    }
+    .hero-grid { position: relative; display: grid; grid-template-columns: 1fr 1.05fr; gap: 3.5rem; align-items: center; }
+    .hero h1 {
+      font-size: clamp(44px, 8vw, 72px); font-weight: 700; line-height: 1; letter-spacing: -0.03em;
+      margin: 0 0 0.6rem; color: #fff;
+      background: linear-gradient(180deg, #ffffff 10%, #9aa0aa 100%);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero-tagline { color: var(--text-muted); font-size: 19px; margin: 0 0 1.6rem; }
+    .hero-lead { color: var(--accent-soft); font-size: clamp(22px, 2.6vw, 27px); font-weight: 700; line-height: 1.25; margin: 0 0 1rem; letter-spacing: -0.01em; }
+    .hero-supporting { margin: 0 0 2rem; max-width: 34em; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem; }
+    .fineprint { color: var(--text-muted); font-size: 14px; margin: 0; }
+    .fineprint span + span::before { content: " · "; }
+
+    .hero-art { position: relative; }
+    .hero-art svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.6)); }
+
+    /* ---- proof strip ---- */
+    .proof { padding: 40px 0 !important; background: var(--bg-raise); }
+    .proof-inner { display: grid; grid-template-columns: auto 1fr; gap: 1.5rem; align-items: center; }
+    .proof-badge {
+      width: 56px; height: 56px; border-radius: 14px; background: var(--accent-weak);
+      display: grid; place-items: center; color: var(--accent-soft);
+    }
+    .proof p { margin: 0; }
+    .proof strong { color: #fff; }
+    .proof .muted { color: var(--text-muted); font-size: 15px; }
+
+    /* ---- steps ---- */
+    .steps {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+      border: 1px solid var(--card-border); border-radius: 16px; background: var(--card); overflow: hidden;
+    }
+    .step { padding: 2rem; position: relative; }
+    .step + .step { border-left: 1px solid var(--card-border); }
+    .step-num {
+      width: 40px; height: 40px; border-radius: 999px; background: var(--accent); color: #fff;
+      display: grid; place-items: center; font-weight: 700; margin-bottom: 1.1rem;
+      box-shadow: 0 0 20px rgba(124, 58, 237, 0.45);
+    }
+    .step p { margin: 0; color: var(--text-muted); font-size: 16px; }
+    .step .time { display: inline-block; margin-top: 1rem; font-size: 13px; font-weight: 600; color: var(--accent-soft); }
+
+    /* ---- cards ---- */
+    .card-grid { display: grid; gap: 1.25rem; }
+    .card-grid.two { grid-template-columns: repeat(2, 1fr); }
+    .card-grid.three { grid-template-columns: repeat(3, 1fr); }
+    .card-grid.four { grid-template-columns: repeat(4, 1fr); }
+    .card {
+      background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius);
+      padding: 1.6rem; transition: border-color 0.2s, transform 0.2s;
+    }
+    .card:hover { border-color: rgba(124, 58, 237, 0.5); transform: translateY(-2px); }
+    .card p { margin: 0; color: var(--text-muted); font-size: 16px; }
+    .chip {
+      width: 44px; height: 44px; border-radius: 10px; background: var(--accent-weak);
+      color: var(--accent-soft); display: grid; place-items: center; margin-bottom: 1.1rem;
+    }
+    .chip svg { width: 22px; height: 22px; }
+    .quote {
+      margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--card-border);
+      font-style: italic; color: var(--text) !important; font-size: 15px !important;
+    }
+
+    /* ---- feature split ---- */
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 3.5rem; align-items: center; }
+    .split + .split { margin-top: 5rem; }
+    .split.reverse .split-text { order: 2; }
+    .split-text h3 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 0.75rem; }
+    .split-text > p { color: var(--text-muted); margin: 0 0 1.25rem; }
+    .ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; }
+    .ticks li { display: flex; gap: 0.6rem; align-items: flex-start; font-size: 16px; }
+    .ticks li::before {
+      content: ""; flex: none; width: 18px; height: 18px; margin-top: 3px;
+      background: no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+    }
+    .panel {
+      background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 1.25rem;
+      position: relative; overflow: hidden;
+    }
+    .panel svg { display: block; width: 100%; height: auto; }
+
+    /* ---- trust ---- */
+    .trust { background: linear-gradient(180deg, var(--bg) 0%, #0f0b18 100%); }
+
+    /* ---- compare ---- */
+    .table-scroll { overflow-x: auto; border: 1px solid var(--card-border); border-radius: var(--radius); }
+    table { width: 100%; border-collapse: collapse; min-width: 640px; font-size: 15px; }
+    th, td { padding: 0.95rem 1.1rem; text-align: left; border-bottom: 1px solid var(--card-border); vertical-align: top; }
+    thead th { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); background: var(--bg-raise); }
+    thead th.us { color: var(--accent-soft); }
+    tbody tr:last-child td { border-bottom: 0; }
+    td:first-child { color: #fff; font-weight: 500; }
+    td.us { background: rgba(124, 58, 237, 0.07); color: #fff; }
+    td.dim { color: var(--text-muted); }
+
+    /* ---- pricing ---- */
+    .pricing-intro { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 3rem; }
+    .cost-item { border: 1px solid var(--card-border); border-radius: var(--radius); padding: 1.25rem 1.4rem; background: var(--card); }
+    .cost-item .k { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+    .cost-item .v { font-size: 28px; font-weight: 700; color: #fff; letter-spacing: -0.02em; margin: 0.2rem 0; }
+    .cost-item .v small { font-size: 15px; font-weight: 500; color: var(--text-muted); }
+    .cost-item p { margin: 0; color: var(--text-muted); font-size: 15px; }
+
+    .calc {
+      border: 1px solid rgba(124, 58, 237, 0.4); border-radius: 16px;
+      background: radial-gradient(ellipse at top right, rgba(124, 58, 237, 0.16), transparent 60%), var(--bg-raise);
+      padding: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; margin-bottom: 3.5rem;
+    }
+    .calc h3 { font-size: 22px; margin-bottom: 0.25rem; }
+    .calc .subline { font-size: 15px; margin-bottom: 1.5rem; }
+    .field { margin-bottom: 1.4rem; }
+    .field-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.4rem; }
+    .field label { font-weight: 500; font-size: 15px; color: #fff; }
+    .field output { font-weight: 700; color: var(--accent-soft); font-size: 17px; }
+    .field .hint { font-size: 13px; color: var(--text-muted); margin-top: 0.3rem; }
+    input[type=range] { width: 100%; accent-color: var(--accent); height: 28px; }
+    .presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .preset {
+      font: 500 14px var(--font); color: var(--text); background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border-strong); border-radius: 999px; padding: 0.4rem 0.9rem; cursor: pointer;
+    }
+    .preset:hover, .preset[aria-pressed=true] { border-color: var(--accent); background: var(--accent-weak); color: #fff; }
+
+    .result { display: flex; flex-direction: column; }
+    .result-big { font-size: 15px; color: var(--text-muted); }
+    .result-big strong { display: block; font-size: 44px; line-height: 1.1; color: #fff; letter-spacing: -0.03em; font-weight: 800; }
+    .bar { height: 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); overflow: hidden; display: flex; margin: 1.25rem 0 0.6rem; }
+    .bar span { display: block; height: 100%; transition: width 0.3s ease; }
+    .bar .base { background: #6b7280; }
+    .bar .live { background: var(--accent); }
+    .legend { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 13px; color: var(--text-muted); }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 0.35rem; vertical-align: middle; }
+    .reco {
+      margin-top: auto; padding: 1.1rem 1.25rem; border-radius: var(--radius); border: 1px solid var(--card-border-strong);
+      background: rgba(0, 0, 0, 0.35); margin-top: 1.5rem;
+    }
+    .reco .k { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; }
+    .reco .plan { font-size: 22px; font-weight: 700; color: #fff; }
+    .reco .plan em { font-style: normal; color: var(--accent-soft); }
+    .reco p { margin: 0.25rem 0 0; font-size: 14px; color: var(--text-muted); }
+
+    .plans { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; max-width: 900px; margin: 0 auto; }
+    .plan-card {
+      position: relative; display: flex; flex-direction: column; padding: 2rem;
+      border-radius: 16px; border: 1px solid var(--card-border);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .plan-card.featured, .plan-card.is-reco {
+      border-color: rgba(124, 58, 237, 0.6);
+      background: linear-gradient(180deg, rgba(124, 58, 237, 0.12), rgba(124, 58, 237, 0.03));
+      box-shadow: 0 0 40px rgba(124, 58, 237, 0.12);
+    }
+    .plan-flag {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: var(--accent); color: #fff; font-size: 12px; font-weight: 600;
+      padding: 3px 12px; border-radius: 999px; white-space: nowrap;
+    }
+    .plan-card h3 { font-size: 20px; margin-bottom: 0.2rem; }
+    .plan-card .for { color: var(--text-muted); font-size: 15px; margin: 0 0 1.25rem; }
+    .plan-card ul { list-style: none; margin: 0 0 1.5rem; padding: 0; display: grid; gap: 0.5rem; font-size: 15px; }
+    .plan-card ul li { display: flex; gap: 0.55rem; }
+    .plan-card ul li::before {
+      content: "✓"; color: var(--ok); font-weight: 700; flex: none;
+    }
+    .plan-meta { margin-top: auto; border-top: 1px solid var(--card-border); padding-top: 1.1rem; }
+    .plan-meta .k { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; margin: 0 0 0.6rem; }
+    .osc-plan {
+      border: 1px solid var(--card-border); border-radius: 10px; padding: 0.9rem 1rem;
+      background: rgba(0, 0, 0, 0.3); margin-bottom: 1.1rem;
+    }
+    .osc-plan-top { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+    .osc-plan-top .name { font-weight: 700; color: #fff; }
+    .osc-plan-top .price { color: var(--text-muted); font-size: 14px; }
+    .osc-plan-top .price b { color: #fff; font-size: 20px; }
+    .osc-plan p { margin: 0.35rem 0 0; font-size: 13px; color: var(--text-muted); }
+    .plan-card .btn-secondary { background: rgba(255, 255, 255, 0.07); }
+
+    .extras { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; max-width: 900px; margin: 1.5rem auto 0; }
+    .extra { display: flex; gap: 1rem; align-items: flex-start; }
+    .extra .chip { margin: 0; flex: none; }
+    .extra h3 { font-size: 17px; }
+    .extra p { font-size: 15px; }
+    .note { max-width: 900px; margin: 1.5rem auto 0; text-align: center; font-size: 13px; color: var(--text-muted); }
+
+    /* ---- faq ---- */
+    .faq { max-width: 800px; margin: 0 auto; display: grid; gap: 0.75rem; }
+    details { border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--card); }
+    summary {
+      cursor: pointer; list-style: none; padding: 1.1rem 1.4rem; font-weight: 600; color: #fff;
+      display: flex; justify-content: space-between; gap: 1rem; font-size: 16px;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; color: var(--text-muted); font-weight: 400; font-size: 20px; line-height: 1; }
+    details[open] summary::after { content: "–"; }
+    details p { margin: 0; padding: 0 1.4rem 1.2rem; color: var(--text-muted); font-size: 16px; }
+
+    /* ---- cta ---- */
+    .cta-band { text-align: center; position: relative; overflow: hidden; }
+    .cta-band::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at center bottom, rgba(124, 58, 237, 0.3), transparent 65%);
+    }
+    .cta-band .wrap { position: relative; }
+    .cta-band h2 { font-size: clamp(30px, 5vw, 46px); }
+    .cta-band .actions { justify-content: center; margin-top: 2rem; }
+
+    footer { padding: 3rem 0 4rem; text-align: center; color: var(--text-muted); font-size: 14px; }
+    footer p { margin: 0.35rem 0; }
+    footer a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 3px; }
+
+    .live-dot { animation: pulse 1.6s ease-in-out infinite; transform-origin: center; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    @media (prefers-reduced-motion: reduce) {
+      .live-dot { animation: none; }
+      html { scroll-behavior: auto; }
+      .card, .btn, .bar span { transition: none; }
+    }
+
+    /* ---- responsive ---- */
+    @media (max-width: 960px) {
+      .hero-grid, .split, .calc { grid-template-columns: 1fr; }
+      .split.reverse .split-text { order: 0; }
+      .card-grid.four { grid-template-columns: repeat(2, 1fr); }
+      .card-grid.three { grid-template-columns: 1fr 1fr; }
+      .site-nav { display: none; }
+    }
+    @media (max-width: 720px) {
+      :root { --section-y: 64px; }
+      .wrap { padding: 0 16px; }
+      .hero { padding-top: 48px; }
+      .steps { grid-template-columns: 1fr; }
+      .step + .step { border-left: 0; border-top: 1px solid var(--card-border); }
+      .card-grid.two, .card-grid.three, .card-grid.four,
+      .pricing-intro, .plans, .extras { grid-template-columns: 1fr; }
+      .calc { padding: 1.4rem; }
+      .proof-inner { grid-template-columns: 1fr; }
+      .plans { gap: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="wordmark" href="#top" aria-label="Courtside, till toppen">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#7c3aed"/>
+        <circle cx="16" cy="16" r="8.5" fill="none" stroke="#fff" stroke-width="2"/>
+        <path d="M7.5 16h17M16 7.5v17" stroke="#fff" stroke-width="1.6"/>
+        <circle cx="23.5" cy="8.5" r="3" fill="#ef4444" stroke="#7c3aed" stroke-width="1.5"/>
+      </svg>
+      Courtside
+    </a>
+    <nav class="site-nav" aria-label="Huvudmeny">
+      <a href="#sa-funkar-det">Så funkar det</a>
+      <a href="#funktioner">Funktioner</a>
+      <a href="#pris">Pris</a>
+      <a href="#faq">Frågor</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="#pris">Prova i OSC</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- HERO -->
+  <section class="hero" aria-labelledby="hero-h1">
+    <div class="wrap hero-grid">
+      <div>
+        <h1 id="hero-h1">Courtside</h1>
+        <p class="hero-tagline">Livesändning och inspelning för idrottsföreningar</p>
+        <p class="hero-lead">Varje match live. Varje match sparad. Med en mobil på läktaren.</p>
+        <p class="hero-supporting">
+          En förälder ställer mobilen på stativet och trycker på en knapp. Mormor i Luleå, pappan som jobbar
+          och spelaren som är skadad följer matchen i webbläsaren. De som kommer sent spolar tillbaka,
+          i pauserna rullar highlights, och efteråt finns hela matchen kvar som repris.
+        </p>
+        <div class="actions">
+          <a class="btn btn-primary" href="#pris">Kom igång gratis</a>
+          <a class="btn btn-secondary" href="#sa-funkar-det">Se hur det funkar</a>
+        </div>
+        <p class="fineprint"><span>Inget abonnemang per lag</span><span>Ingen reklam</span><span>Filmerna är föreningens</span></p>
+      </div>
+
+      <div class="hero-art">
+        <!-- Illustration: webbspelare med live-match, highlights och en mobil som sänder -->
+        <svg viewBox="0 0 620 470" role="img" aria-labelledby="hero-art-title">
+          <title id="hero-art-title">Webbsidan visar en basketmatch live med resultat och highlights, mobilen i hörnet sänder</title>
+          <defs>
+            <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#5b3d22"/><stop offset="1" stop-color="#8a5c33"/>
+            </linearGradient>
+            <linearGradient id="vignette" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#000" stop-opacity="0.55"/><stop offset="0.4" stop-color="#000" stop-opacity="0"/>
+              <stop offset="1" stop-color="#000" stop-opacity="0.5"/>
+            </linearGradient>
+            <clipPath id="screen"><rect x="16" y="52" width="560" height="300" rx="6"/></clipPath>
+          </defs>
+          <!-- browser -->
+          <rect x="0" y="10" width="592" height="420" rx="14" fill="#141417" stroke="rgba(255,255,255,.12)"/>
+          <circle cx="22" cy="31" r="5" fill="#3f3f46"/><circle cx="38" cy="31" r="5" fill="#3f3f46"/><circle cx="54" cy="31" r="5" fill="#3f3f46"/>
+          <rect x="190" y="22" width="220" height="18" rx="9" fill="#232327"/>
+          <text x="300" y="35" text-anchor="middle" font-family="Inter" font-size="10" fill="#a1a1aa">live.dinforening.se</text>
+          <!-- court -->
+          <g clip-path="url(#screen)">
+            <rect x="16" y="52" width="560" height="300" fill="url(#floor)"/>
+            <g stroke="#f3e3c7" stroke-opacity=".55" stroke-width="2.5" fill="none">
+              <path d="M-20 330 L120 150 L480 150 L620 330"/>
+              <path d="M296 150 L296 352"/>
+              <ellipse cx="296" cy="245" rx="70" ry="28"/>
+              <path d="M150 150 L110 250 L200 250 L218 150"/>
+              <path d="M442 150 L482 250 L392 250 L374 150"/>
+            </g>
+            <!-- players -->
+            <g>
+              <g fill="#7c3aed"><circle cx="210" cy="212" r="7"/><rect x="203" y="219" width="14" height="24" rx="5"/>
+                <circle cx="330" cy="260" r="8"/><rect x="322" y="268" width="16" height="28" rx="6"/>
+                <circle cx="410" cy="200" r="7"/><rect x="403" y="207" width="14" height="23" rx="5"/></g>
+              <g fill="#f4f4f5"><circle cx="252" cy="226" r="7.5"/><rect x="244.5" y="233.5" width="15" height="26" rx="5"/>
+                <circle cx="372" cy="238" r="7.5"/><rect x="364.5" y="245.5" width="15" height="26" rx="5"/>
+                <circle cx="160" cy="268" r="8"/><rect x="152" y="276" width="16" height="28" rx="6"/></g>
+              <circle cx="344" cy="228" r="5" fill="#f97316"/>
+            </g>
+            <rect x="16" y="52" width="560" height="300" fill="url(#vignette)"/>
+          </g>
+          <!-- overlays -->
+          <rect x="30" y="66" width="62" height="24" rx="5" fill="#ef4444"/>
+          <circle class="live-dot" cx="44" cy="78" r="4" fill="#fff"/>
+          <text x="54" y="82.5" font-family="Inter" font-weight="700" font-size="12" fill="#fff">LIVE</text>
+          <rect x="102" y="66" width="72" height="24" rx="5" fill="rgba(0,0,0,.55)"/>
+          <text x="138" y="82.5" text-anchor="middle" font-family="Inter" font-size="11" fill="#e4e4e7">👁 148 tittar</text>
+          <g transform="translate(386 66)">
+            <rect width="176" height="30" rx="6" fill="rgba(10,10,10,.8)" stroke="rgba(255,255,255,.15)"/>
+            <text x="12" y="20" font-family="Inter" font-weight="600" font-size="12" fill="#e4e4e7">HEMMA</text>
+            <text x="66" y="20.5" font-family="Inter" font-weight="800" font-size="14" fill="#fff">42 – 38</text>
+            <text x="120" y="20" font-family="Inter" font-weight="600" font-size="12" fill="#e4e4e7">BORTA</text>
+          </g>
+          <text x="562" y="112" text-anchor="end" font-family="Inter" font-weight="600" font-size="11" fill="#e4e4e7">Period 3 · 04:12</text>
+          <!-- scrubber -->
+          <rect x="30" y="330" width="532" height="4" rx="2" fill="rgba(255,255,255,.25)"/>
+          <rect x="30" y="330" width="470" height="4" rx="2" fill="#7c3aed"/>
+          <circle cx="500" cy="332" r="7" fill="#fff"/>
+          <text x="562" y="322" text-anchor="end" font-family="Inter" font-size="10" fill="#e4e4e7">−2:30 · Tillbaka till live</text>
+          <!-- highlights -->
+          <text x="18" y="376" font-family="Inter" font-weight="600" font-size="12" fill="#fff">Highlights</text>
+          <g font-family="Inter" font-size="10" fill="#d4d4d8">
+            <rect x="18" y="386" width="116" height="30" rx="6" fill="#232327"/><text x="30" y="405">▶  Trepoängare</text>
+            <rect x="142" y="386" width="116" height="30" rx="6" fill="#232327"/><text x="154" y="405">▶  Block, #7</text>
+            <rect x="266" y="386" width="116" height="30" rx="6" fill="#232327"/><text x="278" y="405">▶  Snabbt anfall</text>
+            <rect x="390" y="386" width="116" height="30" rx="6" fill="#232327" opacity=".5"/><text x="402" y="405" opacity=".6">▶  Period 1</text>
+          </g>
+          <!-- phone -->
+          <g transform="translate(488 262) rotate(4)">
+            <rect x="0" y="0" width="118" height="200" rx="20" fill="#0b0b0d" stroke="rgba(255,255,255,.25)" stroke-width="2"/>
+            <rect x="8" y="8" width="102" height="184" rx="14" fill="url(#floor)"/>
+            <rect x="8" y="8" width="102" height="184" rx="14" fill="rgba(0,0,0,.35)"/>
+            <rect x="44" y="12" width="30" height="8" rx="4" fill="#000"/>
+            <rect x="18" y="28" width="38" height="14" rx="4" fill="#ef4444"/>
+            <text x="37" y="38.5" text-anchor="middle" font-family="Inter" font-weight="700" font-size="8" fill="#fff">● SÄNDER</text>
+            <text x="59" y="96" text-anchor="middle" font-family="Inter" font-weight="700" font-size="16" fill="#fff">1:12:44</text>
+            <circle cx="59" cy="150" r="22" fill="none" stroke="#fff" stroke-width="3"/>
+            <rect x="50" y="141" width="18" height="18" rx="4" fill="#ef4444"/>
+            <circle cx="24" cy="150" r="11" fill="rgba(255,255,255,.18)"/>
+            <text x="24" y="154" text-anchor="middle" font-size="10" fill="#fff">⏸</text>
+            <circle cx="94" cy="150" r="11" fill="rgba(124,58,237,.9)"/>
+            <text x="94" y="154" text-anchor="middle" font-size="10" fill="#fff">★</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROOF -->
+  <section class="proof" aria-label="Bakgrund">
+    <div class="wrap proof-inner">
+      <div class="proof-badge" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M5.6 5.6c3 3 3 9.8 0 12.8M18.4 5.6c-3 3-3 9.8 0 12.8"/></svg>
+      </div>
+      <div>
+        <p><strong>Byggt på läktaren, inte i ett konferensrum.</strong> Courtside började som en förälders lösning för ett basketlag
+          i Stockholm och har sänt deras matcher varje helg sedan början av 2026. Nu kan fler föreningar göra samma sak.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW -->
+  <section id="sa-funkar-det" aria-labelledby="how-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Så funkar det</span>
+        <h2 id="how-h2">Från läktare till livesändning i tre steg</h2>
+        <p class="subline">Ingen OB-buss, ingen kameraman, ingen IT-avdelning. Allt som behövs är en iPhone, ett stativ och Wi-Fi eller 4G.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Starta Courtside i OSC</h3>
+          <p>Skapa ett konto på Open Source Cloud och starta föreningens egen Courtside. Välj namn, logga och klubbfärg, så ser sidan ut som er.</p>
+          <span class="time">En gång per förening</span>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>Ställ upp mobilen</h3>
+          <p>Mobil på stativ vid mittlinjen. Öppna kameraappen, skriv in lagen och dela länken i lagets chatt.</p>
+          <span class="time">Några minuter före matchstart</span>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>Tryck på Sänd</h3>
+          <p>Matchen går live. Pausa i periodvilan, tryck på stjärnan när något fint händer. Efteråt sparas allt automatiskt.</p>
+          <span class="time">En knapp under matchen</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AUDIENCE -->
+  <section aria-labelledby="who-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">För alla runt laget</span>
+        <h2 id="who-h2">En sändning, fyra vinnare</h2>
+        <p class="subline">Ungdomsidrott har alltid haft fler supportrar än platser på läktaren.</p>
+      </div>
+      <div class="card-grid four">
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg></div>
+          <h3>Familj och släkt</h3>
+          <p>Mor- och farföräldrar, syskon och föräldrar som jobbar ser matchen live, oavsett var de är.</p>
+          <p class="quote">”Farmor har inte missat en match sedan i våras.”</p>
+        </article>
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+          <h3>Tränare</h3>
+          <p>Hela matchen finns som repris. Gå igenom försvaret på träningen, visa vad som funkade och vad som ska övas.</p>
+        </article>
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg></div>
+          <h3>Spelarna</h3>
+          <p>Highlights som klipps under matchen och visas i pauserna. Det är de klippen som delas i gruppchatten efteråt.</p>
+        </article>
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg></div>
+          <h3>Föreningen</h3>
+          <p>En egen kanal i klubbens färger, på er egen adress. Synlighet för sponsorer och en anledning för fler att följa laget.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="funktioner" aria-labelledby="feat-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Funktioner</span>
+        <h2 id="feat-h2">Allt en förening behöver, inget den inte behöver</h2>
+        <p class="subline">Byggt för hur en ungdomsmatch faktiskt går till, med uppvärmning, periodvilor och föräldrar som filmar.</p>
+      </div>
+
+      <div class="split">
+        <div class="split-text">
+          <h3>Live i webbläsaren, med spola-tillbaka</h3>
+          <p>Tittarna öppnar en länk. Ingen app att ladda ner, inget konto att skapa. Den som kommer in mitt i matchen kan spola tillbaka och se det de missat, och sedan hoppa tillbaka till live.</p>
+          <ul class="ticks">
+            <li>Fungerar i mobil, surfplatta och dator</li>
+            <li>Spola tillbaka under pågående match</li>
+            <li>Hela matchen sparas automatiskt som repris</li>
+          </ul>
+        </div>
+        <div class="panel" aria-hidden="true">
+          <svg viewBox="0 0 480 260">
+            <rect x="0" y="0" width="480" height="200" rx="10" fill="#1a1a1e"/>
+            <rect x="0" y="0" width="480" height="200" rx="10" fill="url(#floor)" opacity=".75"/>
+            <rect x="14" y="14" width="54" height="22" rx="5" fill="#ef4444"/><text x="41" y="29.5" text-anchor="middle" font-family="Inter" font-weight="700" font-size="11" fill="#fff">LIVE</text>
+            <circle cx="240" cy="100" r="30" fill="rgba(0,0,0,.5)"/><path d="M232 86 L254 100 L232 114z" fill="#fff"/>
+            <rect x="14" y="220" width="452" height="6" rx="3" fill="rgba(255,255,255,.12)"/>
+            <rect x="14" y="220" width="300" height="6" rx="3" fill="#7c3aed"/>
+            <rect x="314" y="220" width="152" height="6" rx="3" fill="rgba(124,58,237,.35)"/>
+            <circle cx="314" cy="223" r="9" fill="#fff"/>
+            <text x="14" y="252" font-family="Inter" font-size="12" fill="#a1a1aa">Avspark</text>
+            <text x="314" y="252" text-anchor="middle" font-family="Inter" font-size="12" fill="#fff" font-weight="600">Du är här</text>
+            <text x="466" y="252" text-anchor="end" font-family="Inter" font-size="12" fill="#a78bfa" font-weight="600">Live ●</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="split reverse">
+        <div class="split-text">
+          <h3>Highlights under matchen, visade i pauserna</h3>
+          <p>Den som filmar trycker på stjärnan när något händer. Courtside klipper ut sekvensen direkt. När det blir periodvila byts sändningen mot ett karusellflöde med matchens bästa stunder, så publiken har något att titta på.</p>
+          <ul class="ticks">
+            <li>En knapptryckning, inget redigeringsarbete</li>
+            <li>Paus och återstart mellan perioder</li>
+            <li>Klippen finns kvar efter matchen</li>
+          </ul>
+        </div>
+        <div class="panel" aria-hidden="true">
+          <svg viewBox="0 0 480 260">
+            <text x="0" y="18" font-family="Inter" font-size="13" fill="#a1a1aa">Periodvila · matchen fortsätter om 01:48</text>
+            <g>
+              <rect x="0" y="34" width="300" height="170" rx="10" fill="url(#floor)"/>
+              <rect x="0" y="34" width="300" height="170" rx="10" fill="rgba(0,0,0,.25)"/>
+              <rect x="12" y="46" width="88" height="22" rx="5" fill="#7c3aed"/><text x="56" y="61.5" text-anchor="middle" font-family="Inter" font-weight="600" font-size="11" fill="#fff">★ HIGHLIGHT</text>
+              <text x="14" y="190" font-family="Inter" font-weight="700" font-size="15" fill="#fff">Trepoängare i sista sekunden</text>
+              <rect x="316" y="34" width="164" height="50" rx="8" fill="#232327"/><text x="330" y="64" font-family="Inter" font-size="12" fill="#e4e4e7">▶ Block, #7</text>
+              <rect x="316" y="94" width="164" height="50" rx="8" fill="#232327"/><text x="330" y="124" font-family="Inter" font-size="12" fill="#e4e4e7">▶ Snabbt anfall</text>
+              <rect x="316" y="154" width="164" height="50" rx="8" fill="#232327" opacity=".6"/><text x="330" y="184" font-family="Inter" font-size="12" fill="#a1a1aa">▶ Steal + layup</text>
+            </g>
+            <g fill="#a1a1aa"><circle cx="138" cy="232" r="4" fill="#7c3aed"/><circle cx="152" cy="232" r="4"/><circle cx="166" cy="232" r="4"/></g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="card-grid three" style="margin-top:5rem">
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg></div>
+          <h3>En knapp i mobilen</h3>
+          <p>Kameraappen är gjord för en förälder med kaffe i andra handen. Sänd, pausa, klipp. Det är allt.</p>
+        </article>
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+          <h3>PIN-kod för tittare</h3>
+          <p>Det är ofta barn på filmen. Lås sändningen med en kod som bara lagets familjer får.</p>
+        </article>
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="10" cy="19" r="2.5"/></svg></div>
+          <h3>Er logga, era färger</h3>
+          <p>Klubbnamn, logga och accentfärg läggs in som inställningar. Ingen utvecklare behövs för att byta.</p>
+        </article>
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+          <h3>Matcharkiv</h3>
+          <p>Alla matcher samlade med lag, datum och arena. Perfekt inför en returmatch eller säsongsavslutningen.</p>
+        </article>
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
+          <h3>Adminvy</h3>
+          <p>Byt namn på matcher, ta bort det som inte ska finnas kvar, och se vad som sänds just nu.</p>
+        </article>
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+          <h3>Fler sporter på väg</h3>
+          <p>Idag anpassat för basket. Perioder, pauser och klipplängd är inställningar, så fler sporter står på tur.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST -->
+  <section class="trust" aria-labelledby="trust-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Er film, era regler</span>
+        <h2 id="trust-h2">Föreningen äger sina matcher</h2>
+        <p class="subline">Courtside körs i föreningens eget konto på Open Source Cloud. Ingen annan plattform sitter på era filmer, visar reklam runt era barn eller bestämmer vad som händer med materialet.</p>
+      </div>
+      <div class="card-grid three">
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <h3>Er lagring, ert ansvar</h3>
+          <p>Inspelningarna ligger i föreningens egen lagring. Ni bestämmer hur länge de sparas och kan radera en match när en förälder ber om det.</p>
+        </article>
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M4.9 4.9l14.2 14.2"/></svg></div>
+          <h3>Ingen reklam, ingen algoritm</h3>
+          <p>Sidan visar er match och era highlights. Inget annat. Ingen tittar på ungdomsmatcher för att sälja annonser.</p>
+        </article>
+        <article class="card">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></div>
+          <h3>Byggt på öppna komponenter</h3>
+          <p>Under huven: beprövade öppna videoverktyg på europeisk molninfrastruktur. Ingen inlåsning i en proprietär sportplattform.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section aria-labelledby="cmp-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Jämför</span>
+        <h2 id="cmp-h2">Varför inte bara köra en livesändning i sociala medier?</h2>
+        <p class="subline">Det går, och många gör det. Här är skillnaden.</p>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th scope="col"></th><th scope="col" class="us">Courtside</th><th scope="col">Sociala medier</th><th scope="col">Kommersiell sportkanal</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Vem äger filmen</td><td class="us">Föreningen</td><td class="dim">Plattformen, enligt deras villkor</td><td class="dim">Leverantören</td></tr>
+            <tr><td>Reklam runt sändningen</td><td class="us">Nej</td><td class="dim">Ja</td><td class="dim">Ofta</td></tr>
+            <tr><td>Begränsa vem som tittar</td><td class="us">PIN-kod för lagets familjer</td><td class="dim">Begränsat</td><td class="dim">Betalvägg</td></tr>
+            <tr><td>Highlights i pauserna</td><td class="us">Ja, med en knapptryckning</td><td class="dim">Nej</td><td class="dim">Ibland, mot tillägg</td></tr>
+            <tr><td>Spola tillbaka under match</td><td class="us">Ja</td><td class="dim">Varierar</td><td class="dim">Ja</td></tr>
+            <tr><td>Utrustning</td><td class="us">En iPhone och ett stativ</td><td class="dim">En mobil</td><td class="dim">Ofta fast kamera i hallen</td></tr>
+            <tr><td>Kostnad</td><td class="us">OSC-plan från 15 € i månaden, för hela föreningen</td><td class="dim">Gratis</td><td class="dim">Abonnemang per lag eller hall</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section id="pris" aria-labelledby="price-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Pris</span>
+        <h2 id="price-h2">Betala för matcherna ni sänder, inte för antalet lag</h2>
+        <p class="subline">Courtside körs på Open Source Cloud och drar tokens från er OSC-plan. Grunden är liten och går alltid. Sändningsmotorn startar när ni trycker på Sänd och stängs av när matchen är slut.</p>
+      </div>
+
+      <div class="pricing-intro">
+        <div class="cost-item">
+          <div class="k">Grund, alltid på</div>
+          <div class="v">20 <small>tokens / dygn</small></div>
+          <p>Webbsida, backend och lagring för arkivet. Omkring 600 tokens i månaden.</p>
+        </div>
+        <div class="cost-item">
+          <div class="k">Per sändningstimme</div>
+          <div class="v">≈ 7 <small>tokens / timme</small></div>
+          <p>Sändningsmotorn räknas bara medan ni sänder. En match med uppvärmning är ungefär 2 timmar.</p>
+        </div>
+        <div class="cost-item">
+          <div class="k">Personal-planen ger</div>
+          <div class="v">40 <small>tokens / dygn</small></div>
+          <p>Omkring 1 200 tokens i månaden. Räcker till grunden och runt 45 matcher.</p>
+        </div>
+      </div>
+
+      <div class="calc" aria-labelledby="calc-h3">
+        <div>
+          <h3 id="calc-h3">Hur många tokens behöver ni?</h3>
+          <p class="subline">Dra i reglagen eller välj ett exempel.</p>
+          <div class="field">
+            <div class="presets" role="group" aria-label="Exempel">
+              <button type="button" class="preset" data-m="2" data-h="2">Ett lag, hemmamatcher</button>
+              <button type="button" class="preset" data-m="5" data-h="2">Några lag</button>
+              <button type="button" class="preset" data-m="20" data-h="2">Hela föreningen</button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-top"><label for="matches">Matcher per vecka</label><output id="matches-out" for="matches">3</output></div>
+            <input type="range" id="matches" min="1" max="40" step="1" value="3">
+            <div class="hint">Alla lag sammanlagt, under säsong.</div>
+          </div>
+          <div class="field">
+            <div class="field-top"><label for="hours">Sändningstid per match</label><output id="hours-out" for="hours">2 h</output></div>
+            <input type="range" id="hours" min="1" max="4" step="0.5" value="2">
+            <div class="hint">Inklusive uppvärmning och periodvilor.</div>
+          </div>
+        </div>
+
+        <div class="result" aria-live="polite">
+          <div class="result-big">Ni behöver ungefär<strong><span id="tok-month">0</span> tokens / månad</strong></div>
+          <div class="bar" aria-hidden="true"><span class="base" id="bar-base"></span><span class="live" id="bar-live"></span></div>
+          <div class="legend">
+            <span><i style="background:#6b7280"></i>Grund <b id="tok-base">600</b></span>
+            <span><i style="background:var(--accent)"></i>Sändning <b id="tok-live">0</b></span>
+            <span>av <b id="tok-plan">1 200</b> i planen</span>
+          </div>
+          <div class="reco">
+            <div class="k">Rekommenderad OSC-plan</div>
+            <div class="plan" id="reco-plan">Personal <em>15 €/mån</em></div>
+            <p id="reco-text"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="plans">
+        <article class="plan-card" id="card-personal">
+          <span class="plan-flag" id="flag-personal" hidden>Passar er</span>
+          <h3>Ett lag som vill sända</h3>
+          <p class="for">För laget eller den mindre föreningen som sänder hemmamatcherna.</p>
+          <ul>
+            <li>Livesändning, repriser och highlights</li>
+            <li>PIN-kod, adminvy och matcharkiv</li>
+            <li>Klubbens logga och färger</li>
+            <li>Upp till cirka 45 matcher i månaden</li>
+            <li>Avsluta när säsongen är slut</li>
+          </ul>
+          <div class="plan-meta">
+            <p class="k">Rekommenderad OSC-plan</p>
+            <div class="osc-plan">
+              <div class="osc-plan-top"><span class="name">Personal</span><span class="price"><b>15</b> EUR / månad <small>exkl. moms</small></span></div>
+              <p>40 tokens per dygn · 300 tokens vid uppgradering (en gång) · Databasbackup</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-block" data-plan="PERSONAL">Kom igång</button>
+          </div>
+        </article>
+
+        <article class="plan-card featured" id="card-professional">
+          <span class="plan-flag" id="flag-professional">Rekommenderas för föreningar</span>
+          <h3>Hela föreningen</h3>
+          <p class="for">För föreningen med många lag som vill sända borta- och hemmamatcher.</p>
+          <ul>
+            <li>Allt i planen till vänster</li>
+            <li><strong>Plats för i stort sett obegränsat antal matcher</strong></li>
+            <li>Egen domän, t.ex. live.dinforening.se</li>
+            <li>E-post från föreningens domän</li>
+            <li>Avsluta när säsongen är slut</li>
+          </ul>
+          <div class="plan-meta">
+            <p class="k">Rekommenderad OSC-plan</p>
+            <div class="osc-plan">
+              <div class="osc-plan-top"><span class="name">Professional</span><span class="price"><b>69</b> EUR / månad <small>exkl. moms</small></span></div>
+              <p>300 tokens per dygn · 300 tokens vid uppgradering (en gång) · Egna domäner · IMAP/SMTP-mail · Databasbackup</p>
+            </div>
+            <button type="button" class="btn btn-primary btn-block" data-plan="PROFESSIONAL">Kom igång</button>
+          </div>
+        </article>
+      </div>
+
+      <div class="extras">
+        <div class="card extra">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg></div>
+          <div>
+            <h3>Prova en match gratis</h3>
+            <p>OSC:s gratisnivå ger 100 tokens. Det räcker för att sätta upp Courtside och sända en träningsmatch innan ni bestämmer er.</p>
+          </div>
+        </div>
+        <div class="card extra">
+          <div class="chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></div>
+          <div>
+            <h3>Cup-helg? Fyll på</h3>
+            <p>Tokenpaket från 9,90 € för 100 tokens, som inte går ut. Perfekt för en turnering där ni sänder från morgon till kväll.</p>
+          </div>
+        </div>
+      </div>
+      <p class="note">Uppskattningen bygger på OSC:s listpriser per tjänst och räknar med att sändningsmotorn bara körs under matcherna. Sparade tokens rullar vidare, så en lugn vecka betalar för en intensiv helg.</p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" aria-labelledby="faq-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="faq-h2">Vanliga frågor</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Vad behöver vi för utrustning?</summary>
+          <p>En iPhone, ett stativ och uppkoppling via hallens Wi-Fi eller mobilnätet. En bättre mobilhållare och en powerbank gör stor skillnad under en lång matchdag, men mer än så behövs inte.</p>
+        </details>
+        <details>
+          <summary>Fungerar det med Android?</summary>
+          <p>Kameraappen finns idag för iPhone. Tittarna kan använda vilken enhet som helst, sändningen visas i webbläsaren.</p>
+        </details>
+        <details>
+          <summary>Vad är tokens?</summary>
+          <p>Tokens är valutan på Open Source Cloud. Varje tjänst som körs drar ett visst antal per dygn, och er plan fyller på med ett fast antal varje dag. Courtside använder lite hela tiden och mer bara när ni sänder. Räknaren ovan visar vad ert upplägg kräver.</p>
+        </details>
+        <details>
+          <summary>Vad händer om tokens tar slut mitt i en match?</summary>
+          <p>Planens tokens fylls på varje dag och det som inte används sparas. Ligger ni nära gränsen inför en cup kan ni köpa ett tokenpaket i förväg, det går inte ut.</p>
+        </details>
+        <details>
+          <summary>Kan vem som helst se våra matcher?</summary>
+          <p>Bara de som har länken, och med en PIN-kod påslagen bara de som också har koden. Vi rekommenderar alltid PIN-kod när det är barn och ungdomar som spelar.</p>
+        </details>
+        <details>
+          <summary>Hur hanterar vi GDPR och samtycke?</summary>
+          <p>Eftersom Courtside körs i föreningens eget konto är det föreningen som bestämmer över filmerna. Informera föräldrarna om att matcher sänds och spelas in, bestäm hur länge de sparas, och radera en match i adminvyn om någon ber om det.</p>
+        </details>
+        <details>
+          <summary>Behöver vi någon som kan IT?</summary>
+          <p>Nej. Den som sätter upp Courtside första gången behöver vara bekväm med att skapa konton och fylla i några inställningar. Efter det är det en knapp i mobilen.</p>
+        </details>
+        <details>
+          <summary>Fungerar det för andra sporter än basket?</summary>
+          <p>Sändning och inspelning fungerar för alla sporter, men perioder, pauser och klipplängder är idag anpassade för basket. Fler sporter är nästa steg på vägen.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-band" aria-labelledby="cta-h2">
+    <div class="wrap">
+      <h2 id="cta-h2">Nästa hemmamatch kan vara live.</h2>
+      <p class="subline">Sätt upp Courtside en kväll i veckan, sänd på helgen.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="#pris">Kom igång gratis</a>
+        <a class="btn btn-secondary" href="mailto:sales@eyevinn.se?subject=Courtside%20f%C3%B6r%20v%C3%A5r%20f%C3%B6rening">Prata med oss</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Körs på <a href="https://www.osaas.io" rel="noopener">Eyevinn Open Source Cloud</a></p>
+    <p>Fler tjänster: <a href="https://openlive.apps.osaas.io/" rel="noopener">Open Live</a> · <a href="https://intercom.apps.osaas.io/" rel="noopener">Open Intercom</a></p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    // Token model, from OSC list prices (ceiling rates):
+    // always on: web runner 10 + object storage 10 = 20 tokens/day; website is a static My Page (0).
+    // live: Restreamer 160 tokens/day, metered only while running = 160/24 per hour.
+    var BASE_PER_DAY = 20;
+    var LIVE_PER_HOUR = 160 / 24;
+    var DAYS = 30;
+    var WEEKS_PER_MONTH = 52 / 12;
+    var PLANS = [
+      { id: "PERSONAL", name: "Personal", price: 15, perMonth: 40 * DAYS },
+      { id: "PROFESSIONAL", name: "Professional", price: 69, perMonth: 300 * DAYS },
+      { id: "BUSINESS", name: "Business", price: 199, perMonth: 1000 * DAYS }
+    ];
+    var HEADROOM = 0.9;
+
+    var $ = function (id) { return document.getElementById(id); };
+    var fmt = function (n) { return Math.round(n).toLocaleString("sv-SE"); };
+    var m = $("matches"), h = $("hours");
+
+    function render() {
+      var matches = +m.value, hours = +h.value;
+      $("matches-out").textContent = matches;
+      $("hours-out").textContent = String(hours).replace(".", ",") + " h";
+
+      var base = BASE_PER_DAY * DAYS;
+      var live = matches * WEEKS_PER_MONTH * hours * LIVE_PER_HOUR;
+      var total = base + live;
+      var plan = PLANS.find(function (p) { return total <= p.perMonth * HEADROOM; }) || PLANS[PLANS.length - 1];
+      var scale = Math.max(plan.perMonth, total);
+
+      $("tok-month").textContent = fmt(total);
+      $("tok-base").textContent = fmt(base);
+      $("tok-live").textContent = fmt(live);
+      $("tok-plan").textContent = fmt(plan.perMonth);
+      $("bar-base").style.width = (base / scale * 100) + "%";
+      $("bar-live").style.width = (live / scale * 100) + "%";
+
+      var matchesPerMonth = matches * WEEKS_PER_MONTH;
+      var perMatch = plan.price / matchesPerMonth;
+      $("reco-plan").innerHTML = plan.name + " <em>" + plan.price + " €/mån</em>";
+      $("reco-text").textContent =
+        "Ungefär " + fmt(matchesPerMonth) + " matcher i månaden, runt " +
+        perMatch.toLocaleString("sv-SE", { maximumFractionDigits: perMatch < 10 ? 2 : 0 }) +
+        " € per match. Ni använder omkring " + Math.round(total / plan.perMonth * 100) + " % av planens tokens.";
+      if (plan.id === "PROFESSIONAL" && total < PLANS[0].perMonth * 1.5)
+        $("reco-text").textContent += " Sänder ni bara så mycket under delar av säsongen räcker Personal med ett tokenpaket i toppveckorna.";
+      if (plan.id === "BUSINESS") $("reco-text").textContent += " Större än så? Prata med oss om en Enterprise-plan.";
+
+      $("card-personal").classList.toggle("is-reco", plan.id === "PERSONAL");
+      $("flag-personal").hidden = plan.id !== "PERSONAL";
+      $("card-professional").classList.toggle("featured", plan.id !== "PERSONAL");
+      $("flag-professional").textContent = plan.id === "PERSONAL" ? "För hela föreningen" : "Passar er";
+
+      document.querySelectorAll(".preset").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(+b.dataset.m === matches && +b.dataset.h === hours));
+      });
+    }
+
+    m.addEventListener("input", render);
+    h.addEventListener("input", render);
+    document.querySelectorAll(".preset").forEach(function (b) {
+      b.addEventListener("click", function () { m.value = b.dataset.m; h.value = b.dataset.h; render(); });
+    });
+
+    // Same flow as the other OSC product pages: open the OSC pricing page for the chosen plan.
+    document.querySelectorAll("[data-plan]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var plan = b.dataset.plan;
+        var url = "https://app.osaas.io/dashboard/pricing?plan=" + plan +
+          "&utm_source=courtside&utm_medium=cta&utm_campaign=landing&utm_content=pricing-" + plan.toLowerCase();
+        window.open(url, "subscription", "width=600,height=700,toolbar=no,menubar=no,scrollbars=yes,resizable=yes");
+      });
+    });
+
+    render();
+  })();
+</script>
+</body>
+</html>

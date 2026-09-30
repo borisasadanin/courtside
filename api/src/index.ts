@@ -20,6 +20,7 @@ import restreamerRoutes from "./routes/restreamer-routes.js";
 import broadcastRoutes from "./routes/broadcast-routes.js";
 import clipRoutes from "./routes/clip-routes.js";
 import clubRoutes from "./routes/club-routes.js";
+import mediaRoutes from "./routes/media.js";
 import dvrRoutes from "./routes/dvr.js";
 
 // --- Validate required env vars (exits on failure) ---
@@ -82,6 +83,7 @@ await app.register(restreamerRoutes);
 await app.register(broadcastRoutes);
 await app.register(clipRoutes);
 await app.register(clubRoutes);
+await app.register(mediaRoutes);
 await app.register(dvrRoutes);
 
 // --- Health check ---

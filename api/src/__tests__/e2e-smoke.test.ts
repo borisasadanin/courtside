@@ -203,7 +203,7 @@ describe("E2E Smoke Tests: Recording → VOD flow", () => {
       // Verify that the VOD entry was created with hlsUrl pointing to index.m3u8
       expect(mockMinio.addVodEntry).toHaveBeenCalledTimes(1);
       const vodEntry = mockMinio.addVodEntry.mock.calls[0][0];
-      expect(vodEntry.hlsUrl).toContain("index.m3u8");
+      expect(vodEntry.hlsUrl).toBe(`/api/vod/${streamId}/playlist.m3u8`);
       expect(vodEntry.hlsUrl).not.toContain("p1.m3u8");
     });
 
@@ -426,10 +426,10 @@ describe("E2E Smoke Tests: Recording → VOD flow", () => {
       expect(mockMinio.addVodEntry).toHaveBeenCalledTimes(1);
       const vodEntry = mockMinio.addVodEntry.mock.calls[0][0];
 
-      // THE critical assertion: VOD URL must point to index.m3u8
-      expect(vodEntry.hlsUrl).toBe(
-        `https://minio.example.com/recordings/${streamId}/index.m3u8`
-      );
+      // THE critical assertion: the VOD URL addresses the stitched recording,
+      // not one part, and goes through the API rather than public storage.
+      expect(vodEntry.hlsUrl).toBe(`/api/vod/${streamId}/playlist.m3u8`);
+      expect(vodEntry.hlsUrl).not.toContain("p1");
       expect(vodEntry.hlsUrl).not.toContain("p1.m3u8");
     });
 
@@ -608,7 +608,7 @@ describe("E2E Smoke Tests: Recording → VOD flow", () => {
       const vodList = vodRes.json();
       const vodEntry = vodList.find((v: any) => v.id === streamId);
       expect(vodEntry).toBeDefined();
-      expect(vodEntry.hlsUrl).toContain("index.m3u8");
+      expect(vodEntry.hlsUrl).toBe(`/api/vod/${streamId}/playlist.m3u8`);
     });
   });
 
@@ -685,7 +685,7 @@ describe("E2E Smoke Tests: Recording → VOD flow", () => {
       const vodList = vodRes.json();
       const found = vodList.find((v: any) => v.id === streamId);
       expect(found).toBeDefined();
-      expect(found.hlsUrl).toContain("index.m3u8");
+      expect(found.hlsUrl).toBe(`/api/vod/${streamId}/playlist.m3u8`);
     });
   });
 
@@ -815,7 +815,7 @@ describe("E2E Smoke Tests: Recording → VOD flow", () => {
       expect(vodEntry.homeTeam).toBe("Test IF");
       expect(vodEntry.awayTeam).toBe("AIK");
       expect(vodEntry.cameraName).toBe("Kamera 1");
-      expect(vodEntry.hlsUrl).toContain("index.m3u8");
+      expect(vodEntry.hlsUrl).toBe(`/api/vod/${streamId}/playlist.m3u8`);
     });
   });
 });

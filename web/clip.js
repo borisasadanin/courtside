@@ -1,6 +1,7 @@
 import Hls from "hls.js";
 import { CONFIG } from "./modules/config.js";
 import { club, loadClub } from "./modules/club.js";
+import { mediaUrl } from "./modules/utils.js";
 
 (async function init() {
   // Theme first — the error state is branded too.
@@ -48,15 +49,15 @@ function showClip(clip) {
   setupShare(clip.id);
 
   if (clip.mp4Url) {
-    video.src = clip.mp4Url;
-    setupDownload(clip.mp4Url, label);
+    video.src = mediaUrl(clip.mp4Url);
+    setupDownload(mediaUrl(clip.mp4Url), label);
   } else if (clip.hlsUrl) {
     if (Hls.isSupported()) {
       const hls = new Hls({ maxBufferLength: 10 });
-      hls.loadSource(clip.hlsUrl);
+      hls.loadSource(mediaUrl(clip.hlsUrl));
       hls.attachMedia(video);
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = clip.hlsUrl;
+      video.src = mediaUrl(clip.hlsUrl);
     }
   }
 

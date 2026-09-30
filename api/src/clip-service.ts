@@ -85,7 +85,9 @@ export async function createClip(
   }
 
   // Build mini HLS VOD manifest with absolute URLs
-  const clipId = crypto.randomUUID().slice(0, 8);
+  // 16 hex characters, not 8: for a shared clip the id *is* the capability,
+  // so it has to be unguessable rather than merely unique.
+  const clipId = crypto.randomBytes(8).toString("hex");
   const maxDuration = Math.ceil(Math.max(...clipSegments.map((s) => s.duration)));
   const actualDuration = clipSegments.reduce((sum, s) => sum + s.duration, 0);
 
@@ -99,16 +101,18 @@ export async function createClip(
 
   for (const seg of clipSegments) {
     manifestLines.push(`#EXTINF:${seg.duration.toFixed(6)},`);
-    manifestLines.push(minio.segmentUrl(seg.key));
+    // Bare filename. The clip playlist route rewrites these to media URLs when
+    // it serves the manifest, so the stored form stays independent of routing.
+    manifestLines.push(seg.key.split("/").pop() as string);
   }
 
   manifestLines.push("#EXT-X-ENDLIST");
 
   const manifest = manifestLines.join("\n") + "\n";
-  const manifestKey = `clips/${streamId}/${clipId}.m3u8`;
+  const manifestKey = minio.clipManifestKey(streamId, clipId);
   await minio.uploadBuffer(manifestKey, manifest, "application/vnd.apple.mpegurl");
 
-  const hlsUrl = minio.clipHlsUrl(streamId, clipId);
+  const hlsUrl = `/api/clips/${clipId}/playlist.m3u8`;
   logger.info(
     `Created clip ${clipId} for ${streamId}: ${clipSegments.length} segments, ${actualDuration.toFixed(1)}s`,
   );
@@ -124,17 +128,17 @@ export async function createClip(
       })),
     );
     const mp4Buffer = await convertSegmentsToMp4(segmentBuffers);
-    const mp4Key = `clips/${streamId}/${clipId}.mp4`;
+    const mp4Key = minio.clipMp4Key(streamId, clipId);
     await minio.uploadBuffer(mp4Key, mp4Buffer, "video/mp4");
-    mp4Url = minio.clipMp4Url(streamId, clipId);
+    mp4Url = `/api/clips/${clipId}/media/${clipId}.mp4`;
     logger.info(`Created MP4 for clip ${clipId} (${mp4Buffer.length} bytes)`);
 
     // Extract thumbnail (2 seconds before end — near the goal/action)
     try {
       const thumbBuffer = await extractThumbnail(mp4Buffer, 2);
-      const thumbKey = `clips/${streamId}/${clipId}.jpg`;
+      const thumbKey = minio.clipThumbnailKey(streamId, clipId);
       await minio.uploadBuffer(thumbKey, thumbBuffer, "image/jpeg");
-      thumbnailUrl = minio.clipThumbnailUrl(streamId, clipId);
+      thumbnailUrl = `/api/clips/${clipId}/media/${clipId}.jpg`;
       logger.info(`Created thumbnail for clip ${clipId} (${thumbBuffer.length} bytes)`);
     } catch (thumbErr) {
       logger.warn(thumbErr, `Failed to create thumbnail for clip ${clipId}`);

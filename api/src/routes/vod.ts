@@ -4,9 +4,44 @@
 import type { FastifyInstance } from "fastify";
 import { requireApiKey, requireViewerAuth, requireAdminAuth } from "../auth.js";
 import { minio } from "../state.js";
+import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import type { VodEntry } from "../types.js";
 
 export default async function vodRoutes(app: FastifyInstance): Promise<void> {
+  /**
+   * GET /api/vod/:id/playlist.m3u8 — the stitched recording.
+   *
+   * Served here rather than straight from storage so the segment URIs can be
+   * pointed at the media route. That indirection is what lets the bucket be
+   * private: a recording is reachable only by someone the API has authorised.
+   */
+  app.get<{ Params: { id: string } }>(
+    "/api/vod/:id/playlist.m3u8",
+    async (request, reply) => {
+      if (!requireViewerAuth(request, reply)) return;
+
+      const { id } = request.params;
+      if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+        return reply.code(400).send({ error: "invalid_id" });
+      }
+
+      const manifest = await minio.readFile(minio.vodPlaylistKey(id));
+      if (!manifest) {
+        return reply.code(404).send({ error: "Recording not found" });
+      }
+
+      const rewritten = rewriteSegmentUris(
+        manifest,
+        (filename) => `/api/media/${id}/${filename}`
+      );
+
+      return reply
+        .type("application/vnd.apple.mpegurl")
+        .header("Cache-Control", "no-cache")
+        .send(rewritten);
+    }
+  );
+
   // GET /api/vod — List all VOD recordings
   app.get("/api/vod", async (request, reply) => {
     if (!requireViewerAuth(request, reply)) return;

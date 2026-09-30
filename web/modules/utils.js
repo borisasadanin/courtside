@@ -1,5 +1,20 @@
 // === Shared utility functions ===
 
+import { CONFIG } from "./config.js";
+
+/**
+ * Resolve a media URL returned by the backend.
+ *
+ * Recorded media is no longer public, so the backend hands out its own paths
+ * (e.g. /api/vod/:id/playlist.m3u8) rather than storage URLs, and those are
+ * relative to the API rather than to the page. Absolute URLs — the live stream
+ * straight from Restreamer — pass through untouched.
+ */
+export function mediaUrl(url) {
+  if (!url) return url;
+  return url.startsWith("/") ? `${CONFIG.API_URL}${url}` : url;
+}
+
 /** Escape HTML special characters to prevent XSS */
 export function escapeHtml(str) {
   if (!str) return "";

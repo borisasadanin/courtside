@@ -7,6 +7,8 @@ import { streamMeta, collectors, clipsByStream, minio } from "../state.js";
 import { createClip } from "../clip-service.js";
 import { convertSegmentsToMp4, extractThumbnail } from "../mp4-converter.js";
 import { clubManifest, absoluteLogoUrl } from "../club-config.js";
+import { rewriteSegmentUris } from "../playlist-rewrite.js";
+import { keysReferencedBy } from "./media.js";
 
 /** Track last clip time per stream to prevent spam */
 const lastClipTime = new Map<string, number>();
@@ -93,6 +95,43 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  /**
+   * GET /api/clips/:id/playlist.m3u8 — a shared clip's manifest.
+   *
+   * No PIN: a clip link is meant to be sendable. The segment URIs point at the
+   * clip's own media route, which only serves files this clip references.
+   */
+  app.get<{ Params: { id: string } }>(
+    "/api/clips/:id/playlist.m3u8",
+    async (request, reply) => {
+      const { id } = request.params;
+      if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+        return reply.code(400).send({ error: "invalid_id" });
+      }
+
+      const clips = await minio.readClipsIndex();
+      const clip = clips.find((c) => c.id === id);
+      if (!clip) {
+        return reply.code(404).send({ error: "clip_not_found" });
+      }
+
+      const manifest = await minio.readFile(minio.clipManifestKey(clip.streamId, clip.id));
+      if (!manifest) {
+        return reply.code(404).send({ error: "clip_manifest_missing" });
+      }
+
+      const rewritten = rewriteSegmentUris(
+        manifest,
+        (filename) => `/api/clips/${clip.id}/media/${filename}`
+      );
+
+      return reply
+        .type("application/vnd.apple.mpegurl")
+        .header("Cache-Control", "no-cache")
+        .send(rewritten);
+    },
+  );
+
   // GET /api/clips/:id/public — Get a specific clip without auth (for clip.html sharing)
   app.get<{ Params: { id: string } }>(
     "/api/clips/:id/public",
@@ -124,9 +163,17 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
           return reply.code(404).type("text/html").send("<h1>Klippet hittades inte</h1>");
         }
 
+        // Social crawlers need absolute URLs. Media paths are relative to this
+        // API, and the crawler reached us on this host, so build from the
+        // request rather than from configuration that might not be set.
+        const proto = (request.headers["x-forwarded-proto"] as string) || request.protocol;
+        const host = (request.headers["x-forwarded-host"] as string) || request.headers.host;
+        const absolute = (path?: string): string =>
+          !path ? "" : /^https?:\/\//.test(path) ? path : `${proto}://${host}${path}`;
+
         const label = clip.label || "Höjdpunkt";
         const clipPageUrl = `${clubManifest.siteUrl}/clip.html#${encodeURIComponent(clip.id)}`;
-        const videoUrl = clip.mp4Url || "";
+        const videoUrl = absolute(clip.mp4Url);
 
         // Look up match info from VOD index
         let matchTitle = "";
@@ -162,7 +209,7 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
 <meta property="og:type" content="video.other">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${description}">
-<meta property="og:image" content="${clip.thumbnailUrl || absoluteLogoUrl() || ""}">
+<meta property="og:image" content="${absolute(clip.thumbnailUrl) || absoluteLogoUrl() || ""}">
 ${videoUrl ? `<meta property="og:video" content="${videoUrl}">
 <meta property="og:video:secure_url" content="${videoUrl}">
 <meta property="og:video:type" content="video/mp4">
@@ -242,32 +289,28 @@ ${redirectTag}
             continue;
           }
 
-          // Parse segment URLs from manifest
-          const segmentUrls = manifest
-            .split("\n")
-            .filter((line) => line.startsWith("http") && line.endsWith(".ts"));
+          // Manifests hold bare filenames; older ones held absolute URLs.
+          // keysReferencedBy handles both.
+          const segmentKeys = [...keysReferencedBy(manifest, `${clip.streamId}/`)];
 
-          if (segmentUrls.length === 0) {
+          if (segmentKeys.length === 0) {
             errors.push(`${clip.id}: no segments in manifest`);
             continue;
           }
 
-          // Download segments (extract MinIO key from full URL)
           const segmentBuffers = await Promise.all(
-            segmentUrls.map(async (url) => {
-              // URL: https://.../recordings/streamId/filename.ts → key: streamId/filename.ts
-              const key = url.split("/recordings/")[1];
-              if (!key) throw new Error(`Cannot parse key from URL: ${url}`);
-              return { key, data: await minio.downloadBuffer(key) };
-            }),
+            segmentKeys.map(async (key) => ({
+              key,
+              data: await minio.downloadBuffer(key),
+            })),
           );
 
           // Convert to MP4
           const mp4Buffer = await convertSegmentsToMp4(segmentBuffers);
-          const mp4Key = `clips/${clip.streamId}/${clip.id}.mp4`;
+          const mp4Key = minio.clipMp4Key(clip.streamId, clip.id);
           await minio.uploadBuffer(mp4Key, mp4Buffer, "video/mp4");
 
-          clip.mp4Url = minio.clipMp4Url(clip.streamId, clip.id);
+          clip.mp4Url = `/api/clips/${clip.id}/media/${clip.id}.mp4`;
           converted++;
           request.log.info(`Backfilled MP4 for clip ${clip.id} (${mp4Buffer.length} bytes)`);
         } catch (err) {
@@ -309,7 +352,7 @@ ${redirectTag}
       for (const clip of missing) {
         try {
           // Download the MP4 from MinIO
-          const mp4Key = `clips/${clip.streamId}/${clip.id}.mp4`;
+          const mp4Key = minio.clipMp4Key(clip.streamId, clip.id);
           const mp4Buffer = await minio.downloadBuffer(mp4Key);
 
           // Extract thumbnail (2s before end)
@@ -317,7 +360,7 @@ ${redirectTag}
           const thumbKey = `clips/${clip.streamId}/${clip.id}.jpg`;
           await minio.uploadBuffer(thumbKey, thumbBuffer, "image/jpeg");
 
-          clip.thumbnailUrl = minio.clipThumbnailUrl(clip.streamId, clip.id);
+          clip.thumbnailUrl = `/api/clips/${clip.id}/media/${clip.id}.jpg`;
           generated++;
           request.log.info(`Backfilled thumbnail for clip ${clip.id} (${thumbBuffer.length} bytes)`);
         } catch (err) {

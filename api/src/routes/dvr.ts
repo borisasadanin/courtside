@@ -7,7 +7,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { requireViewerAuth } from "../auth.js";
-import { streamMeta, collectors, minio } from "../state.js";
+import { streamMeta, collectors } from "../state.js";
 
 export default async function dvrRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { id: string } }>(
@@ -50,7 +50,7 @@ export default async function dvrRoutes(app: FastifyInstance): Promise<void> {
         const dt = new Date(seg.savedAt).toISOString();
         lines.push(`#EXT-X-PROGRAM-DATE-TIME:${dt}`);
         lines.push(`#EXTINF:${seg.duration.toFixed(6)},`);
-        lines.push(minio.segmentUrl(seg.key));
+        lines.push(`/api/media/${seg.key}`);
       }
 
       // If stream is stopped, close the playlist so HLS.js knows it's finite

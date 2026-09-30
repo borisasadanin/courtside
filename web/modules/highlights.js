@@ -3,6 +3,7 @@
 
 import Hls from "hls.js";
 import { CONFIG } from "./config.js";
+import { mediaUrl } from "./utils.js";
 import { state, dom } from "./state.js";
 import { authHeaders } from "./auth.js";
 import { clearHash } from "./deeplink.js";
@@ -108,7 +109,7 @@ export function playClip(hlsUrl) {
       maxBufferLength: 10,
       maxMaxBufferLength: 20,
     });
-    clipHls.loadSource(hlsUrl);
+    clipHls.loadSource(mediaUrl(hlsUrl));
     clipHls.attachMedia(video);
     clipHls.on(Hls.Events.MANIFEST_PARSED, () => {
       video.play().catch(() => {});
@@ -120,7 +121,7 @@ export function playClip(hlsUrl) {
     });
   } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
     // Safari native HLS
-    video.src = hlsUrl;
+    video.src = mediaUrl(hlsUrl);
     video.addEventListener("loadedmetadata", () => {
       video.play().catch(() => {});
     }, { once: true });

@@ -4,7 +4,7 @@
 
 import { CONFIG } from "./config.js";
 import { state, dom } from "./state.js";
-import { escapeHtml, formatDuration, formatDateFull } from "./utils.js";
+import { escapeHtml, formatDuration, formatDateFull, mediaUrl } from "./utils.js";
 import { authHeaders, showPinScreen } from "./auth.js";
 import { openVodPlayer } from "./player.js";
 import { fetchAllClips, playClip } from "./highlights.js";
@@ -343,7 +343,7 @@ function createClipCard(clip, index) {
       dlBtn.disabled = true;
       dlBtn.innerHTML = "&#8987;";
       try {
-        const res = await fetch(clip.mp4Url);
+        const res = await fetch(mediaUrl(clip.mp4Url));
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -353,7 +353,7 @@ function createClipCard(clip, index) {
         URL.revokeObjectURL(url);
       } catch {
         // Fallback: open directly
-        window.open(clip.mp4Url, "_blank");
+        window.open(mediaUrl(clip.mp4Url), "_blank");
       }
       dlBtn.disabled = false;
       dlBtn.innerHTML = DOWNLOAD_SVG;
