@@ -25,7 +25,7 @@ now:
 |---|---|
 | Backend | Configurable per installation, no built-in credentials |
 | Website | One prebuilt bundle, themed at runtime per club |
-| Camera app | De-branded and configuration-driven, built per installation |
+| Camera app | De-branded and configuration-driven, built per installation (builds clean on Xcode 26 / Swift 6.3) |
 | One-command install | Not yet — see `docs/roadmap.md` |
 
 ## What you need
