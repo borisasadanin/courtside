@@ -1,57 +1,48 @@
 # Vad kostar det att köra Courtside?
 
-Mätt på Eyevinn Open Source Cloud 2026-10-01. OSC fakturerar i *tokens*; hur många
-tokens du får per månad och vad de kostar beror på din plan — se app.osaas.io.
-Siffrorna nedan är tokens, inte kronor.
+Mätt på Eyevinn Open Source Cloud 2026-10-01. OSC fakturerar i *tokens*. Planen avgör hur många du får
+per dygn. Siffrorna nedan är OSC:s takpriser per tjänst.
 
-## Takpris per tjänst
+## Rekommenderad plan: Personal
 
-Om allt kördes dygnet runt:
+**Personal** (15 EUR/mån exkl. moms, 40 tokens/dygn) räcker för en klubb som sänder ett par matcher i
+veckan. Klubben får appens genererade adress, `<hash>.apps.osaas.io`.
 
-| Tjänst | Vad den gör | Tokens/dygn |
-|---|---|---|
-| `datarhei-restreamer` | Tar emot RTMP och gör HLS | **160** |
-| `minio-minio` | Lagrar inspelningar och klipp | 10 |
-| `eyevinn-app-config-svc` | Parameter store för konfiguration | 1 |
-| Backend (My App) | API:et | ingår i plattformen |
-| Hemsida (My Page) | Statiska filer | ingår i plattformen |
-| **Summa, dygnet runt** | | **171** |
+**Professional** (69 EUR/mån, 300 tokens/dygn) behövs bara för ett eget namn, som `minklubb.apps.osaas.io`
+eller en egen domän. Det är ett tillval, inte ett krav.
 
-## Vad det faktiskt blir
+## Vad som drar tokens
 
-Restreamer är tio gånger dyrare än allt annat tillsammans, och den är den enda
-tjänsten som inte behöver vara igång hela tiden. Därför startar backend den när
-någon börjar sända och stänger ner den en timme efter sista sändningen
-(`RESTREAMER_GRACE_PERIOD_MS`).
+| Tjänst | Vad den gör | Tokens/dygn | Igång |
+|---|---|---|---|
+| `minio-minio` | Inspelningar och klipp | 10 | Alltid |
+| `valkey-io-valkey` | Lagret under parameter storen | 10 | Alltid |
+| `eyevinn-app-config-svc` | Parameter store (konfiguration och hemligheter) | 1 | Alltid |
+| `eyevinn-web-runner` | Appen: backend + webb | 10 | Alltid |
+| **Grundkostnad** | | **31** | |
+| `datarhei-restreamer` | Tar emot RTMP och gör HLS | 160 | Bara vid sändning |
 
-Det är inte en teknisk detalj utan det som avgör kostnaden:
+Restreamer kostar fem gånger mer än allt annat tillsammans, men den är bara igång när någon sänder.
+Backend startar den vid första sändningen och stänger ner den en timme efter den sista
+(`RESTREAMER_GRACE_PERIOD_MS`). **Varje timme den är igång kostar ungefär 6,7 tokens.**
 
-| | Dygnet runt | On-demand |
-|---|---|---|
-| Restreamer | 160 | ~6 |
-| Lagring + konfiguration | 11 | 11 |
-| **Totalt per dygn** | **171** | **~17** |
+## Räkneexempel
 
-On-demand-kolumnen utgår från två matcher i veckan à två timmar, plus en timmes
-nedstängningstimer per match — alltså ungefär sex timmar Restreamer i veckan.
-En klubb som sänder mer skalar linjärt: varje timme sändning är ungefär
-6,7 tokens.
+| Klubb | Restreamer-timmar/vecka | Tokens/dygn | Personal (40/dygn) |
+|---|---|---|---|
+| 2 matcher à 2 h | 6 (inkl. 1 h efterlöptid per match) | ≈ 37 | Räcker |
+| 4 matcher à 2 h | 12 | ≈ 43 | Lite över |
 
-**Slutsats:** lagringen är i praktiken golvet. Sändningstiden är det du styr.
+Om det blir för mycket finns tre vägar: ett tokenpaket (100 tokens för 9,90 EUR, de förfaller inte), en
+kortare efterlöptid, eller Professional.
 
 ## Lagring
 
-Inspelningarna ligger kvar tills någon tar bort dem. En matchtimme i 1080p vid
-3 Mbps blir ungefär 1,4 GB.
+Inspelningarna ligger kvar tills någon tar bort dem. En matchtimme i 1080p vid 3 Mbps blir ungefär 1,4 GB.
+MinIO-instansen kostar lika mycket oavsett hur mycket som ligger i den, upp till instansens storlek.
+Lagring är alltså en planfråga, inte en rörlig kostnad. `MINIO_STORAGE_CAPACITY_GB` styr bara mätaren i
+adminvyn. Bestäm en gallringsregel: att spara allt för alltid är ett val, inte en förvald inställning.
 
-MinIO-instansen kostar lika mycket oavsett hur mycket som ligger i den upp till
-instansens storlek, så lagring är en planfråga snarare än en rörlig kostnad.
-`MINIO_STORAGE_CAPACITY_GB` styr bara mätaren i adminvyn — sätt den till vad din
-instans faktiskt rymmer, och bestäm en gallringsregel. Att spara allt för alltid
-är ett val, inte en förvald inställning.
+## Kontrollera själv
 
-## Innan du börjar
-
-Kör `estimate-service-cost` i OSC MCP eller titta i app.osaas.io för att se vad
-din egen plan ger. Siffrorna ovan är ceiling-värden från en verklig mätning, men
-din plan avgör vad de betyder i pengar.
+`estimate-service-cost` i OSC MCP, eller osaas.io/pricing. Takpriserna ovan är vad det högst kostar.

@@ -143,6 +143,15 @@ Först, för att allt annat bygger på roterade nycklar.
 - [ ] **ABL-018** En riktig annan klubb, egen tenant, noll handpåläggning. Detta är grinden för
       prio 1 — inte en demo.
 
+### Plan och adress (beslut 2026-10-01)
+
+- **Baspaketet körs på OSC Personal** (15 EUR/mån, 40 tokens/dygn). Det räcker för ~2 matcher i veckan, se
+  `docs/cost.md`.
+- **Klubben får den adress plattformen ger:** `<hash>.apps.osaas.io`. Egna namn kräver Professional
+  (HTTP 402 på Personal) och ingår inte i baspaketet.
+- **Professional blir en uppgradering** med eget domännamn och fler funktioner. Innehållet är inte bestämt
+  → ABL-026.
+
 ### Steg 2 — White label som självbetjäning
 
 - [ ] **ABL-019** Adminvy: ladda upp logo, välj färger, sätt namn och texter utan ombyggnad.
