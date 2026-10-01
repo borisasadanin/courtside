@@ -172,7 +172,8 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
           !path ? "" : /^https?:\/\//.test(path) ? path : `${proto}://${host}${path}`;
 
         const label = clip.label || "Höjdpunkt";
-        const clipPageUrl = `${clubManifest.siteUrl}/clip.html#${encodeURIComponent(clip.id)}`;
+        const siteUrl = clubManifest.siteUrl || `${proto}://${host}`;
+        const clipPageUrl = `${siteUrl}/clip.html#${encodeURIComponent(clip.id)}`;
         const videoUrl = absolute(clip.mp4Url);
 
         // Look up match info from VOD index

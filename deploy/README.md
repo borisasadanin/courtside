@@ -2,7 +2,8 @@
 
 Raises one club's whole installation on Eyevinn Open Source Cloud: object
 storage, the configuration store, and one app that is both the backend and the
-website — on one address, `<club_name>.apps.osaas.io` unless you choose another.
+website — on one address. That is the app's generated `<hash>.apps.osaas.io`
+unless you set `site_hostname` (a name of your own needs the PROFESSIONAL plan).
 
 Works with OpenTofu or Terraform (>= 1.6).
 
@@ -13,7 +14,7 @@ Works with OpenTofu or Terraform (>= 1.6).
 | `osc_instance.storage` | MinIO — recordings, clips, indexes |
 | `osc_parameter_store` + `osc_parameter` | Configuration, including generated secrets |
 | `osc_my_app.api` | Backend and website, built from the repository root |
-| `osc_domain.site` | The club's address |
+| `osc_domain.site` | Optional: a name of the club's own |
 
 **Restreamer is not created here.** The backend starts it when someone begins
 broadcasting and shuts it down an hour after the last stream. It costs roughly

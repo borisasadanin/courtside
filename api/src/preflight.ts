@@ -178,9 +178,8 @@ function checkConfiguration(): CheckResult[] {
       : {
           id: "web.siteUrl",
           title: "Publik webbadress är satt",
-          status: "warn",
-          detail: "PUBLIC_SITE_URL saknas",
-          fix: "Delningslänkar och förhandsvisningar i sociala medier blir ofullständiga utan den.",
+          status: "ok",
+          detail: "Ej satt — webben nås på backendens egen adress, som tas från varje anrop",
         }
   );
 

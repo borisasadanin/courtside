@@ -69,8 +69,10 @@ locals {
   # instances in a region that is not always the environment name — building the
   # hostname by hand pointed the backend at a host that did not exist.
   storage_endpoint = osc_instance.storage.instance["url"]
-  site_hostname    = coalesce(var.site_hostname, "${var.club_name}.apps.osaas.io")
-  site_url         = "https://${local.site_hostname}"
+  # Without a hostname of its own the club uses the app's generated address,
+  # and the backend takes its public URL from each request.
+  has_hostname = var.site_hostname != null
+  site_url     = local.has_hostname ? "https://${var.site_hostname}" : "https://${osc_my_app.api.managed_domain}"
 }
 
 data "osc_workspace" "this" {}
@@ -144,6 +146,13 @@ resource "osc_parameter" "storage_secret" {
   secret_value    = random_password.storage_password.result
 }
 
+resource "osc_parameter" "site_url" {
+  count           = local.has_hostname ? 1 : 0
+  parameter_store = osc_parameter_store.config.name
+  key             = "PUBLIC_SITE_URL"
+  value           = "https://${var.site_hostname}"
+}
+
 resource "osc_parameter" "plain" {
   for_each = {
     OSC_TENANT        = data.osc_workspace.this.id
@@ -153,7 +162,6 @@ resource "osc_parameter" "plain" {
     MINIO_ENDPOINT    = local.storage_endpoint
     MINIO_ACCESS_KEY  = "root"
     STORAGE_BUCKET    = "recordings"
-    PUBLIC_SITE_URL   = local.site_url
     CLUB_NAME         = var.club_display_name
     CLUB_SHORT_NAME   = var.club_short_name
     CLUB_VENUE        = var.club_venue
@@ -182,12 +190,13 @@ resource "osc_my_app" "api" {
   rebuild_trigger = sha256(jsonencode({
     club    = var.club_display_name
     storage = local.storage_endpoint
-    site    = local.site_url
+    site    = var.site_hostname
   }))
 
   depends_on = [
     osc_instance.storage,
     osc_parameter.plain,
+    osc_parameter.site_url,
     osc_parameter.api_key,
     osc_parameter.setup_code,
     osc_parameter.admin_pin,
@@ -200,13 +209,14 @@ resource "osc_my_app" "api" {
 #############################################
 # Address
 #
-# The app also has a generated <hash>.apps.osaas.io name; this is the one the
-# club hands out.  A name under apps.osaas.io needs no DNS.  Your own domain
-# needs a CNAME to the app's managed_domain first.
+# Optional.  Every app has a generated <hash>.apps.osaas.io address, and that
+# is all a club needs.  A name of its own — under apps.osaas.io or a domain the
+# club owns, with a CNAME to the app — needs the PROFESSIONAL plan or above.
 #############################################
 
 resource "osc_domain" "site" {
-  domain        = local.site_hostname
+  count         = local.has_hostname ? 1 : 0
+  domain        = var.site_hostname
   service_id    = osc_my_app.api.domain_service_id
   instance_name = osc_my_app.api.id
 }

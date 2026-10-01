@@ -46,7 +46,7 @@ variable "club_accent_color" {
 variable "site_hostname" {
   type        = string
   default     = null
-  description = "The club's address, without https://. Defaults to <club_name>.apps.osaas.io. Your own domain needs a CNAME to the app first."
+  description = "A name of the club's own, without https://, e.g. \"myclub.apps.osaas.io\" or \"live.myclub.se\". Needs the PROFESSIONAL plan. Leave null to use the app's generated address."
 }
 
 variable "api_git_url" {
