@@ -134,7 +134,7 @@ Först, för att allt annat bygger på roterade nycklar.
 
 - [ ] **ABL-015** Terraform-modul som komponerar Restreamer + lagring + backend + hemsida, med ett
       `club_name` och auto-genererade hemligheter.
-- [ ] **ABL-016** Installationsdokumentation och **kostnadsuppskattning per månad**. En klubb behöver
+- [~] **ABL-016** Installationsdokumentation och **kostnadsuppskattning per månad**. Kostnadsdelen klar (`docs/cost.md`). En klubb behöver
       siffran innan de börjar; `estimate-service-cost` finns för att ta fram den.
 - [ ] **ABL-017** Licensval och publicering. Repo att klona, eller inskickat till OSC-katalogen.
 

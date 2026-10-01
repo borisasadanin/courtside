@@ -38,6 +38,13 @@ now:
   your installation by scanning a code. Until then, a Mac with Xcode and an
   Apple Developer account to build it yourself.
 
+## What it costs
+
+Roughly 17 tokens a day for a club playing a couple of matches a week — see
+[docs/cost.md](docs/cost.md). Restreamer dominates the bill and is started on
+demand for exactly that reason, so the cost follows hours broadcast rather than
+calendar time.
+
 ## Components
 
 ### `api/` — backend
