@@ -7,5 +7,5 @@
 // Leave apiUrl empty when the API is served from the same origin (the dev
 // server proxies /api for you).
 window.COURTSIDE_CONFIG = {
-  apiUrl: "",
+  apiUrl: "https://b95eed4a8b.apps.osaas.io",
 };

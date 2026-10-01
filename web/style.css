@@ -731,10 +731,13 @@ main {
   justify-content: center;
 }
 
+/* Optional decorative backdrop. A club that wants one drops background.jpg
+   next to the stylesheet and sets --empty-bg; otherwise nothing is requested,
+   which keeps a 404 off every page load of every installation. */
 .empty-bg {
   position: absolute;
   inset: 0;
-  background: url("background.jpg") center/cover no-repeat;
+  background: var(--empty-bg, none) center/cover no-repeat;
   opacity: 0;
   transition: opacity 0.6s ease;
 }

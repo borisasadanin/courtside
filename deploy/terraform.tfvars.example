@@ -1,0 +1,31 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+
+# Personal Access Token from app.osaas.io. The backend also uses it to start
+# Restreamer on demand, so it is stored in the parameter store.
+osc_pat = ""
+
+# "prod" or "prod-se"
+osc_environment = "prod"
+
+# Names the resources. Lowercase letters and digits, 3-21 characters.
+club_name = "myclub"
+
+# What the website calls itself.
+club_display_name = "My Club Courtside"
+club_short_name   = "My Club IF"
+club_venue        = "Myclubhallen"
+club_accent_color = "#C8A43F"
+
+# Your own domain, or leave unset for <club_name>-live.pages.osaas.io
+# custom_domain = "live.myclub.se"
+
+# The backend repository. Its root must be the API.
+api_git_url = "https://github.com/myclub/courtside-api.git"
+api_git_ref = "main"
+# Only for a private repository:
+# api_git_token = ""
+
+# Leave these unset — they are generated.
+# api_key    = ""
+# admin_pin  = ""
+# viewer_pin = ""

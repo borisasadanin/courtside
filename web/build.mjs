@@ -98,10 +98,11 @@ processHtml("clip.html", "dist/clip.html", `clip-${clipHash}.js`);
 // 6. Fix background image reference in CSS
 {
   let css = readFileSync("dist/assets/style.css", "utf-8");
-  // If CSS references background.jpg, update to the hashed version
+  // A club that supplies background.jpg gets it hashed and wired up; without
+  // one, nothing references it.
   try {
     const bgHash = hash("dist/assets/background.jpg");
-    css = css.replace(/background\.jpg/g, `background-${bgHash}.jpg`);
+    css = `:root { --empty-bg: url("background-${bgHash}.jpg"); }\n` + css;
   } catch {}
   writeFileSync(`dist/assets/style-${cssHash}.css`, css);
 }
