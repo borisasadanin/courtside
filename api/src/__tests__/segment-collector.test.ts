@@ -1,6 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseSegments, extractMediaPlaylistUrl, SegmentCollector } from "../segment-collector.js";
 
+/**
+ * Uploads that are actually media.
+ *
+ * The collector also checkpoints its timeline to storage, so counting every
+ * upload would conflate "saved a segment" with "recorded where it is" — two
+ * different things, and only one of them is what these tests are about.
+ */
+function mediaUploads(minio: { uploadBuffer: { mock: { calls: unknown[][] } } }): unknown[][] {
+  return minio.uploadBuffer.mock.calls.filter(
+    (call) => !String(call[0]).endsWith(".timeline.json")
+  );
+}
+
+
 // --- Mock helpers ---
 
 function createMockMinio() {
@@ -150,7 +164,7 @@ describe("SegmentCollector", () => {
 
     await collector.pollOnce();
 
-    expect(minio.uploadBuffer).toHaveBeenCalledTimes(2);
+    expect(mediaUploads(minio)).toHaveLength(2);
     expect(minio.uploadBuffer).toHaveBeenCalledWith(
       "stream1/p1_stream110.ts",
       expect.any(Buffer),
@@ -176,7 +190,7 @@ describe("SegmentCollector", () => {
 
     await collector.pollOnce();
 
-    expect(minio.uploadBuffer).toHaveBeenCalledTimes(3);
+    expect(mediaUploads(minio)).toHaveLength(3);
     expect(minio.uploadBuffer).toHaveBeenCalledWith(
       "stream1/p1_abc1234542.ts",
       expect.any(Buffer),
@@ -195,7 +209,7 @@ describe("SegmentCollector", () => {
       .mockResolvedValueOnce(segmentResponse(500));
 
     await collector.pollOnce();
-    expect(minio.uploadBuffer).toHaveBeenCalledTimes(2);
+    expect(mediaUploads(minio)).toHaveLength(2);
 
     // Second poll: should NOT fetch master again — goes straight to media playlist
     const manifest2 = `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:1.967000,\nstream112.ts?session=abc123\n`;
@@ -206,7 +220,7 @@ describe("SegmentCollector", () => {
     await collector.pollOnce();
     // 1 master + 1 media + 2 segments from first poll, + 1 media + 1 segment from second = 6
     expect(fetchSpy).toHaveBeenCalledTimes(6);
-    expect(minio.uploadBuffer).toHaveBeenCalledTimes(3);
+    expect(mediaUploads(minio)).toHaveLength(3);
   });
 
   it("skips already-saved segments on subsequent polls", async () => {
@@ -221,7 +235,7 @@ describe("SegmentCollector", () => {
       .mockResolvedValueOnce(segmentResponse(500));
 
     await collector.pollOnce();
-    expect(minio.uploadBuffer).toHaveBeenCalledTimes(2);
+    expect(mediaUploads(minio)).toHaveLength(2);
 
     // Second poll: same 2 segments + 1 new
     const manifest3 = `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2.000000,\nseg01.ts\n#EXTINF:2.000000,\nseg02.ts\n#EXTINF:2.000000,\nseg03.ts\n`;
@@ -230,12 +244,10 @@ describe("SegmentCollector", () => {
       .mockResolvedValueOnce(segmentResponse(500));
 
     await collector.pollOnce();
-    expect(minio.uploadBuffer).toHaveBeenCalledTimes(3); // only 1 new
-    expect(minio.uploadBuffer).toHaveBeenLastCalledWith(
-      "stream1/p1_seg03.ts",
+    expect(mediaUploads(minio)).toHaveLength(3); // only 1 new
+    expect(mediaUploads(minio).at(-1)).toEqual(["stream1/p1_seg03.ts",
       expect.any(Buffer),
-      "video/mp2t",
-    );
+      "video/mp2t",]);
   });
 
   it("stop() builds and uploads a valid VOD part manifest", async () => {
@@ -302,7 +314,7 @@ describe("SegmentCollector", () => {
 
     await collector.pollOnce();
 
-    expect(minio.uploadBuffer).toHaveBeenCalledTimes(1);
+    expect(mediaUploads(minio)).toHaveLength(1);
     expect(minio.uploadBuffer).toHaveBeenCalledWith(
       "stream1/p1_seg02.ts",
       expect.any(Buffer),
@@ -369,6 +381,6 @@ describe("SegmentCollector", () => {
 
     await collector.pollOnce();
 
-    expect(minio.uploadBuffer).toHaveBeenCalledTimes(2);
+    expect(mediaUploads(minio)).toHaveLength(2);
   });
 });

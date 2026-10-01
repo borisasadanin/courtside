@@ -23,7 +23,7 @@ now:
 
 | | State |
 |---|---|
-| Backend | Configurable per installation, no built-in credentials |
+| Backend | Configurable per installation, no built-in credentials; survives a restart mid-match |
 | Website | One prebuilt bundle, themed at runtime per club |
 | Camera app | Pairs with a club at runtime — no backend compiled in, so one build serves any club |
 | One-command install | Not yet — see `docs/roadmap.md` |

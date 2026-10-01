@@ -17,6 +17,7 @@ const BUCKET = config.MINIO_RECORDINGS_BUCKET;
 const VOD_INDEX_KEY = "vod-index.json";
 const CLIPS_INDEX_KEY = "clips-index.json";
 const DEVICE_INDEX_KEY = "devices.json";
+const STREAM_META_KEY = "active-streams.json";
 
 export class MinioClient {
   private s3: S3Client;
@@ -206,6 +207,42 @@ export class MinioClient {
       const entries = await this.readClipsIndex();
       entries.push(entry);
       await this.writeClipsIndex(entries);
+    });
+  }
+
+  // ============================
+  // Live stream metadata
+  // ============================
+
+  /**
+   * Metadata for streams that have not finished.
+   *
+   * Kept in storage because it is the only record of how a recording is put
+   * together — which parts exist and in what order. The segments survive a
+   * restart on their own; without this, nothing knows how to stitch them.
+   */
+  async readStreamMetaIndex(): Promise<Record<string, unknown>> {
+    try {
+      const res = await this.s3.send(
+        new GetObjectCommand({ Bucket: BUCKET, Key: STREAM_META_KEY })
+      );
+      const body = await res.Body?.transformToString();
+      return body ? JSON.parse(body) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  async writeStreamMetaIndex(index: Record<string, unknown>): Promise<void> {
+    return this.withLock(async () => {
+      await this.s3.send(
+        new PutObjectCommand({
+          Bucket: BUCKET,
+          Key: STREAM_META_KEY,
+          Body: JSON.stringify(index, null, 2),
+          ContentType: "application/json",
+        })
+      );
     });
   }
 

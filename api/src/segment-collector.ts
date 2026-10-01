@@ -77,6 +77,8 @@ export class SegmentCollector {
   private readonly pollIntervalMs = 2000;
   /** Resolved media playlist URL (discovered from master playlist on first poll) */
   private mediaPlaylistUrl: string | null = null;
+  /** Segments saved since the timeline was last written to storage. */
+  private dirty = false;
 
   constructor(
     streamId: string,
@@ -84,7 +86,20 @@ export class SegmentCollector {
     minio: MinioClient,
     logger: FastifyBaseLogger,
     partNumber = 1,
+    /**
+     * Timeline recovered from storage after a restart.
+     *
+     * The segments themselves survive a restart because they are already in
+     * object storage — it is the order and durations that live in memory, and
+     * without them the recording cannot be stitched. Seeding also stops the
+     * collector re-uploading segments it already has.
+     */
+    recovered: SegmentInfo[] = [],
   ) {
+    for (const seg of recovered) {
+      this.savedSegments.add(seg.filename);
+      this.segmentOrder.push(seg);
+    }
     this.streamId = streamId;
     const memfsName = partNumber > 1 ? `${streamId}_p${partNumber}` : streamId;
     this.manifestUrl = `${restreamerBaseUrl}/memfs/${memfsName}.m3u8`;
@@ -92,6 +107,54 @@ export class SegmentCollector {
     this.minio = minio;
     this.logger = logger;
     this.partNumber = partNumber;
+    if (recovered.length > 0) {
+      logger.info(
+        `SegmentCollector recovered ${recovered.length} segments for ${streamId} part ${partNumber}`,
+      );
+    }
+  }
+
+  /** Storage key of this part's timeline checkpoint. */
+  private timelineKey(): string {
+    return `${this.streamId}/p${this.partNumber}.timeline.json`;
+  }
+
+  /**
+   * Write the timeline to storage so a restart can pick it up.
+   *
+   * Called after each polling cycle that saved something, which is at most once
+   * every two seconds and costs a few kilobytes — cheap next to losing a match.
+   */
+  private async checkpoint(): Promise<void> {
+    if (!this.dirty) return;
+    this.dirty = false;
+    try {
+      await this.minio.uploadBuffer(
+        this.timelineKey(),
+        JSON.stringify(this.segmentOrder),
+        "application/json",
+      );
+    } catch (err) {
+      // A missed checkpoint costs accuracy after a crash, not the recording.
+      this.logger.warn(err, `Could not checkpoint timeline for ${this.streamId}`);
+      this.dirty = true;
+    }
+  }
+
+  /** Read back a checkpointed timeline, for recovery at startup. */
+  static async readCheckpoint(
+    minio: MinioClient,
+    streamId: string,
+    partNumber: number,
+  ): Promise<SegmentInfo[]> {
+    const raw = await minio.readFile(`${streamId}/p${partNumber}.timeline.json`);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   }
 
   start(): void {
@@ -191,11 +254,14 @@ export class SegmentCollector {
 
         this.savedSegments.add(seg.filename);
         this.segmentOrder.push({ ...seg, savedAt: Date.now() });
+        this.dirty = true;
         this.logger.info(`Saved segment ${seg.filename} (${ab.byteLength} bytes)`);
       } catch (err) {
         this.logger.warn(err, `Failed to save segment ${seg.filename}`);
       }
     }
+
+    await this.checkpoint();
   }
 
   /**

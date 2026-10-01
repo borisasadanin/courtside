@@ -119,7 +119,7 @@ Först, för att allt annat bygger på roterade nycklar.
       färger som CSS-variabler. *Mekaniken för steg 2.*
 - [x] **ABL-010** Kameraapp utan inbakad backend: QR-parning och per-enhetstokens som ersätter den
       delade API-nyckeln.
-- [ ] **ABL-011** Checkpointa `streamMeta` och segmenttidslinjen till klubbens egen objektlagring.
+- [x] **ABL-011** Checkpointa `streamMeta` och segmenttidslinjen till klubbens egen objektlagring.
       **Ingen ny backing-tjänst** — varje extra tjänst i solutionen är en kostnad och ett felläge till.
       Syftet är smalt: en omstart mitt i match får inte förstöra matchen.
 - [x] **ABL-012** Preflight. En främling har ingen att fråga. Verifiera tenant, tjänstekvot, att

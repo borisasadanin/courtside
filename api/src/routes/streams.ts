@@ -14,6 +14,7 @@ import { stitchPlaylist, buildPartList } from "../playlist-stitcher.js";
 import type { CreateStreamBody, StreamInfo, StreamPublicInfo, VodEntry } from "../types.js";
 import { getBroadcastState, setBroadcastState } from "../broadcast-state.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "../club-config.js";
+import { saveStreamMetaSoon } from "../stream-meta-store.js";
 
 /** DVR playlist URL for a stream (relative path — frontend prepends API base). */
 function dvrUrl(id: string): string {
@@ -111,6 +112,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       };
 
       streamMeta.set(streamId, { name: displayName, createdAt: info.createdAt, deviceId, partNumber: 1, completedParts: [] });
+      saveStreamMetaSoon(minio, request.log);
 
       // Auto-transition broadcast state to "live" (only if idle or upcoming)
       const bState = getBroadcastState().status;
@@ -173,6 +175,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
 
     meta.pausedAt = new Date().toISOString();
     meta.completedParts.push(meta.partNumber);
+    saveStreamMetaSoon(minio, request.log);
 
     // Upload pause marker segments (fire-and-forget, with logging)
     const pauseNumber = meta.partNumber;
@@ -252,6 +255,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       const resumeCollector = new SegmentCollector(id, config.RESTREAMER_URL, minio, request.log, meta.partNumber);
       resumeCollector.start();
       collectors.set(id, resumeCollector);
+      saveStreamMetaSoon(minio, request.log);
 
       return reply.code(200).send({
         status: "resumed",
@@ -571,6 +575,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           request.log.error(err, "Failed to finalize VOD entry");
         });
       }
+      saveStreamMetaSoon(minio, request.log);
       viewers.delete(id);
       if (wasPaused) {
         oscManager.pausedStreamEnded();

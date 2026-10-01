@@ -6,7 +6,9 @@ import rateLimit from "@fastify/rate-limit";
 import { config, validateConfig } from "./config.js";
 import { clubManifest } from "./club-config.js";
 import { startTokenCleanup } from "./auth.js";
-import { initServices } from "./state.js";
+import { initServices, streamMeta, collectors } from "./state.js";
+import { restoreStreamMeta } from "./stream-meta-store.js";
+import { SegmentCollector } from "./segment-collector.js";
 import { RestreamerClient } from "./restreamer.js";
 import { OscInstanceManager } from "./osc-manager.js";
 import { MinioClient } from "./minio.js";
@@ -122,6 +124,33 @@ try {
 
 // Start background health polling for Restreamer
 oscManager.startBackgroundPolling();
+
+// --- Recover streams that were running when this process last stopped ---
+//
+// A redeploy or crash during a match used to leave the segments in storage with
+// nothing that knew how to assemble them. Metadata and each part's timeline are
+// checkpointed, so both the stitching and the collection can carry on.
+try {
+  const restored = await restoreStreamMeta(minio, app.log);
+  for (const streamId of restored) {
+    const meta = streamMeta.get(streamId);
+    if (!meta || meta.pausedAt) continue; // A paused stream resumes on request.
+
+    const timeline = await SegmentCollector.readCheckpoint(minio, streamId, meta.partNumber);
+    const collector = new SegmentCollector(
+      streamId,
+      config.RESTREAMER_URL,
+      minio,
+      app.log,
+      meta.partNumber,
+      timeline,
+    );
+    collector.start();
+    collectors.set(streamId, collector);
+  }
+} catch (err) {
+  app.log.error(err, "Stream recovery failed — previous recordings may need manual stitching");
+}
 
 try {
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
