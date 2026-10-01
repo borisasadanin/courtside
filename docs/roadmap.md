@@ -186,8 +186,16 @@ ABL-010. Låg konfliktrisk — ABL-002 rör knappar, ABL-010 rör konfigurations
 
 ## Öppna frågor
 
-1. **Kan en OSC-solution komponera en tjänst som är vårt eget repo,** eller måste backend in i
-   katalogen först? Avgör om ABL-008 och ABL-015 är sekventiella. Måste verifieras tidigt.
+1. ~~Kan en OSC-solution komponera en tjänst som är vårt eget repo?~~ **Ja.** Provider
+   `EyevinnOSC/osc` har `my_app` och `my_page`, och `my_app` tar `git_token` direkt, så ett
+   privat repo fungerar utan webbläsarceremoni. ABL-008 är alltså inte ett beroende för
+   ABL-015 — katalogtjänsten är en distributionsfråga, inte en teknisk.
+
+   **Men:** `sub_path` (monorepo) stänger av parameter store-injektionen. Backend måste
+   ligga i roten av sitt repo, eller själv hämta konfigurationen från `APP_CONFIG_URL`.
+   Det är ett designval som behöver tas: separata repon per komponent, eller monorepo med
+   egen konfigurationshämtning. Just nu finns ett avknoppat privat repo
+   `borisasadanin/courtside-api` för deploy.
 2. **Licens** — och om byggsatsen ska ligga i OSC:s publika katalog. Katalogvägen är mycket mer
    "vem som helst", men innebär att Eyevinn-plattformen distribuerar den. Internt samtal.
 3. **Håller App Store-vägen** för en app vars enda syfte är att para mot en självhostad backend?
