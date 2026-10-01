@@ -50,8 +50,15 @@ manifest the website themes itself from.
 cd api
 npm install
 cp .env.example .env     # fill it in — the server refuses to start otherwise
+npm run preflight        # checks the installation and says what is wrong
 npm run dev
 ```
+
+`npm run preflight` is the first thing to run after deploying. It reports
+whether storage is reachable and writable, whether recordings are private,
+whether the OSC token works, and whether access is protected — and for anything
+that failed, what to do about it. The same checks are available to an admin at
+`GET /api/admin/preflight`.
 
 Every value that identifies *your* installation comes from the environment.
 There are no built-in defaults for credentials, tenants or domains, which is

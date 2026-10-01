@@ -122,7 +122,7 @@ Först, för att allt annat bygger på roterade nycklar.
 - [ ] **ABL-011** Checkpointa `streamMeta` och segmenttidslinjen till klubbens egen objektlagring.
       **Ingen ny backing-tjänst** — varje extra tjänst i solutionen är en kostnad och ett felläge till.
       Syftet är smalt: en omstart mitt i match får inte förstöra matchen.
-- [ ] **ABL-012** Preflight. En främling har ingen att fråga. Verifiera tenant, tjänstekvot, att
+- [x] **ABL-012** Preflight. En främling har ingen att fråga. Verifiera tenant, tjänstekvot, att
       Restreamer svarar, att RTMP är påslaget, att lagringen går att skriva till — och skriv ut vad
       som är fel. `/health` är grunden.
 - [x] **ABL-013** VOD-playlist serveras av API:et i stället för som statisk fil i lagringen.

@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { requireAdminAuth } from "../auth.js";
 import { config } from "../config.js";
 import { minio } from "../state.js";
+import { runPreflight, overallStatus } from "../preflight.js";
 
 export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/admin/storage — Get storage usage info (admin)
@@ -39,6 +40,14 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
       request.log.error(err, "Failed to get storage info");
       return reply.code(500).send({ error: "Failed to get storage info" });
     }
+  });
+
+  // GET /api/admin/preflight — Same checks as `npm run preflight`, from the admin view
+  app.get("/api/admin/preflight", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+
+    const checks = await runPreflight(minio);
+    return reply.send({ status: overallStatus(checks), checks });
   });
 
   // GET /api/admin/verify — Check if admin token is still valid

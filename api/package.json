@@ -6,7 +6,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "preflight": "tsx src/preflight-cli.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1004.0",
@@ -25,5 +26,5 @@
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
   },
-  "description": "Courtside backend — live streaming, recording and highlights for a sports club"
+  "description": "Courtside backend \u2014 live streaming, recording and highlights for a sports club"
 }

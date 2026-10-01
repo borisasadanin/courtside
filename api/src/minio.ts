@@ -76,6 +76,16 @@ export class MinioClient {
     }
   }
 
+  /** Read-only existence check. Preflight uses it, because a check must not change what it measures. */
+  async bucketExists(): Promise<boolean> {
+    try {
+      await this.s3.send(new HeadBucketCommand({ Bucket: BUCKET }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Short-lived presigned GET URL for one object.
    *
@@ -322,6 +332,16 @@ export class MinioClient {
     } catch {
       return null;
     }
+  }
+
+  /** Delete one object. Used by preflight to clean up its probe. */
+  async deleteObject(key: string): Promise<void> {
+    await this.s3.send(
+      new DeleteObjectsCommand({
+        Bucket: BUCKET,
+        Delete: { Objects: [{ Key: key }], Quiet: true },
+      })
+    );
   }
 
   /** Delete all objects under a prefix (streamId/) */
