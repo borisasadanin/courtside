@@ -25,6 +25,9 @@ import clubRoutes from "./routes/club-routes.js";
 import mediaRoutes from "./routes/media.js";
 import deviceRoutes from "./routes/device-routes.js";
 import dvrRoutes from "./routes/dvr.js";
+import webRoutes, { webDistDir } from "./routes/web.js";
+import setupRoutes from "./routes/setup-routes.js";
+import { Setup } from "./setup.js";
 
 // --- Validate required env vars (exits on failure) ---
 validateConfig();
@@ -53,6 +56,8 @@ const oscManager = new OscInstanceManager({
 
 // --- Expose services to route modules ---
 initServices(restreamer, minio, oscManager);
+
+const setup = new Setup(minio, config.SETUP_CODE);
 
 // --- Fastify setup ---
 
@@ -89,6 +94,15 @@ await app.register(clubRoutes);
 await app.register(mediaRoutes);
 await app.register(deviceRoutes);
 await app.register(dvrRoutes);
+await app.register(setupRoutes, { setup });
+
+const webRoot = webDistDir();
+if (webRoot) {
+  await app.register(webRoutes, { root: webRoot });
+  console.log(`Serving the website from ${webRoot}`);
+} else {
+  console.log("No built website found — serving the API only");
+}
 
 // --- Health check ---
 app.get("/health", async () => {
@@ -120,6 +134,17 @@ try {
   console.log("MinIO recordings bucket ready");
 } catch (err) {
   console.error("Failed to initialize MinIO bucket (VOD will be unavailable):", err);
+}
+
+// Restore the PINs chosen at first-run setup, or open setup.  Before listening,
+// so no request is ever answered with the wrong PINs.
+try {
+  await setup.load();
+  if (setup.isRequired()) console.log("Waiting for first-run setup — open the website with the setup code");
+} catch (err) {
+  // Storage unreachable: keep setup closed rather than guess.  Admin stays
+  // locked (no PIN) until storage is back and the process restarts.
+  console.error("Could not read setup state:", err);
 }
 
 // Start background health polling for Restreamer

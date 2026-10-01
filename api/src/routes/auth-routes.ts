@@ -28,7 +28,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     const { pin } = request.body || {};
 
     // Check admin PIN first
-    if (pin && pin === config.ADMIN_PIN) {
+    if (pin && pin === mutableConfig.ADMIN_PIN) {
       const viewerTok = createViewerToken();
       const adminTok = createAdminToken();
       return reply.send({ token: viewerTok, role: "admin", adminToken: adminTok });
@@ -48,7 +48,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
   }, async (request, reply) => {
     const { pin } = request.body || {};
-    if (!pin || pin !== config.ADMIN_PIN) {
+    if (!pin || pin !== mutableConfig.ADMIN_PIN) {
       return reply.code(401).send({ error: "Fel admin-kod" });
     }
 

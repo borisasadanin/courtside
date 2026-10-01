@@ -260,6 +260,61 @@ main {
   cursor: default;
 }
 
+.setup-container {
+  max-width: 380px;
+  text-align: left;
+}
+
+.setup-container .pin-logo,
+.setup-container .pin-title,
+.setup-container .pin-desc {
+  display: block;
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.setup-field {
+  display: block;
+  margin-bottom: 20px;
+}
+
+.setup-field span {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+.setup-field input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  background: var(--surface);
+  border: 2px solid #333;
+  border-radius: var(--radius);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.setup-field input:focus {
+  border-color: var(--accent);
+}
+
+.setup-field small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+
+.setup-container .pin-btn {
+  max-width: none;
+  margin-top: 8px;
+}
+
 .pin-error {
   color: var(--red);
   font-size: 0.85rem;

@@ -31,6 +31,15 @@ export function isSafeKey(key: string): boolean {
   return /^[A-Za-z0-9._\-/]+$/.test(key);
 }
 
+/**
+ * What /api/media/* will sign: video, audio and images.  The bucket also holds
+ * the installation's own state (indexes, the camera registry, the PINs chosen
+ * at setup), and a viewer PIN must never be a way to read any of it.
+ */
+export function isMediaKey(key: string): boolean {
+  return /\.(ts|m4s|mp4|aac|jpe?g|png|vtt)$/i.test(key);
+}
+
 /** Segment URIs referenced by an HLS manifest, as storage keys. */
 export function keysReferencedBy(manifest: string, prefix: string): Set<string> {
   const keys = new Set<string>();
@@ -50,7 +59,7 @@ export default async function mediaRoutes(app: FastifyInstance): Promise<void> {
     if (!requireViewerAuth(request, reply)) return;
 
     const key = request.params["*"];
-    if (!isSafeKey(key)) {
+    if (!isSafeKey(key) || !isMediaKey(key)) {
       return reply.code(400).send({ error: "invalid_key" });
     }
 

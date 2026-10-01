@@ -1,8 +1,8 @@
 #############################################
 # Courtside — one club's whole installation
 #
-# Creates the storage, the configuration store, the backend and the website for
-# a single club. Run it against your own OSC tenant and you have a working
+# Creates the storage, the configuration store and the app for a single club.
+# The app is the backend and the website together, on one address. Run it against your own OSC tenant and you have a working
 # system; nothing here is specific to whoever wrote it.
 #
 # Restreamer is deliberately NOT created here. The backend starts it when
@@ -42,14 +42,12 @@ resource "random_password" "api_key" {
   special = false
 }
 
-resource "random_integer" "admin_pin" {
-  min = 100000
-  max = 999999
-}
-
-resource "random_integer" "viewer_pin" {
-  min = 100000
-  max = 999999
+# One-time code for first-run setup, where the club chooses its own PINs.
+# Letters and digits only, read aloud easily: no lower case, no specials.
+resource "random_string" "setup_code" {
+  length  = 8
+  lower   = false
+  special = false
 }
 
 resource "random_password" "storage_password" {
@@ -58,19 +56,21 @@ resource "random_password" "storage_password" {
 }
 
 locals {
-  api_key    = coalesce(var.api_key, random_password.api_key.result)
-  admin_pin  = coalesce(var.admin_pin, tostring(random_integer.admin_pin.result))
-  viewer_pin = coalesce(var.viewer_pin, tostring(random_integer.viewer_pin.result))
+  api_key = coalesce(var.api_key, random_password.api_key.result)
+  # PINs given here (migrating an existing installation) skip setup.  Otherwise
+  # the club chooses them at first visit, with the setup code.
+  preset_pins = nonsensitive(var.admin_pin != null)
+  setup_code  = "${substr(random_string.setup_code.result, 0, 4)}-${substr(random_string.setup_code.result, 4, 4)}"
 
   storage_name = "${var.club_name}storage"
   store_name   = "${var.club_name}config"
   app_name     = "${var.club_name}api"
-  page_name    = "${var.club_name}-live"
   # Read the endpoint from the instance rather than constructing it. OSC places
   # instances in a region that is not always the environment name — building the
   # hostname by hand pointed the backend at a host that did not exist.
   storage_endpoint = osc_instance.storage.instance["url"]
-  site_url         = coalesce(var.custom_domain, "https://${local.page_name}.pages.osaas.io")
+  site_hostname    = coalesce(var.site_hostname, "${var.club_name}.apps.osaas.io")
+  site_url         = "https://${local.site_hostname}"
 }
 
 data "osc_workspace" "this" {}
@@ -111,16 +111,25 @@ resource "osc_parameter" "api_key" {
   secret_value    = local.api_key
 }
 
+resource "osc_parameter" "setup_code" {
+  count           = local.preset_pins ? 0 : 1
+  parameter_store = osc_parameter_store.config.name
+  key             = "SETUP_CODE"
+  secret_value    = local.setup_code
+}
+
 resource "osc_parameter" "admin_pin" {
+  count           = local.preset_pins ? 1 : 0
   parameter_store = osc_parameter_store.config.name
   key             = "ADMIN_PIN"
-  secret_value    = local.admin_pin
+  secret_value    = var.admin_pin
 }
 
 resource "osc_parameter" "viewer_pin" {
+  count           = local.preset_pins && nonsensitive(var.viewer_pin != null) ? 1 : 0
   parameter_store = osc_parameter_store.config.name
   key             = "VIEWER_PIN"
-  secret_value    = local.viewer_pin
+  secret_value    = var.viewer_pin
 }
 
 resource "osc_parameter" "osc_token" {
@@ -180,6 +189,7 @@ resource "osc_my_app" "api" {
     osc_instance.storage,
     osc_parameter.plain,
     osc_parameter.api_key,
+    osc_parameter.setup_code,
     osc_parameter.admin_pin,
     osc_parameter.viewer_pin,
     osc_parameter.osc_token,
@@ -188,13 +198,15 @@ resource "osc_my_app" "api" {
 }
 
 #############################################
-# Website
+# Address
 #
-# Terraform creates the site; the files are published separately (osc web
-# publish, or the My Page API). A new site serves nothing until that happens.
+# The app also has a generated <hash>.apps.osaas.io name; this is the one the
+# club hands out.  A name under apps.osaas.io needs no DNS.  Your own domain
+# needs a CNAME to the app's managed_domain first.
 #############################################
 
-resource "osc_my_page" "site" {
-  name          = local.page_name
-  custom_domain = var.custom_domain
+resource "osc_domain" "site" {
+  domain        = local.site_hostname
+  service_id    = osc_my_app.api.domain_service_id
+  instance_name = osc_my_app.api.id
 }

@@ -371,6 +371,24 @@ export class MinioClient {
     }
   }
 
+  /**
+   * Read a text file, telling "not there" (null) apart from "could not ask"
+   * (throws).  readFile() treats both as null, which is fine for indexes but
+   * not for state where a storage hiccup must not look like a fresh start.
+   */
+  async readFileIfExists(key: string): Promise<string | null> {
+    try {
+      const res = await this.s3.send(
+        new GetObjectCommand({ Bucket: BUCKET, Key: key })
+      );
+      return (await res.Body?.transformToString()) ?? null;
+    } catch (err) {
+      const name = (err as { name?: string }).name;
+      if (name === "NoSuchKey" || name === "NotFound") return null;
+      throw err;
+    }
+  }
+
   /** Delete one object. Used by preflight to clean up its probe. */
   async deleteObject(key: string): Promise<void> {
     await this.s3.send(

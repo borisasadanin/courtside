@@ -4,6 +4,7 @@ import { CONFIG } from "./config.js";
 import { state, dom } from "./state.js";
 import { stopListPolling } from "./streams.js";
 import { stopVodPolling } from "./vod.js";
+import { isSetupRequired, showSetup } from "./setup.js";
 
 // Callbacks injected by the orchestrator via initAuth()
 let onAuthSuccess = null; // called after successful PIN or when no PIN required
@@ -105,6 +106,14 @@ export function logoutViewer() {
 
 /** Check auth status on startup and either show PIN or proceed */
 export async function checkAuthAndStart() {
+  if (await isSetupRequired()) {
+    showSetup(() => {
+      if (onActivateAdmin) onActivateAdmin();
+      if (onAuthSuccess) onAuthSuccess();
+    });
+    return;
+  }
+
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/auth/status`);
     const data = await res.json();

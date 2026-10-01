@@ -30,8 +30,16 @@ const PORT = parseInt(process.env.PORT || "8000", 10);
 
 /** Shared secret for the camera app. Generated at install time. */
 const API_KEY = required("API_KEY");
-/** Admin PIN for the website's admin view. */
-const ADMIN_PIN = required("ADMIN_PIN");
+/**
+ * One-time code that opens first-run setup, where the club chooses its own
+ * PINs.  Generated at install time.  See setup.ts.
+ */
+const SETUP_CODE = process.env.SETUP_CODE || "";
+/**
+ * Admin PIN for the website's admin view.  Not required when SETUP_CODE is
+ * set: the club chooses it during setup instead.
+ */
+const ADMIN_PIN = SETUP_CODE ? process.env.ADMIN_PIN || "" : required("ADMIN_PIN");
 /** Viewer PIN. Empty means open access (allowed, but warned about). */
 const VIEWER_PIN = process.env.VIEWER_PIN || "";
 
@@ -122,6 +130,7 @@ export function validateConfig(): void {
 export const config = {
   PORT,
   API_KEY,
+  SETUP_CODE,
   ADMIN_PIN,
   VIEWER_PIN,
   OSC_PAT,
@@ -145,9 +154,10 @@ export const config = {
 } as const;
 
 /**
- * Mutable reference for VIEWER_PIN — needed because PUT /api/auth/pin can
- * change it at runtime.
+ * The PINs in force.  Mutable because PUT /api/auth/pin and first-run setup
+ * change them at runtime; setup also restores them from storage at startup.
  */
 export const mutableConfig = {
+  ADMIN_PIN,
   VIEWER_PIN,
 };

@@ -43,15 +43,15 @@ variable "club_accent_color" {
   description = "Accent colour applied by the website at runtime."
 }
 
-variable "custom_domain" {
+variable "site_hostname" {
   type        = string
   default     = null
-  description = "Your own domain for the site. Leave null to use <club_name>-live.pages.osaas.io."
+  description = "The club's address, without https://. Defaults to <club_name>.apps.osaas.io. Your own domain needs a CNAME to the app first."
 }
 
 variable "api_git_url" {
   type        = string
-  description = "HTTPS URL of the backend repository."
+  description = "HTTPS URL of the Courtside repository. It is built from its root: backend and website together."
 }
 
 variable "api_git_token" {
@@ -67,8 +67,9 @@ variable "api_git_ref" {
   description = "Branch or tag to deploy. Defaults to the repository's default branch."
 }
 
-# Leave these empty and they are generated. Set them only when migrating an
-# installation that already has credentials in use.
+# Leave api_key empty and it is generated.  Leave the PINs empty and the club
+# chooses them at first visit, with the setup code.  Set them only when
+# migrating an installation whose PINs are already in use.
 variable "api_key" {
   type      = string
   default   = null

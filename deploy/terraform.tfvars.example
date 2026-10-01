@@ -16,16 +16,18 @@ club_short_name   = "My Club IF"
 club_venue        = "Myclubhallen"
 club_accent_color = "#C8A43F"
 
-# Your own domain, or leave unset for <club_name>-live.pages.osaas.io
-# custom_domain = "live.myclub.se"
+# The club's address. Leave unset for <club_name>.apps.osaas.io, or use your
+# own domain once it has a CNAME to the app.
+# site_hostname = "live.myclub.se"
 
-# The backend repository. Its root must be the API.
-api_git_url = "https://github.com/myclub/courtside-api.git"
+# The Courtside repository, built from its root (backend + website).
+api_git_url = "https://github.com/myclub/courtside.git"
 api_git_ref = "main"
 # Only for a private repository:
 # api_git_token = ""
 
-# Leave these unset — they are generated.
+# Leave these unset. api_key is generated; the PINs are chosen by the club at
+# first visit, with the code from `tofu output -raw setup_code`.
 # api_key    = ""
 # admin_pin  = ""
 # viewer_pin = ""

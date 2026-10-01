@@ -32,8 +32,8 @@ now:
 
 - An [Open Source Cloud](https://app.osaas.io) account (this is where Restreamer
   and the object storage run)
-- Somewhere to run the backend — a Node 22 host, or OSC
-- Somewhere to serve static files for the website
+- Somewhere to run the backend, which also serves the website — OSC, or any
+  Node 22 host (`npm run build && npm start` from the repository root)
 - For the camera app: nothing, once it is on the App Store — a phone pairs with
   your installation by scanning a code. Until then, a Mac with Xcode and an
   Apple Developer account to build it yourself.
@@ -87,8 +87,10 @@ The build contains no club identity. On load the page fetches `/api/club` and
 applies the club's name, accent colour and logo. That is why one prebuilt
 bundle can serve any club — and why changing your colours needs no rebuild.
 
-After deploying, edit `dist/runtime-config.js` to point at your backend. It is
-served as-is and never bundled, so that edit survives without a rebuild.
+In production the backend serves `web/dist` from its own origin, so the website
+needs no backend URL. Only if you host the website somewhere else: set
+`apiUrl` in `dist/runtime-config.js`. It is never bundled, so the edit needs no
+rebuild.
 
 ### `camera/` — iOS camera app
 

@@ -1,7 +1,8 @@
 # Deploy
 
 Raises one club's whole installation on Eyevinn Open Source Cloud: object
-storage, the configuration store, the backend and the website.
+storage, the configuration store, and one app that is both the backend and the
+website — on one address, `<club_name>.apps.osaas.io` unless you choose another.
 
 Works with OpenTofu or Terraform (>= 1.6).
 
@@ -11,8 +12,8 @@ Works with OpenTofu or Terraform (>= 1.6).
 |---|---|
 | `osc_instance.storage` | MinIO — recordings, clips, indexes |
 | `osc_parameter_store` + `osc_parameter` | Configuration, including generated secrets |
-| `osc_my_app.api` | The backend, built from your repository |
-| `osc_my_page.site` | The website |
+| `osc_my_app.api` | Backend and website, built from the repository root |
+| `osc_domain.site` | The club's address |
 
 **Restreamer is not created here.** The backend starts it when someone begins
 broadcasting and shuts it down an hour after the last stream. It costs roughly
@@ -28,29 +29,25 @@ tofu plan
 tofu apply
 ```
 
-Leave `api_key`, `admin_pin` and `viewer_pin` unset and they are generated, so
-no installation starts life with a credential someone else has seen. Read them
-back with:
+Leave `api_key` unset and it is generated, so no installation starts life
+with a credential someone else has seen. Leave `admin_pin` and `viewer_pin`
+unset too: the club chooses them at its first visit, using a one-time setup
+code:
 
 ```bash
-tofu output -raw admin_pin
-tofu output -raw viewer_pin
+tofu output -raw setup_code
 ```
+
+Until setup is done there is no admin PIN at all, so a fresh installation is
+never open. Forgot the admin PIN? Set a new `SETUP_CODE` in the parameter store
+and restart the app — setup opens again, and the old PINs stop working.
 
 ## After apply
 
-Terraform creates the site but does not publish its files — that is a separate
-step, deliberately, so a rebuild of the website is not a Terraform run:
-
-```bash
-cd ../web
-# point the site at the backend printed by `tofu output api_url`
-$EDITOR runtime-config.js
-npm run build
-osc web publish <club_name>-live dist --sync
-```
-
-Then check the installation and pair a camera:
+The website is built together with the backend and served from the same
+address, so there is nothing to publish and no backend URL to configure.
+Open the address, enter the setup code, choose the PINs, and you land in the
+admin view ready to pair a camera. To check the installation from a terminal:
 
 ```bash
 cd ../api && npm run preflight
@@ -65,13 +62,13 @@ tofu destroy
 ```
 
 This deletes the storage instance **and every recording in it**, the
-configuration store, the backend and the website. There is no undo.
+configuration store, the app and its address. There is no undo.
 
 ## Notes
 
-- The backend repository must have the API at its root. A monorepo would need
-  `sub_path`, and the platform does not inject the parameter store into an app
-  that uses one — the app would have to fetch its own configuration from
-  `APP_CONFIG_URL` instead.
+- The app is built from the repository root: the root `package.json` builds
+  `web/` and `api/` and starts the API, which serves the website. Do not use
+  `sub_path` — the platform does not inject the parameter store into an app
+  that has one.
 - Endpoints are read from the resources, not constructed from names. OSC places
   instances in a region that is not always the environment name.

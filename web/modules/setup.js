@@ -1,0 +1,87 @@
+// === First-run setup ===
+//
+// A fresh installation has no admin PIN.  Whoever holds the one-time setup
+// code chooses the club's PINs here, and comes out of it logged in as admin —
+// ready to pair the first camera.
+
+import { CONFIG } from "./config.js";
+import { state } from "./state.js";
+
+/** Whether the backend is waiting for setup.  False if it cannot be asked. */
+export async function isSetupRequired() {
+  try {
+    const res = await fetch(`${CONFIG.API_URL}/api/setup`);
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!data.required;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Show the setup form in place of everything else.
+ * @param {Function} onDone - called once logged in as admin
+ */
+export function showSetup(onDone) {
+  const view = document.getElementById("setupView");
+  const form = document.getElementById("setupForm");
+  const code = document.getElementById("setupCode");
+  const adminPin = document.getElementById("setupAdminPin");
+  const viewerPin = document.getElementById("setupViewerPin");
+  const submit = document.getElementById("setupSubmit");
+  const error = document.getElementById("setupError");
+
+  for (const id of ["pinView", "streamListView", "vodListView", "adminView", "playerView", "tabNav"]) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add("hidden");
+  }
+  view.classList.remove("hidden");
+  code.focus();
+
+  function fail(message) {
+    error.textContent = message;
+    error.classList.remove("hidden", "shake");
+    void error.offsetWidth;
+    error.classList.add("shake");
+    submit.disabled = false;
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    error.classList.add("hidden");
+
+    const body = {
+      code: code.value.trim(),
+      adminPin: adminPin.value.trim(),
+      viewerPin: viewerPin.value.trim(),
+    };
+    if (!body.code) return fail("Fyll i uppsättningskoden.");
+    if (!/^\d{6,8}$/.test(body.adminPin)) return fail("Admin-koden ska vara 6–8 siffror.");
+    if (body.viewerPin && !/^\d{4,8}$/.test(body.viewerPin)) return fail("Tittarkoden ska vara 4–8 siffror.");
+    if (body.viewerPin && body.viewerPin === body.adminPin) return fail("Tittarkoden och admin-koden måste vara olika.");
+
+    submit.disabled = true;
+    try {
+      const res = await fetch(`${CONFIG.API_URL}/api/setup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return fail(data.error || "Det gick inte att spara — försök igen.");
+
+      state.viewerToken = data.token;
+      state.adminToken = data.adminToken;
+      try {
+        localStorage.setItem("viewerToken", data.token);
+        localStorage.setItem("adminToken", data.adminToken);
+      } catch {}
+
+      view.classList.add("hidden");
+      onDone();
+    } catch {
+      fail("Kunde inte ansluta — försök igen.");
+    }
+  });
+}

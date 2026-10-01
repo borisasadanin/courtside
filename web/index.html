@@ -49,11 +49,41 @@
         <h2 class="pin-title">Privat sändning</h2>
         <p class="pin-desc">Ange koden för att se matcher</p>
         <div class="pin-input-group">
-          <input type="tel" id="pinInput" maxlength="6" placeholder="000000" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+          <input type="tel" id="pinInput" maxlength="8" placeholder="000000" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
         </div>
         <button id="pinSubmit" class="pin-btn">Öppna</button>
         <p class="pin-error hidden" id="pinError">Fel kod — försök igen</p>
       </div>
+    </section>
+
+    <!-- First-run setup: the club chooses its own PINs -->
+    <section id="setupView" class="hidden">
+      <form class="pin-container setup-container" id="setupForm" novalidate>
+        <img src="icon.png" alt="" data-club-logo class="pin-logo">
+        <h2 class="pin-title">Välkommen</h2>
+        <p class="pin-desc">Installationen är klar. Välj klubbens koder för att komma igång.</p>
+
+        <label class="setup-field">
+          <span>Uppsättningskod</span>
+          <input type="text" id="setupCode" placeholder="XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+          <small>Visades när installationen skapades.</small>
+        </label>
+
+        <label class="setup-field">
+          <span>Admin-kod</span>
+          <input type="tel" id="setupAdminPin" inputmode="numeric" pattern="[0-9]*" minlength="6" maxlength="8" placeholder="6–8 siffror" autocomplete="new-password" required>
+          <small>För dig som sköter sändningarna. Ger tillgång till adminvyn.</small>
+        </label>
+
+        <label class="setup-field">
+          <span>Tittarkod</span>
+          <input type="tel" id="setupViewerPin" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="8" placeholder="4–8 siffror" autocomplete="off">
+          <small>Delas med föräldrar och supportrar. Lämna tom så kan alla med länken titta.</small>
+        </label>
+
+        <button type="submit" id="setupSubmit" class="pin-btn">Spara och fortsätt</button>
+        <p class="pin-error hidden" id="setupError" role="alert"></p>
+      </form>
     </section>
 
     <!-- Stream list view -->

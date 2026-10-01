@@ -7,7 +7,7 @@
  * dependency is the thing being measured rather than a reason to stop.
  */
 import { Context } from "@osaas/client-core";
-import { config } from "./config.js";
+import { config, mutableConfig } from "./config.js";
 import { clubManifest } from "./club-config.js";
 import type { MinioClient } from "./minio.js";
 
@@ -151,7 +151,7 @@ function checkConfiguration(): CheckResult[] {
   const results: CheckResult[] = [];
 
   results.push(
-    config.VIEWER_PIN
+    mutableConfig.VIEWER_PIN
       ? {
           id: "access.viewerPin",
           title: "Tittarskydd är påslaget",
