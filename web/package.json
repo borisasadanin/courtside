@@ -14,7 +14,8 @@
     "vite": "^8.0.3"
   },
   "dependencies": {
-    "hls.js": "^1.5.17"
+    "hls.js": "^1.5.17",
+    "qrcode": "^1.5.4"
   },
-  "description": "Courtside website \u2014 live, replays and highlights, themed at runtime per club"
+  "description": "Courtside website — live, replays and highlights, themed at runtime per club"
 }

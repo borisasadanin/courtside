@@ -117,7 +117,7 @@ Först, för att allt annat bygger på roterade nycklar.
       bort med inbakade defaults, faila hårt vid avsaknad. Ger rullande deploy som bieffekt.
 - [x] **ABL-009** Frontend: en bundle för alla. Klubbidentitet och tema från `/api/club`,
       färger som CSS-variabler. *Mekaniken för steg 2.*
-- [ ] **ABL-010** Kameraapp utan inbakad backend: QR-parning och per-enhetstokens som ersätter den
+- [x] **ABL-010** Kameraapp utan inbakad backend: QR-parning och per-enhetstokens som ersätter den
       delade API-nyckeln.
 - [ ] **ABL-011** Checkpointa `streamMeta` och segmenttidslinjen till klubbens egen objektlagring.
       **Ingen ny backing-tjänst** — varje extra tjänst i solutionen är en kostnad och ett felläge till.

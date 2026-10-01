@@ -25,7 +25,7 @@ now:
 |---|---|
 | Backend | Configurable per installation, no built-in credentials |
 | Website | One prebuilt bundle, themed at runtime per club |
-| Camera app | De-branded and configuration-driven, built per installation (builds clean on Xcode 26 / Swift 6.3) |
+| Camera app | Pairs with a club at runtime — no backend compiled in, so one build serves any club |
 | One-command install | Not yet — see `docs/roadmap.md` |
 
 ## What you need
@@ -34,7 +34,9 @@ now:
   and the object storage run)
 - Somewhere to run the backend — a Node 22 host, or OSC
 - Somewhere to serve static files for the website
-- For the camera app: a Mac with Xcode, and an Apple Developer account
+- For the camera app: nothing, once it is on the App Store — a phone pairs with
+  your installation by scanning a code. Until then, a Mac with Xcode and an
+  Apple Developer account to build it yourself.
 
 ## Components
 
@@ -81,9 +83,13 @@ and a button to save a highlight.
 
 ```bash
 cd camera
-cp Config.xcconfig.example Config.xcconfig   # fill in backend URL and API key
+cp Config.xcconfig.example Config.xcconfig   # bundle id only — no backend, no key
 xcodegen                                      # generates the Xcode project
 ```
+
+The app has no club compiled into it. On first run it asks to be paired: open
+your admin view, choose **Lägg till kamera**, and scan the code. The phone gets
+its own token, which you can revoke on its own from the same screen.
 
 `xcodegen` clears `DEVELOPMENT_TEAM` — set your team in Xcode under
 Signing & Capabilities after generating.

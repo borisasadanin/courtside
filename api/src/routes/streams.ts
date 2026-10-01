@@ -4,7 +4,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
-import { requireApiKey, requireViewerAuth } from "../auth.js";
+import { requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
 import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream } from "../state.js";
 import { SegmentCollector } from "../segment-collector.js";
 import { getViewerCount, registerViewer, viewers } from "../viewer-tracking.js";
@@ -23,7 +23,7 @@ function dvrUrl(id: string): string {
 export default async function streamRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/streams — Create a new stream (or resume existing one for same device)
   app.post<{ Body: CreateStreamBody }>("/api/streams", async (request, reply) => {
-    if (!requireApiKey(request, reply)) return;
+    if (!(await requireBroadcasterAuth(request, reply))) return;
 
     const { name, deviceId, opponent, team } = request.body || {};
     if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -149,7 +149,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
 
   // PATCH /api/streams/:id/pause — Pause a live stream
   app.patch<{ Params: { id: string } }>("/api/streams/:id/pause", async (request, reply) => {
-    if (!requireApiKey(request, reply)) return;
+    if (!(await requireBroadcasterAuth(request, reply))) return;
 
     const { id } = request.params;
     const meta = streamMeta.get(id);
@@ -198,7 +198,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
 
   // PATCH /api/streams/:id/resume — Resume a paused stream
   app.patch<{ Params: { id: string } }>("/api/streams/:id/resume", async (request, reply) => {
-    if (!requireApiKey(request, reply)) return;
+    if (!(await requireBroadcasterAuth(request, reply))) return;
 
     const { id } = request.params;
     const meta = streamMeta.get(id);
@@ -551,7 +551,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
   app.delete<{ Params: { id: string } }>(
     "/api/streams/:id",
     async (request, reply) => {
-      if (!requireApiKey(request, reply)) return;
+      if (!(await requireBroadcasterAuth(request, reply))) return;
 
       const { id } = request.params;
 

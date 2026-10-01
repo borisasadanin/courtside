@@ -2,7 +2,7 @@
  * Highlight clip routes: create and list clips from live streams.
  */
 import type { FastifyInstance } from "fastify";
-import { requireApiKey, requireViewerAuth } from "../auth.js";
+import { requireApiKey, requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
 import { streamMeta, collectors, clipsByStream, minio } from "../state.js";
 import { createClip } from "../clip-service.js";
 import { convertSegmentsToMp4, extractThumbnail } from "../mp4-converter.js";
@@ -19,7 +19,7 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { id: string }; Body: { timestamp?: string; label?: string } }>(
     "/api/streams/:id/clip",
     async (request, reply) => {
-      if (!requireApiKey(request, reply)) return;
+      if (!(await requireBroadcasterAuth(request, reply))) return;
 
       const { id } = request.params;
 

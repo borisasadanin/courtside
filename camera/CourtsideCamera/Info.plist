@@ -2,10 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>API_KEY</key>
-	<string>$(COURTSIDE_API_KEY)</string>
-	<key>BASE_URL</key>
-	<string>$(COURTSIDE_BASE_URL)</string>
 	<key>SITE_URL</key>
 	<string>$(COURTSIDE_SITE_URL)</string>
 </dict>

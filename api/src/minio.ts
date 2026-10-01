@@ -10,11 +10,13 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { VodEntry, HighlightClip } from "./types.js";
+import type { Device } from "./devices.js";
 import { config } from "./config.js";
 
 const BUCKET = config.MINIO_RECORDINGS_BUCKET;
 const VOD_INDEX_KEY = "vod-index.json";
 const CLIPS_INDEX_KEY = "clips-index.json";
+const DEVICE_INDEX_KEY = "devices.json";
 
 export class MinioClient {
   private s3: S3Client;
@@ -194,6 +196,37 @@ export class MinioClient {
       const entries = await this.readClipsIndex();
       entries.push(entry);
       await this.writeClipsIndex(entries);
+    });
+  }
+
+  // ============================
+  // Device registry
+  // ============================
+
+  /** Read the paired-camera registry. Returns [] when nothing is paired yet. */
+  async readDeviceIndex(): Promise<Device[]> {
+    try {
+      const res = await this.s3.send(
+        new GetObjectCommand({ Bucket: BUCKET, Key: DEVICE_INDEX_KEY })
+      );
+      const body = await res.Body?.transformToString();
+      return body ? JSON.parse(body) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Persist the paired-camera registry (mutex-protected, like the other indexes). */
+  async writeDeviceIndex(devices: Device[]): Promise<void> {
+    return this.withLock(async () => {
+      await this.s3.send(
+        new PutObjectCommand({
+          Bucket: BUCKET,
+          Key: DEVICE_INDEX_KEY,
+          Body: JSON.stringify(devices, null, 2),
+          ContentType: "application/json",
+        })
+      );
     });
   }
 

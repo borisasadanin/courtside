@@ -25,18 +25,15 @@ enum APIError: LocalizedError {
 final class APIService {
     static let shared = APIService()
 
-    private let baseURL: String = {
-        guard let url = Bundle.main.infoDictionary?["BASE_URL"] as? String, !url.isEmpty else {
-            fatalError("BASE_URL not set — check Config.xcconfig")
-        }
-        return url
-    }()
-    private let apiKey: String = {
-        guard let key = Bundle.main.infoDictionary?["API_KEY"] as? String, !key.isEmpty else {
-            fatalError("API_KEY not set — check Config.xcconfig")
-        }
-        return key
-    }()
+    /// The club this camera is paired with.
+    ///
+    /// Read on every request rather than captured once: a camera can be
+    /// unpaired and paired with a different club without restarting the app,
+    /// and nothing about any club is compiled in.
+    private var baseURL: String { PairingStore.shared.credentials?.apiUrl ?? "" }
+
+    private var deviceToken: String { PairingStore.shared.credentials?.token ?? "" }
+
     /// Public website for this installation. Optional — used only for the
     /// health indicator, so an unset value simply disables that check.
     private let websiteURL: String = {
@@ -60,7 +57,7 @@ final class APIService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         var body: [String: String] = ["name": name, "deviceId": deviceId]
         if !opponent.isEmpty { body["opponent"] = opponent }
         if !team.isEmpty { body["team"] = team }
@@ -92,7 +89,7 @@ final class APIService {
         let url = URL(string: "\(baseURL)/api/streams/\(id)")!
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -118,7 +115,7 @@ final class APIService {
         let url = URL(string: "\(baseURL)/api/streams/\(id)/pause")!
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -148,7 +145,7 @@ final class APIService {
         let url = URL(string: "\(baseURL)/api/streams/\(id)/resume")!
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -174,7 +171,7 @@ final class APIService {
     func getStream(id: String) async throws -> StreamStatus {
         let url = URL(string: "\(baseURL)/api/streams/\(id)")!
         var request = URLRequest(url: url)
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let http = response as? HTTPURLResponse else {
@@ -216,7 +213,7 @@ final class APIService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         var body: [String: String] = ["timestamp": timestamp]
         if let label { body["label"] = label }
         request.httpBody = try JSONEncoder().encode(body)
@@ -252,7 +249,7 @@ final class APIService {
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         var body: [String: String] = ["status": status]
         if let message { body["message"] = message }
         request.httpBody = try JSONEncoder().encode(body)
@@ -292,7 +289,7 @@ final class APIService {
     func checkRestreamerStatus() async -> String? {
         guard let url = URL(string: "\(baseURL)/api/restreamer/status") else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 5)
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         guard let (data, response) = try? await URLSession.shared.data(for: request) else { return nil }
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
         guard let status = try? JSONDecoder().decode(RestreamerStatus.self, from: data) else { return nil }
@@ -310,7 +307,7 @@ final class APIService {
         guard let url = URL(string: "\(baseURL)/api/restreamer/start") else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 10)
         request.httpMethod = "POST"
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
         return try? JSONDecoder().decode(RestreamerStartResponse.self, from: data)
@@ -320,7 +317,7 @@ final class APIService {
         guard let url = URL(string: "\(baseURL)/api/restreamer/stop") else { return false }
         var request = URLRequest(url: url, timeoutInterval: 10)
         request.httpMethod = "DELETE"
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         guard let (_, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse else { return false }
         return (200...299).contains(http.statusCode)

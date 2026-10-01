@@ -5,6 +5,7 @@ import { CONFIG } from "./config.js";
 import { state, dom } from "./state.js";
 import { escapeHtml, formatDuration, formatDate, formatBytes } from "./utils.js";
 import { logoutViewer } from "./auth.js";
+import { loadDevices, startPairing } from "./devices.js";
 
 // Callback injected by the orchestrator
 let onSwitchTab = null;
@@ -46,6 +47,9 @@ export function deactivateAdmin() {
 export async function loadAdminStorage() {
   dom.adminStorageSummary.innerHTML = '<div class="spinner"></div>';
   dom.adminVodList.innerHTML = "";
+
+  // Cameras load alongside storage — both belong to the admin view.
+  loadDevices();
 
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/admin/storage`, {
@@ -219,4 +223,7 @@ function bindAdminEvents() {
 export function initAdmin(callbacks) {
   onSwitchTab = callbacks.onSwitchTab;
   bindAdminEvents();
+
+  const pairBtn = document.getElementById("adminPairBtn");
+  if (pairBtn) pairBtn.addEventListener("click", () => startPairing());
 }

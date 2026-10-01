@@ -1766,3 +1766,150 @@ footer {
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
 }
+
+
+/* ── Paired cameras (admin) ─────────────────────────────────────────────── */
+
+.admin-section {
+  margin: 24px 0;
+}
+
+.admin-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-section-title {
+  font-size: 1rem;
+  margin: 0;
+  color: var(--text);
+}
+
+.admin-pair-btn {
+  background: var(--accent);
+  color: #0a0a0a;
+  border: none;
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.admin-pair-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.admin-pair-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.pair-instructions {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* White plate behind the QR so it scans against the dark theme. */
+.pair-qr {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 12px;
+  width: 200px;
+  margin: 0 auto 16px;
+}
+
+.pair-qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pair-code-label {
+  margin: 0 0 4px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.pair-code {
+  margin: 0 0 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+
+.pair-url {
+  margin: 0 0 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.pair-expiry {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.device-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 8px;
+}
+
+.device-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.device-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.device-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.device-revoke {
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  color: var(--text-muted);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.device-revoke[data-confirm="1"] {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+@media (max-width: 480px) {
+  .admin-section-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

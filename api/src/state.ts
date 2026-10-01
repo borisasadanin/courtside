@@ -4,6 +4,7 @@
 import { RestreamerClient } from "./restreamer.js";
 import { OscInstanceManager } from "./osc-manager.js";
 import { MinioClient } from "./minio.js";
+import { DeviceRegistry } from "./devices.js";
 import type { SegmentCollector } from "./segment-collector.js";
 import type { HighlightClip } from "./types.js";
 
@@ -37,9 +38,12 @@ export const clipsByStream = new Map<string, HighlightClip[]>();
 export let restreamer: RestreamerClient;
 export let minio: MinioClient;
 export let oscManager: OscInstanceManager;
+/** Registry of paired cameras — see devices.ts. */
+export let devices: DeviceRegistry;
 
 export function initServices(r: RestreamerClient, m: MinioClient, o: OscInstanceManager): void {
   restreamer = r;
   minio = m;
   oscManager = o;
+  devices = new DeviceRegistry(m);
 }

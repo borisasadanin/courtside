@@ -2,6 +2,7 @@
  * Token stores, token creation/validation, and auth middleware.
  */
 import { config, mutableConfig } from "./config.js";
+import { devices } from "./state.js";
 
 // --- Token stores ---
 
@@ -70,6 +71,39 @@ export function requireApiKey(request: RequestLike, reply: ReplyLike): boolean {
     return false;
   }
   return true;
+}
+
+/**
+ * Permission to broadcast: a paired camera's own token, or the installation's
+ * API key.
+ *
+ * Cameras authenticate with a device token so one can be revoked without
+ * touching the others, and so the app does not need the key compiled in. The
+ * API key still works, for scripts and for an installation that has not paired
+ * anything yet.
+ */
+export async function requireBroadcasterAuth(
+  request: RequestLike,
+  reply: ReplyLike
+): Promise<boolean> {
+  const key = request.headers["x-api-key"];
+  if (config.API_KEY && key === config.API_KEY) return true;
+
+  const header = request.headers["x-device-token"];
+  const token = typeof header === "string" ? header : "";
+  if (token) {
+    const device = await devices.verify(token);
+    if (device) {
+      void devices.touch(device);
+      return true;
+    }
+  }
+
+  reply.code(401).send({
+    error: "not_paired",
+    message: "Kameran är inte parad med den här installationen.",
+  });
+  return false;
 }
 
 /** Check API key OR valid viewer token. Returns true if authorized. */

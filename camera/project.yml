@@ -26,7 +26,7 @@ targets:
         product: RTMPHaishinKit
     settings:
       base:
-        INFOPLIST_KEY_NSCameraUsageDescription: "Kameran används för att sända live"
+        INFOPLIST_KEY_NSCameraUsageDescription: "Kameran används för att sända live och för att skanna klubbens parningskod"
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Mikrofonen används för ljud i livesändningen"
         INFOPLIST_KEY_UILaunchScreen_Generation: true
         INFOPLIST_KEY_UIBackgroundModes: audio
