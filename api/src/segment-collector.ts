@@ -64,8 +64,8 @@ export function extractMediaPlaylistUrl(manifest: string, baseUrl: string): stri
 
 export class SegmentCollector {
   private streamId: string;
-  private manifestUrl: string;
-  private segmentBaseUrl: string;
+  /** Resolved on each use: the instance address can become known after the collector starts. */
+  private restreamerBaseUrl: () => string;
   private minio: MinioClient;
   private logger: FastifyBaseLogger;
   private partNumber: number;
@@ -82,7 +82,7 @@ export class SegmentCollector {
 
   constructor(
     streamId: string,
-    restreamerBaseUrl: string,
+    restreamerBaseUrl: string | (() => string),
     minio: MinioClient,
     logger: FastifyBaseLogger,
     partNumber = 1,
@@ -101,9 +101,8 @@ export class SegmentCollector {
       this.segmentOrder.push(seg);
     }
     this.streamId = streamId;
-    const memfsName = partNumber > 1 ? `${streamId}_p${partNumber}` : streamId;
-    this.manifestUrl = `${restreamerBaseUrl}/memfs/${memfsName}.m3u8`;
-    this.segmentBaseUrl = `${restreamerBaseUrl}/memfs/`;
+    this.restreamerBaseUrl =
+      typeof restreamerBaseUrl === "function" ? restreamerBaseUrl : () => restreamerBaseUrl;
     this.minio = minio;
     this.logger = logger;
     this.partNumber = partNumber;
@@ -112,6 +111,15 @@ export class SegmentCollector {
         `SegmentCollector recovered ${recovered.length} segments for ${streamId} part ${partNumber}`,
       );
     }
+  }
+
+  private get manifestUrl(): string {
+    const memfsName = this.partNumber > 1 ? `${this.streamId}_p${this.partNumber}` : this.streamId;
+    return `${this.restreamerBaseUrl()}/memfs/${memfsName}.m3u8`;
+  }
+
+  private get segmentBaseUrl(): string {
+    return `${this.restreamerBaseUrl()}/memfs/`;
   }
 
   /** Storage key of this part's timeline checkpoint. */

@@ -34,7 +34,7 @@ validateConfig();
 
 // --- Log the installation's identity (no secrets) ---
 console.log(
-  `${clubManifest.name} — tenant: ${config.OSC_TENANT}, Restreamer: ${config.RESTREAMER_URL}`
+  `${clubManifest.name} — tenant: ${config.OSC_TENANT}, Restreamer (until OSC reports its address): ${config.RESTREAMER_URL}`
 );
 
 // --- Create service instances ---
@@ -51,6 +51,10 @@ const oscManager = new OscInstanceManager({
     accessKeyId: config.MINIO_ACCESS_KEY,
     secretAccessKey: config.MINIO_SECRET_KEY,
     bucket: config.MINIO_RECORDINGS_BUCKET,
+  },
+  onInstanceReady: (info) => {
+    restreamer.useInstanceUrl(info.url);
+    restreamer.rtmpHost = info.rtmpHost;
   },
 });
 
@@ -170,7 +174,7 @@ try {
     const timeline = await SegmentCollector.readCheckpoint(minio, streamId, meta.partNumber);
     const collector = new SegmentCollector(
       streamId,
-      config.RESTREAMER_URL,
+      () => restreamer.baseUrlValue,
       minio,
       app.log,
       meta.partNumber,

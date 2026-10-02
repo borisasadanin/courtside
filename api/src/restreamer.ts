@@ -212,6 +212,20 @@ export class RestreamerClient {
 
   // --- Helpers ---
 
+  /** Where the Restreamer API and its HLS output are reached. */
+  get baseUrlValue(): string {
+    return this.baseUrl;
+  }
+
+  /**
+   * Use the address OSC reports for the instance.  The configured URL is only
+   * a guess built from the tenant and region, and OSC does not always place
+   * the instance in the region the environment is named after.
+   */
+  useInstanceUrl(url: string): void {
+    this.baseUrl = url.replace(/\/$/, "");
+  }
+
   rtmpUrl(streamId: string): string {
     return `rtmp://${this.rtmpHost}/live/${streamId}`;
   }

@@ -121,7 +121,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       oscManager.streamStarted();
 
       // Start collecting HLS segments for VOD recording
-      const collector = new SegmentCollector(streamId, config.RESTREAMER_URL, minio, request.log, 1);
+      const collector = new SegmentCollector(streamId, () => restreamer.baseUrlValue, minio, request.log, 1);
       collector.start();
       collectors.set(streamId, collector);
 
@@ -284,7 +284,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       setBroadcastState("live");
 
       // Start collecting segments for the new part
-      const resumeCollector = new SegmentCollector(id, config.RESTREAMER_URL, minio, request.log, meta.partNumber);
+      const resumeCollector = new SegmentCollector(id, () => restreamer.baseUrlValue, minio, request.log, meta.partNumber);
       resumeCollector.start();
       collectors.set(id, resumeCollector);
       saveStreamMetaSoon(minio, request.log);
