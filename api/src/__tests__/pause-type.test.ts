@@ -1,6 +1,8 @@
 /**
  * ABL-001: a timeout pauses the broadcast like a period break, but only a
  * period break moves the match on to the next period.
+ *
+ * ABL-005: either way, the Restreamer process stands by through the pause.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -40,6 +42,7 @@ function restreamerStub() {
     rtmpHost: "rtmp.example.com",
     createProcess: vi.fn().mockResolvedValue({}),
     deleteProcess: vi.fn().mockResolvedValue(undefined),
+    switchPart: vi.fn().mockResolvedValue("switched"),
     listManagedProcesses: vi.fn().mockResolvedValue([]),
     getProcess: vi.fn().mockResolvedValue(null),
     isHlsLive: vi.fn().mockResolvedValue(false),
@@ -179,12 +182,116 @@ describe("pause types", () => {
 
   it("puts the period back if the stream cannot be resumed", async () => {
     await pause({ type: "period" });
-    restreamer.createProcess.mockRejectedValueOnce(new Error("restreamer down"));
+    restreamer.switchPart.mockRejectedValueOnce(new Error("restreamer down"));
 
     const res = await resume();
 
     expect(res.statusCode).toBe(500);
     expect(streamMeta.get(streamId)).toMatchObject({ periodNumber: 1, partNumber: 1, pauseType: "period" });
     expect(streamMeta.get(streamId)?.pausedAt).toBeTruthy();
+  });
+});
+
+describe("standby through a pause", () => {
+  let app: FastifyInstance;
+  let restreamer: ReturnType<typeof restreamerStub>;
+  let streamId: string;
+  const logged: string[] = [];
+
+  beforeEach(async () => {
+    streamMeta.clear();
+    viewers.clear();
+    vi.clearAllMocks();
+    logged.length = 0;
+    vi.useFakeTimers({ toFake: ["setInterval", "setTimeout", "Date"] });
+    (mutableConfig as { VIEWER_PIN: string }).VIEWER_PIN = "";
+
+    restreamer = restreamerStub();
+    initServices(restreamer as never, storageStub() as never, osc as never);
+
+    const logger = {
+      level: "info",
+      info: (msg: unknown) => logged.push(String(msg)),
+      warn: () => {}, error: () => {}, debug: () => {}, trace: () => {}, fatal: () => {},
+      child() { return this; },
+    };
+    app = Fastify({ loggerInstance: logger as never }) as unknown as FastifyInstance;
+    await app.register(streamRoutes);
+    await app.ready();
+
+    const res = await app.inject({ method: "POST", url: "/api/streams", headers: jsonAuth, payload: { name: "Kamera 1" } });
+    streamId = res.json().id;
+  });
+
+  afterEach(async () => {
+    await app.close();
+    vi.useRealTimers();
+  });
+
+  const process = (id: string, exec = "finished", ageS = 3600) => ({
+    config: { id: `${config.PROCESS_PREFIX}${id}` },
+    state: { exec },
+    created_at: Math.floor(Date.now() / 1000) - ageS,
+  });
+
+  it("keeps the Restreamer process when pausing", async () => {
+    await app.inject({ method: "PATCH", url: `/api/streams/${streamId}/pause`, headers: auth });
+
+    expect(restreamer.deleteProcess).not.toHaveBeenCalled();
+  });
+
+  it("resumes by pointing the kept process at the next part", async () => {
+    await app.inject({ method: "PATCH", url: `/api/streams/${streamId}/pause`, headers: auth });
+    await app.inject({ method: "PATCH", url: `/api/streams/${streamId}/resume`, headers: auth });
+
+    expect(restreamer.switchPart).toHaveBeenCalledWith(streamId, 2);
+    expect(restreamer.createProcess).toHaveBeenCalledTimes(1); // only when the stream was created
+    expect(restreamer.deleteProcess).not.toHaveBeenCalled();
+  });
+
+  it("leaves a paused stream's process alone, however long the pause", async () => {
+    await app.inject({ method: "PATCH", url: `/api/streams/${streamId}/pause`, headers: auth });
+    restreamer.listManagedProcesses.mockResolvedValue([process(streamId)]);
+
+    await vi.advanceTimersByTimeAsync(30 * 60 * 1000);
+
+    expect(restreamer.deleteProcess).not.toHaveBeenCalled();
+    expect(streamMeta.get(streamId)?.stoppedAt).toBeUndefined();
+  });
+
+  it("removes a process no stream owns", async () => {
+    restreamer.listManagedProcesses.mockResolvedValue([process(streamId, "running", 60), process("ghost", "running")]);
+
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(restreamer.deleteProcess).toHaveBeenCalledWith("ghost");
+    expect(restreamer.deleteProcess).not.toHaveBeenCalledWith(streamId);
+  });
+
+  it("removes the process of a stopped stream the stop route could not delete", async () => {
+    restreamer.deleteProcess.mockRejectedValueOnce(new Error("restreamer busy"));
+    await app.inject({ method: "DELETE", url: `/api/streams/${streamId}`, headers: auth });
+    restreamer.deleteProcess.mockClear();
+    restreamer.listManagedProcesses.mockResolvedValue([process(streamId, "running")]);
+    vi.setSystemTime(Date.now() + 3 * 60 * 1000);
+
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(restreamer.deleteProcess).toHaveBeenCalledWith(streamId);
+  });
+
+  it("logs how long it took for the match to be live again after a resume", async () => {
+    await app.inject({ method: "PATCH", url: `/api/streams/${streamId}/pause`, headers: auth });
+    await app.inject({ method: "PATCH", url: `/api/streams/${streamId}/resume`, headers: auth });
+    restreamer.getProcess.mockResolvedValue(process(streamId, "running"));
+    restreamer.isHlsLive.mockResolvedValue(true);
+    vi.setSystemTime(Date.now() + 4000);
+
+    await app.inject({ method: "GET", url: `/api/streams/${streamId}` });
+    await app.inject({ method: "GET", url: `/api/streams/${streamId}` });
+
+    const timings = logged.filter((l) => l.includes("live again"));
+    expect(timings).toHaveLength(1);
+    expect(timings[0]).toMatch(/live again 4\d{3} ms/);
   });
 });

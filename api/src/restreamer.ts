@@ -88,10 +88,8 @@ export class RestreamerClient {
 
   // --- Process management ---
 
-  async createProcess(
-    streamId: string,
-    options?: { recording?: boolean; partNumber?: number }
-  ): Promise<RestreamerProcess> {
+  /** The process definition for one recording part of a stream. */
+  private processConfig(streamId: string, options?: { recording?: boolean; partNumber?: number }) {
     const processId = `${PROCESS_PREFIX}${streamId}`;
     const part = options?.partNumber ?? 1;
 
@@ -137,9 +135,12 @@ export class RestreamerClient {
       });
     }
 
-    const processConfig = {
+    return {
       id: processId,
       autostart: true,
+      // With reconnect the process outlives a camera that goes away — it retries
+      // every few seconds until the camera is back. That is what keeps it in place
+      // through a pause; stale_timeout only restarts an ffmpeg that has hung.
       reconnect: true,
       reconnect_delay_seconds: 5,
       stale_timeout_seconds: 120,
@@ -152,12 +153,36 @@ export class RestreamerClient {
       ],
       output: outputs,
     };
+  }
 
+  async createProcess(
+    streamId: string,
+    options?: { recording?: boolean; partNumber?: number }
+  ): Promise<RestreamerProcess> {
     return this.request<RestreamerProcess>(
       "POST",
       "/api/v3/process",
-      processConfig
+      this.processConfig(streamId, options)
     );
+  }
+
+  /**
+   * Point a stream's process at the next recording part.
+   *
+   * The process is kept through a pause, so resuming only swaps its output to
+   * the new part's playlist. If the process is gone — the instance restarted
+   * during the pause — it is created again instead.
+   */
+  async switchPart(streamId: string, partNumber: number): Promise<"switched" | "created"> {
+    const processId = `${PROCESS_PREFIX}${streamId}`;
+    const processConfig = this.processConfig(streamId, { recording: false, partNumber });
+    try {
+      await this.request("PUT", `/api/v3/process/${processId}`, processConfig);
+      return "switched";
+    } catch {
+      await this.request("POST", "/api/v3/process", processConfig);
+      return "created";
+    }
   }
 
   async deleteProcess(streamId: string): Promise<void> {

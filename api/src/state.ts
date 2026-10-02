@@ -25,6 +25,8 @@ export interface StreamMeta {
   pauseType?: PauseType;
   /** Current recording part number (starts at 1, increments on each resume) */
   partNumber: number;
+  /** ISO timestamp of the last resume, until the stream is seen live again (for timing) */
+  resumedAt?: string;
   /** Match period (starts at 1, increments only on resume after a period break) */
   periodNumber: number;
   /** List of completed part numbers (for playlist stitching on stop) */

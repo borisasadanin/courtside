@@ -159,7 +159,13 @@ try {
   const restored = await restoreStreamMeta(minio, app.log);
   for (const streamId of restored) {
     const meta = streamMeta.get(streamId);
-    if (!meta || meta.pausedAt) continue; // A paused stream resumes on request.
+    if (!meta) continue;
+    if (meta.pausedAt) {
+      // A paused stream resumes on request. Count it, so the instance it is
+      // waiting on is not shut down as idle.
+      oscManager.streamPaused();
+      continue;
+    }
 
     const timeline = await SegmentCollector.readCheckpoint(minio, streamId, meta.partNumber);
     const collector = new SegmentCollector(

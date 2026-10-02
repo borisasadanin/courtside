@@ -195,6 +195,21 @@ export class OscInstanceManager {
     }
   }
 
+  getPausedStreamCount(): number {
+    return this.pausedStreamCount;
+  }
+
+  /**
+   * A match that is paused is coming back. If the instance is lost during the
+   * pause, start it again now rather than when someone presses resume — a
+   * fresh start takes minutes, a pause usually leaves enough of them.
+   */
+  private restartForPausedStreams(): void {
+    if (this.pausedStreamCount === 0 || this.state !== "stopped") return;
+    this.log.info(`Restreamer lost with ${this.pausedStreamCount} paused stream(s) — starting it again`);
+    this.ensureRunning().catch((err) => this.log.error(err, "Could not restart Restreamer during a pause"));
+  }
+
   getActiveStreamCount(): number {
     return this.activeStreamCount;
   }
@@ -360,6 +375,7 @@ export class OscInstanceManager {
       } catch {
         // Instance doesn't exist or is unreachable — truly stopped
       }
+      this.restartForPausedStreams();
       return "stopped";
     }
 
@@ -397,6 +413,7 @@ export class OscInstanceManager {
     this.cachedInfo = null;
     this.startPromise = null;
     this.healthFailCount = 0;
+    this.restartForPausedStreams();
     return "stopped";
   }
 

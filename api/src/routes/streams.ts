@@ -30,6 +30,19 @@ function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["statu
   return info;
 }
 
+/**
+ * Record that a stream's live playlist is up. After a resume this is also the
+ * moment viewers can see the match again, so log how long that took — the
+ * budget is five seconds from the button in the app (ABL-005).
+ */
+function markLive(id: string, meta: StreamMeta, log: { info: (msg: string) => void }): void {
+  meta.wasLive = true;
+  if (!meta.resumedAt) return;
+  const ms = Date.now() - new Date(meta.resumedAt).getTime();
+  log.info(`Resume ${id}: live again ${ms} ms after the resume request (part ${meta.partNumber})`);
+  meta.resumedAt = undefined;
+}
+
 export default async function streamRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/streams — Create a new stream (or resume existing one for same device)
   app.post<{ Body: CreateStreamBody }>("/api/streams", async (request, reply) => {
@@ -201,11 +214,9 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       request.log.error(err, `Failed to upload pause segments for ${id}`);
     });
 
-    // Delete the Restreamer process (it will die anyway after 120s timeout)
-    restreamer.deleteProcess(id).catch((err) => {
-      request.log.warn(err, `Could not delete Restreamer process for ${id} during pause`);
-    });
-
+    // The Restreamer process is kept through the pause (ABL-005). The camera
+    // disconnects, the process waits for it, and resuming only has to point it
+    // at the next part — nothing has to be built up again.
     oscManager.streamPaused();
 
     // Auto-transition broadcast state to "paused" if all streams are now paused
@@ -234,10 +245,16 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       return reply.code(409).send({ error: "already_stopped", message: "Strömmen är redan stoppad" });
     }
 
-    // Ensure Restreamer is running
+    // Ensure Restreamer is running. The health poll restarts a lost instance on
+    // its own while a stream is paused; this covers a resume that beats it there.
     const oscState = oscManager.getState();
     const oscInfo = oscManager.getInfo();
     if (oscState !== "running" || !oscInfo) {
+      if (oscState === "stopped") {
+        oscManager.ensureRunning().catch((err) => {
+          request.log.error(err, "Background Restreamer start failed");
+        });
+      }
       return reply.code(409).send({
         error: "restreamer_not_ready",
         message: "Sändningsmotorn är inte redo. Försök igen.",
@@ -252,24 +269,17 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     if (pauseType !== "timeout") meta.periodNumber++;
     meta.pausedAt = undefined;
     meta.pauseType = undefined;
+    const resumeStarted = Date.now();
+    meta.resumedAt = new Date(resumeStarted).toISOString();
     // Reset wasLive so status becomes "waiting" (not "stopped") during the
     // gap before HLS is live again.  It gets re-set to true once isHlsLive()
     // returns true in the streams list/detail routes.
     meta.wasLive = false;
 
     try {
-      // Ensure old process is fully removed before creating the new one.
-      // The pause handler fires deleteProcess as fire-and-forget, so it may
-      // still be in flight. Without this guard the async delete can race with
-      // createProcess (same process ID) and kill the *new* process.
-      try {
-        await restreamer.deleteProcess(id);
-      } catch {
-        // Already deleted — expected after a normal pause
-      }
-
       // Restreamer recording disabled — SegmentCollector handles recording via HTTP polling
-      await restreamer.createProcess(id, { recording: false, partNumber: meta.partNumber });
+      const how = await restreamer.switchPart(id, meta.partNumber);
+      request.log.info(`Resume ${id}: process ${how} for part ${meta.partNumber} in ${Date.now() - resumeStarted} ms`);
       oscManager.streamResumed();
       setBroadcastState("live");
 
@@ -289,6 +299,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       // Rollback
       meta.partNumber--;
       if (pauseType !== "timeout") meta.periodNumber--;
+      meta.resumedAt = undefined;
       meta.pausedAt = pausedAt;
       meta.pauseType = pauseType;
       request.log.error(err, "Failed to create Restreamer process on resume");
@@ -376,9 +387,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           const hlsLive = processIsHealthy ? await restreamer.isHlsLive(streamId, partNum) : false;
 
           // Track whether stream was ever live
-          if (hlsLive && meta) {
-            meta.wasLive = true;
-          }
+          if (hlsLive && meta) markLive(streamId, meta, _request.log);
 
           // If process is in a failed/finished state (no RTMP input), override
           // wasLive to prevent the optimistic "live" status for dead streams.
@@ -532,9 +541,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         const hlsLive = processIsHealthy ? await restreamer.isHlsLive(id, partNum) : false;
 
         // Track wasLive for accurate status
-        if (hlsLive && meta) {
-          meta.wasLive = true;
-        }
+        if (hlsLive && meta) markLive(id, meta, request.log);
 
         // If process is failed (no RTMP input), override wasLive to prevent
         // the optimistic "live" status for dead streams.
@@ -691,7 +698,19 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           : (p.created_at ? p.created_at * 1000 : Date.now());
         const ageMs = Date.now() - createdAtMs;
 
-        // Skip paused streams — they intentionally have no active Restreamer process
+        // A process nobody owns any more: its stream is gone from memory (and
+        // was not restored at startup), or was stopped and the delete in the
+        // stop route did not get through. Either way it only costs money.
+        const orphaned = !meta && ageMs > 10 * 60 * 1000;
+        const leftOver = meta?.stoppedAt && Date.now() - new Date(meta.stoppedAt).getTime() > 2 * 60 * 1000;
+        if (orphaned || leftOver) {
+          app.log.info(`Removing process of ${orphaned ? "unknown" : "stopped"} stream ${streamId} (state: ${state})`);
+          await restreamer.deleteProcess(streamId);
+          continue;
+        }
+
+        // Paused streams keep their process through the pause, waiting for the
+        // camera to come back. It is not active, and it must not be cleaned up.
         if (meta?.pausedAt && !meta.stoppedAt) continue;
 
         // Delete finished/failed processes — but ONLY if older than 3 minutes.

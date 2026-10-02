@@ -53,6 +53,7 @@ function createMockRestreamer() {
     rtmpHost: "mock-rtmp.example.com",
     createProcess: vi.fn().mockResolvedValue({ id: `${config.PROCESS_PREFIX}test`, config: { id: `${config.PROCESS_PREFIX}test` } }),
     deleteProcess: vi.fn().mockResolvedValue(undefined),
+    switchPart: vi.fn().mockResolvedValue("switched"),
     listManagedProcesses: vi.fn().mockResolvedValue([]),
     getProcess: vi.fn().mockResolvedValue(null),
     isHlsLive: vi.fn().mockResolvedValue(false),
@@ -338,11 +339,8 @@ describe("E2E Smoke Tests: Recording → VOD flow", () => {
       expect(meta.pausedAt).toBeUndefined();
       expect(meta.partNumber).toBe(2);
 
-      // Verify Restreamer process was created with partNumber: 2
-      expect(mockRestreamer.createProcess).toHaveBeenLastCalledWith(
-        streamId,
-        { recording: false, partNumber: 2 }
-      );
+      // Verify the kept Restreamer process was pointed at part 2
+      expect(mockRestreamer.switchPart).toHaveBeenLastCalledWith(streamId, 2);
 
       // --- Stop ---
       const stopRes = await app.inject({
