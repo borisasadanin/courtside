@@ -10,6 +10,7 @@ import { authHeaders } from "./auth.js";
 import { stopListPolling } from "./streams.js";
 import { stopVodPolling } from "./vod.js";
 import { fetchClipsForStream } from "./highlights.js";
+import { unlockResumeSignal, playResumeSignal } from "./resume-signal.js";
 
 // Callbacks injected by the orchestrator
 let onClosePlayer = null; // called when player is closed (returns to list)
@@ -39,6 +40,8 @@ const PAUSE_SUB_HIGHLIGHTS = "Matchen återupptas strax — här är höjdpunkte
  */
 function showPauseBanner(pauseType) {
   state.pauseType = pauseType || null;
+  clearTimeout(resumeBannerTimer);
+  dom.pauseBanner.classList.remove("resuming");
   const title = pauseLabel(state.pauseType);
   if (dom.pauseBannerTitle.textContent !== title) dom.pauseBannerTitle.textContent = title;
   dom.pauseBannerSub.textContent = state.isPlayingHighlights ? PAUSE_SUB_HIGHLIGHTS : PAUSE_SUB;
@@ -48,7 +51,29 @@ function showPauseBanner(pauseType) {
   }
 }
 
+/** How long "the match is back" stays on screen after a pause. */
+const RESUME_BANNER_MS = 5000;
+let resumeBannerTimer = null;
+
+/**
+ * The match is coming back after a pause: chime, and turn the pause banner
+ * into a short notice. The notice shows even when the chime cannot play.
+ */
+function announceResume() {
+  playResumeSignal();
+  clearTimeout(resumeBannerTimer);
+  dom.pauseBannerTitle.textContent = "MATCHEN ÅTERUPPTAS";
+  dom.pauseBannerSub.textContent = "";
+  dom.pauseBanner.classList.add("resuming");
+  dom.pauseBanner.classList.remove("hidden");
+  resumeBannerTimer = setTimeout(() => {
+    if (state.currentStatus !== "paused") hidePauseBanner();
+  }, RESUME_BANNER_MS);
+}
+
 function hidePauseBanner() {
+  clearTimeout(resumeBannerTimer);
+  dom.pauseBanner.classList.remove("resuming");
   dom.pauseBanner.classList.add("hidden");
   // Clear the title so the next pause is announced, even if it is the same type
   dom.pauseBannerTitle.textContent = "";
@@ -58,7 +83,10 @@ function hidePauseBanner() {
 function setStatus(status) {
   if (status === state.currentStatus) return;
   state.currentStatus = status;
-  if (status !== "paused") hidePauseBanner();
+  // Leaving a pause hides the banner — except for the short "match is back"
+  // notice, which outlives the switch to connecting and live.
+  const resuming = dom.pauseBanner.classList.contains("resuming");
+  if (status === "offline" || status === "vod" || (status !== "paused" && !resuming)) hidePauseBanner();
 
   switch (status) {
     case "connecting":
@@ -964,6 +992,7 @@ async function pollCurrentStream() {
     pollFailCount = 0;
 
     const stream = await res.json();
+    const wasPaused = state.currentStatus === "paused";
     if (stream.status === "stopped") {
       showOverlay("S\u00e4ndningen har avslutats", false);
       setTimeout(closePlayer, 2500);
@@ -983,6 +1012,9 @@ async function pollCurrentStream() {
       if (state.currentStatus !== "connecting") {
         stopHighlightCarousel();
         setStatus("connecting");
+        // "waiting" after a pause is the camera on its way back — the earliest
+        // safe moment to tell the viewer, and it gives them a few seconds.
+        if (wasPaused) announceResume();
       }
     } else if (stream.status === "live") {
       // Backend confirms stream is live — always reset reconnect budget
@@ -998,6 +1030,7 @@ async function pollCurrentStream() {
         }
         setStatus("connecting");
         tryConnect();
+        if (wasPaused) announceResume();
       }
     }
   } catch {
@@ -1048,6 +1081,9 @@ function sendViewerHeartbeat() {
 export function openPlayer(hlsUrl, name, streamId, dvrUrl) {
   // Guard: don't re-open the same stream
   if (state.currentStreamId === streamId && !dom.playerView.classList.contains("hidden")) return;
+
+  // Opening the player is a click — the chance to allow the resume chime later
+  unlockResumeSignal();
 
   state.isVodMode = false;
   // Use DVR playlist for catch-up capability; fall back to memfs live URL
@@ -1210,6 +1246,7 @@ function bindPlayerEvents() {
   document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
 
   dom.wrapper.addEventListener("click", togglePlay);
+  dom.wrapper.addEventListener("click", unlockResumeSignal);
   dom.wrapper.addEventListener("mousemove", showControls);
   dom.wrapper.addEventListener("touchstart", showControls);
 

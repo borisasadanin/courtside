@@ -1343,6 +1343,10 @@ main {
   transition: opacity 0.3s;
 }
 
+.pause-banner.resuming {
+  border-bottom-color: var(--red);
+}
+
 .pause-banner.hidden {
   opacity: 0;
   visibility: hidden;
