@@ -133,6 +133,12 @@
         <div class="video-wrapper" id="videoWrapper">
           <video id="video" playsinline></video>
 
+          <!-- Stays up for the whole pause, also while highlights loop (ABL-003) -->
+          <div class="pause-banner hidden" id="pauseBanner">
+            <span class="pause-banner-title" id="pauseBannerTitle" role="status" aria-live="polite">PAUS</span>
+            <span class="pause-banner-sub" id="pauseBannerSub">Matchen återupptas strax</span>
+          </div>
+
           <div class="controls" id="controls">
             <div class="progress-bar-container" id="progressContainer">
               <span class="time-display" id="timeElapsed">0:00</span>

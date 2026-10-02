@@ -5,7 +5,7 @@ import { CONFIG } from "./config.js";
 import { state, dom } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { authHeaders, showPinScreen } from "./auth.js";
-import { openPlayer } from "./player.js";
+import { openPlayer, pauseLabel } from "./player.js";
 
 // ============================
 // Fetch & render
@@ -122,7 +122,9 @@ function renderStreamList(streams, broadcastState) {
 
   dom.streamGrid.innerHTML = streams
     .map((s) => {
-      const badge = badgeMap[s.status] || badgeMap.waiting;
+      const badge = s.status === "paused" && s.pauseType
+        ? { cls: "paused", text: pauseLabel(s.pauseType) }
+        : badgeMap[s.status] || badgeMap.waiting;
       const isStopped = s.status === "stopped";
       const isPaused = s.status === "paused";
       return `

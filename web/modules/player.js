@@ -22,9 +22,43 @@ const MAX_POLL_FAILURES = 6; // 6 × 5s = 30 seconds of consecutive failures bef
 // Status
 // ============================
 
+/** Viewer-facing name of a pause. An unknown or missing type (older backend) is just a pause. */
+export function pauseLabel(pauseType) {
+  if (pauseType === "period") return "PERIODPAUS";
+  if (pauseType === "timeout") return "TIMEOUT";
+  return "PAUS";
+}
+
+const PAUSE_SUB = "Matchen återupptas strax";
+const PAUSE_SUB_HIGHLIGHTS = "Matchen återupptas strax — här är höjdpunkterna";
+
+/**
+ * Show the pause banner, or update it if the pause type changed.
+ * The title is the live region, so screen readers hear it once per pause —
+ * not again when the subline changes or the next highlight starts.
+ */
+function showPauseBanner(pauseType) {
+  state.pauseType = pauseType || null;
+  const title = pauseLabel(state.pauseType);
+  if (dom.pauseBannerTitle.textContent !== title) dom.pauseBannerTitle.textContent = title;
+  dom.pauseBannerSub.textContent = state.isPlayingHighlights ? PAUSE_SUB_HIGHLIGHTS : PAUSE_SUB;
+  dom.pauseBanner.classList.remove("hidden");
+  if (state.currentStatus === "paused" && !state.isPlayingHighlights) {
+    dom.liveBadge.textContent = title;
+  }
+}
+
+function hidePauseBanner() {
+  dom.pauseBanner.classList.add("hidden");
+  // Clear the title so the next pause is announced, even if it is the same type
+  dom.pauseBannerTitle.textContent = "";
+  state.pauseType = null;
+}
+
 function setStatus(status) {
   if (status === state.currentStatus) return;
   state.currentStatus = status;
+  if (status !== "paused") hidePauseBanner();
 
   switch (status) {
     case "connecting":
@@ -44,9 +78,10 @@ function setStatus(status) {
       showOverlay("Ingen s\u00e4ndning just nu", false);
       break;
     case "paused":
-      dom.liveBadge.textContent = "PAUS";
+      dom.liveBadge.textContent = pauseLabel(state.pauseType);
       dom.liveBadge.className = "live-badge paused";
       showOverlay("Sändningen är pausad — återkommer snart", false);
+      showPauseBanner(state.pauseType);
       startHighlightCarousel(); // async, non-blocking — replaces overlay if clips exist
       break;
     case "vod":
@@ -734,9 +769,10 @@ async function startHighlightCarousel() {
   state.isPlayingHighlights = true;
   consecutiveClipFailures = 0;
 
-  // Update UI
+  // Update UI — the pause banner says which pause it is, the badge what is playing
   dom.liveBadge.textContent = "HÖJDPUNKTER";
   dom.liveBadge.className = "live-badge highlights";
+  dom.pauseBannerSub.textContent = PAUSE_SUB_HIGHLIGHTS;
   dom.streamDesc.textContent =
     `${clips.length} höjdpunkt${clips.length > 1 ? "er" : ""} från matchen`;
 
@@ -802,8 +838,9 @@ function playNextHighlight(isFirst = false) {
             // All clips failed — fall back to pause overlay and retry after a while
             console.warn(`[carousel] All ${state.highlightClips.length} clip(s) failed — retrying in 15s`);
             stopHighlightCarousel();
-            dom.liveBadge.textContent = "PAUS";
+            dom.liveBadge.textContent = pauseLabel(state.pauseType);
             dom.liveBadge.className = "live-badge paused";
+            dom.pauseBannerSub.textContent = PAUSE_SUB;
             showOverlay("Sändningen är pausad — återkommer snart", false);
             scheduleCarouselRetry(15_000);
             return;
@@ -835,8 +872,9 @@ function playNextHighlight(isFirst = false) {
           if (consecutiveClipFailures >= state.highlightClips.length) {
             console.warn(`[carousel] All ${state.highlightClips.length} clip(s) failed (Safari) — retrying in 15s`);
             stopHighlightCarousel();
-            dom.liveBadge.textContent = "PAUS";
+            dom.liveBadge.textContent = pauseLabel(state.pauseType);
             dom.liveBadge.className = "live-badge paused";
+            dom.pauseBannerSub.textContent = PAUSE_SUB;
             showOverlay("Sändningen är pausad — återkommer snart", false);
             scheduleCarouselRetry(15_000);
             return;
@@ -931,9 +969,13 @@ async function pollCurrentStream() {
       setTimeout(closePlayer, 2500);
     } else if (stream.status === "paused") {
       if (state.currentStatus !== "paused") {
+        state.pauseType = stream.pauseType || null;
         setStatus("paused");
         // Destroy current HLS to free resources while paused
         destroyHls();
+      } else if ((stream.pauseType || null) !== state.pauseType) {
+        // A new pause began between two polls (resume and pause again)
+        showPauseBanner(stream.pauseType);
       }
     } else if (stream.status === "waiting") {
       // Stream is resuming (new Restreamer process, waiting for RTMP input).
@@ -1031,6 +1073,22 @@ export function openPlayer(hlsUrl, name, streamId, dvrUrl) {
   tryConnect();
   startStreamPolling();
   startViewerHeartbeat();
+  // Joining in the middle of a pause: show it now, not at the first poll
+  checkPausedNow(streamId);
+}
+
+async function checkPausedNow(streamId) {
+  try {
+    const res = await fetch(`${CONFIG.API_URL}/api/streams/${streamId}`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const stream = await res.json();
+    if (stream.status !== "paused" || state.currentStreamId !== streamId || state.currentStatus === "paused") return;
+    state.pauseType = stream.pauseType || null;
+    setStatus("paused");
+    destroyHls();
+  } catch {
+    // The regular poll picks it up
+  }
 }
 
 /**
