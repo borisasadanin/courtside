@@ -44,6 +44,7 @@ describe("stream metadata", () => {
       name: "Kamera 1",
       createdAt: "2026-10-01T18:00:00.000Z",
       partNumber: 3,
+      periodNumber: 2,
       completedParts: [1, 2],
     });
 
@@ -55,6 +56,7 @@ describe("stream metadata", () => {
     expect(restored).toEqual(["abc123"]);
     const meta = streamMeta.get("abc123");
     expect(meta?.partNumber).toBe(3);
+    expect(meta?.periodNumber).toBe(2);
     expect(meta?.completedParts).toEqual([1, 2]);
   });
 
@@ -65,6 +67,7 @@ describe("stream metadata", () => {
       createdAt: "2026-10-01T18:00:00.000Z",
       stoppedAt: "2026-10-01T19:30:00.000Z",
       partNumber: 1,
+      periodNumber: 1,
       completedParts: [],
     });
 
@@ -81,7 +84,9 @@ describe("stream metadata", () => {
       name: "Kamera 1",
       createdAt: "2026-10-01T18:00:00.000Z",
       pausedAt: "2026-10-01T18:20:00.000Z",
+      pauseType: "timeout",
       partNumber: 2,
+      periodNumber: 1,
       completedParts: [1],
     });
 
@@ -90,6 +95,7 @@ describe("stream metadata", () => {
     await restoreStreamMeta(storage as never, logger);
 
     expect(streamMeta.get("paused1")?.pausedAt).toBe("2026-10-01T18:20:00.000Z");
+    expect(streamMeta.get("paused1")?.pauseType).toBe("timeout");
   });
 
   it("starts empty rather than crashing when storage is unreadable", async () => {
@@ -108,6 +114,7 @@ describe("stream metadata", () => {
       name: "K",
       createdAt: "2026-10-01T18:00:00.000Z",
       partNumber: 1,
+      periodNumber: 1,
       completedParts: [],
     });
 
@@ -128,6 +135,7 @@ describe("stream metadata", () => {
     // Missing fields get sane values rather than undefined arithmetic later.
     expect(streamMeta.get("partial")?.partNumber).toBe(1);
     expect(streamMeta.get("partial")?.completedParts).toEqual([]);
+    expect(streamMeta.get("partial")?.periodNumber).toBe(1);
   });
 });
 
@@ -180,5 +188,17 @@ describe("segment timeline", () => {
     const storage = storageStub();
     await storage.uploadBuffer("abc/p1.timeline.json", "{not json");
     expect(await SegmentCollector.readCheckpoint(storage as never, "abc", 1)).toEqual([]);
+  });
+
+  it("treats every part as a period for a match saved before pause types existed", async () => {
+    const storage = {
+      readStreamMetaIndex: vi.fn(async () => ({
+        legacy: { name: "K", createdAt: "2026-10-01T18:00:00.000Z", partNumber: 3, completedParts: [1, 2] },
+      })),
+    };
+
+    await restoreStreamMeta(storage as never, logger);
+
+    expect(streamMeta.get("legacy")?.periodNumber).toBe(3);
   });
 });

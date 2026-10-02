@@ -14,6 +14,10 @@ export interface StreamPublicInfo {
   dvrUrl?: string;
   createdAt: string;
   status: "live" | "waiting" | "stopped" | "paused";
+  /** Set only when status is "paused" */
+  pauseType?: "period" | "timeout";
+  /** Current match period (1-based) */
+  period?: number;
   viewers: number;
 }
 

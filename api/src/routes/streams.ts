@@ -5,7 +5,8 @@
 import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
 import { requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
-import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream } from "../state.js";
+import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream, PAUSE_TYPES } from "../state.js";
+import type { PauseType, StreamMeta } from "../state.js";
 import { SegmentCollector } from "../segment-collector.js";
 import { getViewerCount, registerViewer, viewers } from "../viewer-tracking.js";
 import { determineStreamStatus } from "../stream-status.js";
@@ -19,6 +20,14 @@ import { saveStreamMetaSoon } from "../stream-meta-store.js";
 /** DVR playlist URL for a stream (relative path — frontend prepends API base). */
 function dvrUrl(id: string): string {
   return `/api/streams/${id}/dvr.m3u8`;
+}
+
+/** Match fields for the public API: the current period, and the pause type while paused. */
+function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["status"]): Pick<StreamPublicInfo, "pauseType" | "period"> {
+  if (!meta) return {};
+  const info: Pick<StreamPublicInfo, "pauseType" | "period"> = { period: meta.periodNumber };
+  if (status === "paused") info.pauseType = meta.pauseType ?? "period";
+  return info;
 }
 
 export default async function streamRoutes(app: FastifyInstance): Promise<void> {
@@ -111,7 +120,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         createdAt: new Date().toISOString(),
       };
 
-      streamMeta.set(streamId, { name: displayName, createdAt: info.createdAt, deviceId, partNumber: 1, completedParts: [] });
+      streamMeta.set(streamId, { name: displayName, createdAt: info.createdAt, deviceId, partNumber: 1, periodNumber: 1, completedParts: [] });
       saveStreamMetaSoon(minio, request.log);
 
       // Auto-transition broadcast state to "live" (only if idle or upcoming)
@@ -149,12 +158,20 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     }
   });
 
-  // PATCH /api/streams/:id/pause — Pause a live stream
-  app.patch<{ Params: { id: string } }>("/api/streams/:id/pause", async (request, reply) => {
+  // PATCH /api/streams/:id/pause — Pause a live stream.
+  // Body { type: "period" | "timeout" } is optional; older cameras send none and
+  // get a period break, which is what every pause used to be.
+  app.patch<{ Params: { id: string }; Body: { type?: unknown } | undefined }>("/api/streams/:id/pause", async (request, reply) => {
     if (!(await requireBroadcasterAuth(request, reply))) return;
 
     const { id } = request.params;
     const meta = streamMeta.get(id);
+
+    const requestedType = request.body?.type ?? "period";
+    if (!PAUSE_TYPES.includes(requestedType as PauseType)) {
+      return reply.code(400).send({ error: "invalid_pause_type", message: "Okänd paustyp" });
+    }
+    const pauseType = requestedType as PauseType;
 
     if (!meta) {
       return reply.code(404).send({ error: "not_found", message: "Strömmen hittades inte" });
@@ -174,6 +191,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     }
 
     meta.pausedAt = new Date().toISOString();
+    meta.pauseType = pauseType;
     meta.completedParts.push(meta.partNumber);
     saveStreamMetaSoon(minio, request.log);
 
@@ -196,7 +214,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       setBroadcastState("paused");
     }
 
-    return reply.code(200).send({ status: "paused", pausedAt: meta.pausedAt });
+    return reply.code(200).send({ status: "paused", pauseType, pausedAt: meta.pausedAt, period: meta.periodNumber });
   });
 
   // PATCH /api/streams/:id/resume — Resume a paused stream
@@ -227,9 +245,13 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     }
     restreamer.rtmpHost = oscInfo.rtmpHost;
 
-    // Increment part number for new recording segment
+    // Every resume is a new recording part; only a period break is a new period.
+    const pausedAt = meta.pausedAt;
+    const pauseType = meta.pauseType;
     meta.partNumber++;
+    if (pauseType !== "timeout") meta.periodNumber++;
     meta.pausedAt = undefined;
+    meta.pauseType = undefined;
     // Reset wasLive so status becomes "waiting" (not "stopped") during the
     // gap before HLS is live again.  It gets re-set to true once isHlsLive()
     // returns true in the streams list/detail routes.
@@ -261,11 +283,14 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         status: "resumed",
         rtmpUrl: restreamer.rtmpUrl(id),
         partNumber: meta.partNumber,
+        period: meta.periodNumber,
       });
     } catch (err) {
       // Rollback
       meta.partNumber--;
-      meta.pausedAt = new Date().toISOString();
+      if (pauseType !== "timeout") meta.periodNumber--;
+      meta.pausedAt = pausedAt;
+      meta.pauseType = pauseType;
       request.log.error(err, "Failed to create Restreamer process on resume");
       return reply.code(500).send({
         error: "resume_failed",
@@ -304,6 +329,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             dvrUrl: dvrUrl(streamId),
             createdAt: meta.createdAt,
             status: "paused",
+            ...matchInfo(meta, "paused"),
             viewers: getViewerCount(streamId),
           });
         } else {
@@ -315,6 +341,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             dvrUrl: dvrUrl(streamId),
             createdAt: meta.createdAt,
             status: "waiting",
+            ...matchInfo(meta, "waiting"),
             viewers: getViewerCount(streamId),
           });
         }
@@ -373,6 +400,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             dvrUrl: dvrUrl(streamId),
             createdAt: meta?.createdAt || "",
             status,
+            ...matchInfo(meta, status),
             viewers: getViewerCount(streamId),
           };
         })
@@ -403,6 +431,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           dvrUrl: dvrUrl(streamId),
           createdAt: meta.createdAt,
           status: "paused",
+          ...matchInfo(meta, "paused"),
           viewers: getViewerCount(streamId),
         });
       }
@@ -420,6 +449,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           dvrUrl: dvrUrl(streamId),
           createdAt: meta.createdAt,
           status: "waiting",
+          ...matchInfo(meta, "waiting"),
           viewers: getViewerCount(streamId),
         });
       }
@@ -468,6 +498,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           dvrUrl: dvrUrl(id),
           createdAt: meta.createdAt,
           status: "paused",
+          ...matchInfo(meta, "paused"),
           viewers: getViewerCount(id),
         } satisfies StreamPublicInfo);
       }
@@ -488,6 +519,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
               dvrUrl: dvrUrl(id),
               createdAt: meta.createdAt,
               status: "waiting",
+              ...matchInfo(meta, "waiting"),
               viewers: getViewerCount(id),
             } satisfies StreamPublicInfo);
           }
@@ -522,6 +554,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           dvrUrl: dvrUrl(id),
           createdAt: meta?.createdAt || "",
           status,
+          ...matchInfo(meta, status),
           viewers: getViewerCount(id),
         };
 
@@ -541,6 +574,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             dvrUrl: dvrUrl(id),
             createdAt: meta.createdAt,
             status: fallbackStatus,
+            ...matchInfo(meta, fallbackStatus),
             viewers: getViewerCount(id),
           } satisfies StreamPublicInfo);
         }
