@@ -1,0 +1,28 @@
+{
+  "name": "courtside-landing",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Courtside's landing page, and the installer that raises a club's Courtside in its own OSC tenant",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/static": "^8.3.0",
+    "@osaas/client-core": "^0.28.0",
+    "fastify": "^5.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
