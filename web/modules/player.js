@@ -554,6 +554,48 @@ function canSeek() {
   return state.isVodMode || state.isDvrMode;
 }
 
+// Safari sometimes stays frozen after a seek even though playback should continue:
+// the video reports that it is playing but currentTime never moves until the viewer
+// presses pause and play. Do that for them once the new position has data.
+let resumeAfterSeek = false;
+let seekStallTimer = null;
+
+function onVideoSeeking() {
+  if (!canSeek()) return;
+  if (!dom.video.paused) resumeAfterSeek = true;
+  clearTimeout(seekStallTimer);
+}
+
+function onVideoSeeked() {
+  if (!canSeek() || !resumeAfterSeek) return;
+  clearTimeout(seekStallTimer);
+  const video = dom.video;
+  const seekedAt = video.currentTime;
+  let checks = 0;
+
+  const check = () => {
+    if (video.seeking) return; // a new seek takes over
+    if (video.paused) {
+      resumeAfterSeek = false; // the viewer paused meanwhile
+      return;
+    }
+    if (Math.abs(video.currentTime - seekedAt) > 0.1) {
+      resumeAfterSeek = false; // playing again
+      return;
+    }
+    // Still loading the new position: wait a while before intervening
+    if (video.readyState < 3 && ++checks < 16) {
+      seekStallTimer = setTimeout(check, 500);
+      return;
+    }
+    resumeAfterSeek = false;
+    video.pause();
+    video.play().catch(() => {});
+  };
+
+  seekStallTimer = setTimeout(check, 800);
+}
+
 function onSeekStart(e) {
   if (!canSeek()) return;
   e.stopPropagation();
@@ -1131,6 +1173,8 @@ function bindPlayerEvents() {
 
   // Progress bar events
   dom.video.addEventListener("timeupdate", updateProgress);
+  dom.video.addEventListener("seeking", onVideoSeeking);
+  dom.video.addEventListener("seeked", onVideoSeeked);
   dom.video.addEventListener("loadedmetadata", updateProgress);
   // Seeking happens on mousedown/mouseup (onSeekStart/onSeekEnd). Clicks anywhere in the
   // control bar must not reach the wrapper's togglePlay — a click just beside the thin
