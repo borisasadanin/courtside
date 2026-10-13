@@ -554,13 +554,6 @@ function canSeek() {
   return state.isVodMode || state.isDvrMode;
 }
 
-function onProgressClick(e) {
-  if (!canSeek()) return;
-  e.stopPropagation();
-  const ratio = getSeekPosition(e);
-  seekTo(ratio);
-}
-
 function onSeekStart(e) {
   if (!canSeek()) return;
   e.stopPropagation();
@@ -1139,10 +1132,15 @@ function bindPlayerEvents() {
   // Progress bar events
   dom.video.addEventListener("timeupdate", updateProgress);
   dom.video.addEventListener("loadedmetadata", updateProgress);
-  dom.progressBar.addEventListener("click", onProgressClick);
+  // Seeking happens on mousedown/mouseup (onSeekStart/onSeekEnd). Clicks anywhere in the
+  // control bar must not reach the wrapper's togglePlay — a click just beside the thin
+  // progress bar, or a drag released outside it, would otherwise pause playback.
   dom.progressBar.addEventListener("mousedown", onSeekStart);
   dom.progressBar.addEventListener("touchstart", onSeekStart, { passive: false });
-  dom.progressContainer.addEventListener("click", (e) => e.stopPropagation());
+  dom.controls.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dom.qualityMenu.classList.remove("open");
+  });
 
   dom.video.addEventListener("play", updatePlayButton);
   dom.video.addEventListener("pause", updatePlayButton);

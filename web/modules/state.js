@@ -73,6 +73,7 @@ export function initDom() {
 
   // Progress bar
   dom.progressContainer = document.getElementById("progressContainer");
+  dom.controls = document.getElementById("controls");
   dom.progressBar = document.getElementById("progressBar");
   dom.progressBuffered = document.getElementById("progressBuffered");
   dom.progressFilled = document.getElementById("progressFilled");

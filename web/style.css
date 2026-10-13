@@ -1004,6 +1004,16 @@ main {
   transition: height 0.1s;
 }
 
+/* Larger invisible hit area around the thin bar */
+.progress-bar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -10px;
+  bottom: -10px;
+}
+
 .progress-buffered {
   position: absolute;
   left: 0;
