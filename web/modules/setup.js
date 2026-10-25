@@ -37,7 +37,14 @@ export function showSetup(onDone) {
     if (el) el.classList.add("hidden");
   }
   view.classList.remove("hidden");
-  code.focus();
+  // The installer links here with the code in the fragment, which never
+  // reaches a server log.  Take it and drop it from the address bar.
+  const fromLink = new URLSearchParams(location.hash.slice(1)).get("setup");
+  if (fromLink) {
+    code.value = fromLink;
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+  (fromLink ? adminPin : code).focus();
 
   function fail(message) {
     error.textContent = message;

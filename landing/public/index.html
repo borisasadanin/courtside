@@ -314,6 +314,64 @@
 
     .live-dot { animation: pulse 1.6s ease-in-out infinite; transform-origin: center; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+    /* Installer — shown once signed in with an OSC account */
+    .installer { padding: 48px 0 24px; }
+    .installer[hidden] { display: none; }
+    .inst-panel {
+      background: var(--bg-raise); border: 1px solid var(--card-border-strong);
+      border-radius: var(--radius); padding: 28px;
+    }
+    .inst-top { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: baseline; justify-content: space-between; margin-bottom: 1.5rem; }
+    .inst-top h2 { margin: 0; font-size: 26px; }
+    .inst-account { color: var(--text-muted); font-size: 15px; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+    .inst-account button { background: none; border: 0; color: var(--accent-soft); font: inherit; cursor: pointer; padding: 0; }
+    .inst-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .inst-box { border: 1px solid var(--card-border); border-radius: var(--radius-sm); padding: 20px; background: var(--card); }
+    .inst-box h3 { margin-bottom: 0.9rem; }
+    .inst-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+    .inst-item { display: grid; gap: 0.4rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--card-border); }
+    .inst-item:last-child { border-bottom: 0; padding-bottom: 0; }
+    .inst-item .row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
+    .inst-item .name { color: var(--text-strong); font-weight: 600; }
+    .inst-item .url { font-size: 14px; word-break: break-all; }
+    .inst-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .inst-actions button, .inst-actions a { font-size: 14px; }
+    .status { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-muted); }
+    .status.ok { color: var(--ok); }
+    .status.bad { color: var(--live); }
+    .muted { color: var(--text-muted); font-size: 15px; margin: 0; }
+    .field { display: grid; gap: 0.35rem; margin-bottom: 1rem; }
+    .field label { font-size: 14px; font-weight: 600; color: var(--text-strong); }
+    .field .hint { font-size: 13px; color: var(--text-muted); }
+    .field input[type=text] {
+      font: inherit; font-size: 16px; color: var(--text-strong); background: var(--bg);
+      border: 1px solid var(--card-border-strong); border-radius: var(--radius-sm); padding: 10px 12px; min-height: 44px;
+    }
+    .field input[aria-invalid=true] { border-color: var(--live); }
+    .form-error { color: var(--live); font-size: 15px; margin: 0 0 1rem; }
+    .form-error:empty { display: none; }
+    .steps { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.5rem; }
+    .steps li { display: flex; gap: 0.6rem; align-items: center; color: var(--text-muted); font-size: 15px; }
+    .steps li::before {
+      content: ""; width: 18px; height: 18px; flex: none; border-radius: 50%;
+      border: 2px solid var(--card-border-strong);
+    }
+    .steps li.now { color: var(--text-strong); }
+    .steps li.now::before { border-color: var(--accent); border-top-color: transparent; animation: spin 0.9s linear infinite; }
+    .steps li.done { color: var(--text); }
+    .steps li.done::before { background: var(--ok); border-color: var(--ok); }
+    .steps li.fail { color: var(--live); }
+    .steps li.fail::before { background: var(--live); border-color: var(--live); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .done-box { border: 1px solid rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.07); border-radius: var(--radius-sm); padding: 16px; }
+    .done-box .code { font-size: 28px; font-weight: 700; letter-spacing: 0.12em; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+    @media (max-width: 720px) {
+      .inst-grid { grid-template-columns: 1fr; }
+      .inst-panel { padding: 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .steps li.now::before { animation: none; border-top-color: var(--accent); } }
+
     @media (prefers-reduced-motion: reduce) {
       .live-dot { animation: none; }
       html { scroll-behavior: auto; }
@@ -361,11 +419,73 @@
       <a href="#pris">Pris</a>
       <a href="#faq">Frågor</a>
     </nav>
-    <a class="btn btn-primary btn-sm" href="#pris">Prova i OSC</a>
+    <a class="btn btn-primary btn-sm" href="/auth/signin?returnTo=%2F%3Fstart%3D1" data-start id="header-cta">Kom igång</a>
   </div>
 </header>
 
 <main id="top">
+
+  <!-- INSTALLER: shown when signed in -->
+  <section class="installer" id="installera" aria-labelledby="inst-h2" hidden>
+    <div class="wrap">
+      <div class="inst-panel">
+        <div class="inst-top">
+          <h2 id="inst-h2">Er Courtside</h2>
+          <div class="inst-account">
+            <span id="acc-plan"></span>
+            <span id="acc-tokens"></span>
+            <button type="button" id="signout">Logga ut</button>
+          </div>
+        </div>
+        <div class="inst-grid">
+          <div class="inst-box">
+            <h3>Installationer i ert konto</h3>
+            <p class="muted" id="inst-empty">Ni har ingen Courtside ännu.</p>
+            <ul class="inst-list" id="inst-list"></ul>
+          </div>
+          <div class="inst-box">
+            <div id="create-view">
+              <h3>Starta en ny Courtside</h3>
+              <form id="create-form" novalidate>
+                <div class="field">
+                  <label for="f-display">Föreningens namn</label>
+                  <input type="text" id="f-display" maxlength="80" autocomplete="organization" placeholder="Älta IF Basket" required>
+                </div>
+                <div class="field">
+                  <label for="f-club">Kortnamn</label>
+                  <input type="text" id="f-club" maxlength="21" autocapitalize="off" spellcheck="false" placeholder="altaif" required aria-describedby="f-club-hint">
+                  <span class="hint" id="f-club-hint">Små bokstäver och siffror. Används för att namnge tjänsterna i ert konto.</span>
+                </div>
+                <p class="form-error" id="create-error" role="alert"></p>
+                <button type="submit" class="btn btn-primary btn-block" id="create-btn">Skapa</button>
+              </form>
+              <p class="muted" style="margin-top:1rem">Tar runt tio minuter. Allt skapas i ert eget OSC-konto och drar tokens därifrån.</p>
+            </div>
+            <div id="progress-view" hidden>
+              <h3 id="progress-h">Skapar <span id="progress-club"></span></h3>
+              <ol class="steps" id="steps">
+                <li data-step="check">Kontrollerar namnet</li>
+                <li data-step="storage">Lagring för inspelningar</li>
+                <li data-step="token">Åtkomst för sändningsmotorn</li>
+                <li data-step="config">Inställningar</li>
+                <li data-step="app">Webbplats och backend</li>
+                <li data-step="build">Bygger (flera minuter)</li>
+                <li data-step="online">Startar</li>
+              </ol>
+              <p class="form-error" id="progress-error" role="alert"></p>
+              <div class="done-box" id="done-box" hidden>
+                <p class="muted" style="margin-bottom:0.4rem">Er setupkod. Den visas bara nu, så skriv upp den.</p>
+                <p class="code" id="done-code"></p>
+                <p class="muted" style="margin-bottom:1rem">Adress: <a id="done-url" target="_blank" rel="noopener"></a></p>
+                <a class="btn btn-primary btn-block" id="done-open" target="_blank" rel="noopener">Öppna och välj PIN-koder</a>
+              </div>
+              <button type="button" class="btn btn-secondary btn-block" id="progress-back" hidden style="margin-top:1rem">Tillbaka</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <!-- HERO -->
   <section class="hero" aria-labelledby="hero-h1">
@@ -380,7 +500,7 @@
           i pauserna rullar highlights, och efteråt finns hela matchen kvar som repris.
         </p>
         <div class="actions">
-          <a class="btn btn-primary" href="#pris">Kom igång gratis</a>
+          <a class="btn btn-primary" href="/auth/signin?returnTo=%2F%3Fstart%3D1" data-start>Kom igång</a>
           <a class="btn btn-secondary" href="#sa-funkar-det">Se hur det funkar</a>
         </div>
         <p class="fineprint"><span>Inget abonnemang per lag</span><span>Ingen reklam</span><span>Filmerna är föreningens</span></p>
@@ -884,7 +1004,7 @@
       <h2 id="cta-h2">Nästa hemmamatch kan vara live.</h2>
       <p class="subline">Sätt upp Courtside en kväll i veckan, sänd på helgen.</p>
       <div class="actions">
-        <a class="btn btn-primary" href="#pris">Kom igång gratis</a>
+        <a class="btn btn-primary" href="/auth/signin?returnTo=%2F%3Fstart%3D1" data-start>Kom igång</a>
         <a class="btn btn-secondary" href="mailto:sales@eyevinn.se?subject=Courtside%20f%C3%B6r%20v%C3%A5r%20f%C3%B6rening">Prata med oss</a>
       </div>
     </div>
@@ -974,6 +1094,182 @@
     });
 
     render();
+  })();
+</script>
+<script>
+  // Installer: sign in with OSC, then create a club's Courtside in its own account.
+  (function () {
+    var $ = function (id) { return document.getElementById(id); };
+    var STEPS = ["check", "storage", "token", "config", "app", "build", "online"];
+    var signedIn = false;
+    var pollTimer = null;
+
+    function api(method, url, body) {
+      return fetch(url, {
+        method: method,
+        headers: body ? { "Content-Type": "application/json" } : {},
+        body: body ? JSON.stringify(body) : undefined,
+        credentials: "same-origin"
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (r.status === 401) { signedIn = false; showPanel(false); }
+          if (!r.ok) throw new Error(data.error || "Något gick fel (" + r.status + ").");
+          return data;
+        });
+      });
+    }
+
+    function showPanel(on) {
+      $("installera").hidden = !on;
+      document.querySelectorAll("[data-start]").forEach(function (a) {
+        if (on) { a.setAttribute("href", "#installera"); a.textContent = a.id === "header-cta" ? "Er Courtside" : "Till er Courtside"; }
+      });
+    }
+
+    // Suggests a short name from the club's name: "Älta IF Basket" -> "altaifbasket".
+    function slug(text) {
+      return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+        .replace(/[^a-z0-9]/g, "").replace(/^[0-9]+/, "").slice(0, 21);
+    }
+    var clubTouched = false;
+    $("f-display").addEventListener("input", function () { if (!clubTouched) $("f-club").value = slug(this.value); });
+    $("f-club").addEventListener("input", function () { clubTouched = true; this.value = this.value.toLowerCase(); });
+
+    function el(tag, attrs, text) {
+      var e = document.createElement(tag);
+      for (var k in attrs || {}) e.setAttribute(k, attrs[k]);
+      if (text) e.textContent = text;
+      return e;
+    }
+
+    function loadAccount() {
+      api("GET", "/api/account").then(function (a) {
+        $("acc-plan").textContent = a.plan ? "Plan: " + a.plan.charAt(0) + a.plan.slice(1).toLowerCase() : "";
+        $("acc-tokens").textContent = a.tokensLeft != null ? Math.round(a.tokensLeft).toLocaleString("sv-SE") + " tokens kvar" : "";
+      }).catch(function () {});
+    }
+
+    var STATUS = { running: ["Igång", "ok"], building: ["Bygger", ""], failed: ["Fel vid bygge", "bad"], installing: ["Installeras", ""] };
+
+    function loadList() {
+      return api("GET", "/api/installations").then(function (d) {
+        var list = $("inst-list");
+        list.textContent = "";
+        $("inst-empty").hidden = d.installations.length > 0;
+        d.installations.forEach(function (i) {
+          var li = el("li", { "class": "inst-item" });
+          var row = el("div", { "class": "row" });
+          row.appendChild(el("span", { "class": "name" }, i.club));
+          var st = STATUS[i.status] || [i.status || "Okänt", ""];
+          row.appendChild(el("span", { "class": "status " + st[1] }, st[0]));
+          li.appendChild(row);
+          if (i.url) {
+            var a = el("a", { "class": "url", href: i.url, target: "_blank", rel: "noopener" }, i.url.replace(/^https:\/\//, ""));
+            li.appendChild(a);
+          }
+          if (i.status !== "installing") {
+            var actions = el("div", { "class": "inst-actions" });
+            var renew = el("button", { type: "button", "class": "btn btn-secondary btn-sm" }, "Förnya åtkomst");
+            renew.title = "Sändningsmotorns åtkomst gäller i 90 dagar. Förnya innan den går ut.";
+            renew.addEventListener("click", function () {
+              renew.disabled = true; renew.textContent = "Förnyar…";
+              api("POST", "/api/installations/" + i.club + "/renew").then(function () {
+                renew.textContent = "Förnyad";
+              }).catch(function (e) { alert(e.message); renew.disabled = false; renew.textContent = "Förnya åtkomst"; });
+            });
+            var del = el("button", { type: "button", "class": "btn btn-secondary btn-sm" }, "Ta bort");
+            del.addEventListener("click", function () {
+              var answer = prompt("Det här tar bort " + i.club + " och ALLA inspelningar. Det går inte att ångra.\n\nSkriv " + i.club + " för att bekräfta.");
+              if (answer === null) return;
+              del.disabled = true; del.textContent = "Tar bort…";
+              api("DELETE", "/api/installations/" + i.club, { confirm: answer.trim() }).then(loadList)
+                .catch(function (e) { alert(e.message); del.disabled = false; del.textContent = "Ta bort"; });
+            });
+            actions.appendChild(renew);
+            actions.appendChild(del);
+            li.appendChild(actions);
+          }
+          list.appendChild(li);
+        });
+      }).catch(function (e) { $("inst-empty").hidden = false; $("inst-empty").textContent = e.message; });
+    }
+
+    function showProgress(job) {
+      $("create-view").hidden = true;
+      $("progress-view").hidden = false;
+      $("progress-club").textContent = job.club;
+      var at = STEPS.indexOf(job.step);
+      document.querySelectorAll("#steps li").forEach(function (li) {
+        var i = STEPS.indexOf(li.dataset.step);
+        li.className = i < at || job.state === "done" ? "done" : i === at ? (job.state === "failed" ? "fail" : "now") : "";
+      });
+      $("progress-error").textContent = job.state === "failed" ? job.error + " Det som hann skapas har tagits bort." : "";
+      $("progress-back").hidden = job.state === "running";
+      if (job.state === "done") {
+        $("progress-h").textContent = "Klart!";
+        $("done-box").hidden = false;
+        $("done-code").textContent = job.setupCode;
+        $("done-url").textContent = job.siteUrl.replace(/^https:\/\//, "");
+        $("done-url").href = job.siteUrl;
+        $("done-open").href = job.siteUrl + "/#setup=" + encodeURIComponent(job.setupCode);
+      }
+      if (job.state !== "running") { clearInterval(pollTimer); pollTimer = null; loadList(); loadAccount(); }
+    }
+
+    function poll(club) {
+      clearInterval(pollTimer);
+      pollTimer = setInterval(function () {
+        api("GET", "/api/installations/" + club + "/job").then(showProgress).catch(function () {});
+      }, 3000);
+    }
+
+    $("progress-back").addEventListener("click", function () {
+      $("progress-view").hidden = true;
+      $("done-box").hidden = true;
+      $("progress-h").innerHTML = 'Skapar <span id="progress-club"></span>';
+      $("create-view").hidden = false;
+    });
+
+    $("create-form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var displayName = $("f-display").value.trim();
+      var club = $("f-club").value.trim();
+      $("create-error").textContent = "";
+      if (!displayName) { $("create-error").textContent = "Skriv föreningens namn."; $("f-display").focus(); return; }
+      if (!/^[a-z][a-z0-9]{2,20}$/.test(club)) {
+        $("f-club").setAttribute("aria-invalid", "true");
+        $("create-error").textContent = "Kortnamnet ska vara 3–21 små bokstäver eller siffror och börja med en bokstav.";
+        $("f-club").focus();
+        return;
+      }
+      $("f-club").removeAttribute("aria-invalid");
+      $("create-btn").disabled = true;
+      api("POST", "/api/installations", { club: club, displayName: displayName }).then(function (job) {
+        showProgress(job);
+        poll(club);
+        loadList();
+      }).catch(function (e) {
+        $("create-error").textContent = e.message;
+      }).then(function () { $("create-btn").disabled = false; });
+    });
+
+    $("signout").addEventListener("click", function () {
+      fetch("/auth/signout", { method: "POST", credentials: "same-origin" }).then(function () { location.href = "/"; });
+    });
+
+    fetch("/auth/status", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (s) {
+      signedIn = !!s.authenticated;
+      showPanel(signedIn);
+      if (!signedIn) return;
+      loadAccount();
+      loadList();
+      var params = new URLSearchParams(location.search);
+      if (params.get("start") === "1") {
+        history.replaceState(null, "", "/");
+        $("installera").scrollIntoView();
+        $("f-display").focus();
+      }
+    }).catch(function () {});
   })();
 </script>
 </body>
