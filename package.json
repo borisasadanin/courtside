@@ -1,6 +1,7 @@
 {
   "name": "courtside",
   "version": "1.0.0",
+  "license": "Apache-2.0",
   "private": true,
   "description": "Courtside — the backend and the website it serves, deployed as one app",
   "scripts": {

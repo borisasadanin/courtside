@@ -153,4 +153,4 @@ match on request — the admin view can do that.
 
 ## Licence
 
-Not yet decided. Until it is, treat this as all rights reserved.
+Apache License 2.0. See [LICENSE](LICENSE).

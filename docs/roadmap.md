@@ -136,7 +136,7 @@ Först, för att allt annat bygger på roterade nycklar.
       `club_name` och auto-genererade hemligheter.
 - [~] **ABL-016** Installationsdokumentation och **kostnadsuppskattning per månad**. Kostnadsdelen klar (`docs/cost.md`). En klubb behöver
       siffran innan de börjar; `estimate-service-cost` finns för att ta fram den.
-- [ ] **ABL-017** Licensval och publicering. Repo att klona, eller inskickat till OSC-katalogen.
+- [x] **ABL-017** Licensval och publicering: Apache-2.0, publikt repo (2026-10-25). Katalogfrågan står kvar.
 
 ### P3 — Pilotinstallation (validering, inte teori)
 
@@ -205,7 +205,8 @@ ABL-010. Låg konfliktrisk — ABL-002 rör knappar, ABL-010 rör konfigurations
    Det är ett designval som behöver tas: separata repon per komponent, eller monorepo med
    egen konfigurationshämtning. Just nu finns ett avknoppat privat repo
    `borisasadanin/courtside-api` för deploy.
-2. **Licens** — och om byggsatsen ska ligga i OSC:s publika katalog. Katalogvägen är mycket mer
-   "vem som helst", men innebär att Eyevinn-plattformen distribuerar den. Internt samtal.
+2. ~~**Licens**~~ Beslutat 2026-10-25: Apache-2.0, publikt repo. Kvar: om byggsatsen dessutom ska
+   ligga i OSC:s publika katalog. Katalogvägen är mycket mer "vem som helst", men innebär att
+   Eyevinn-plattformen distribuerar den. Internt samtal.
 3. **Håller App Store-vägen** för en app vars enda syfte är att para mot en självhostad backend?
    Värt att kolla riktlinjerna innan ABL-010 byggs klart.
