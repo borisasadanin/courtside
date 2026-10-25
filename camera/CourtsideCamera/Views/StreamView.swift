@@ -57,7 +57,8 @@ struct StreamView: View {
 
     @StateObject private var service = StreamService()
     @State private var isStopping = false
-    @State private var isPausing = false
+    /// The pause being requested, while the request is in flight.
+    @State private var pausing: PauseType?
     @State private var isResuming = false
     @State private var showStopConfirmation = false
     @State private var isClipping = false
@@ -84,13 +85,13 @@ struct StreamView: View {
                 // Top bar: LIVE badge + viewers + camera switch
                 HStack {
                     // LIVE badge
-                    Text(service.isPaused ? "PAUS" : "LIVE")
+                    Text(service.isPaused ? (service.pauseType?.badge ?? "PAUS") : "LIVE")
                         .font(.caption.bold())
                         .tracking(1)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(service.isPaused ? Color.orange : (service.isConnected ? Color.red : Color.gray))
-                        .foregroundColor(service.isPaused ? .black : .white)
+                        .background(service.isPaused ? pauseColor(service.pauseType ?? .period) : (service.isConnected ? Color.red : Color.gray))
+                        .foregroundColor(service.isPaused ? pauseTextColor(service.pauseType ?? .period) : .white)
                         .cornerRadius(4)
                         .opacity(service.isConnected || service.isPaused ? 1 : 0.6)
 
@@ -138,7 +139,7 @@ struct StreamView: View {
                         .cornerRadius(4)
                     }
 
-                    if !service.isConnected && service.error == nil && !isStopping {
+                    if !service.isConnected && !service.isPaused && service.error == nil && !isStopping {
                         Text("Ansluter...")
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.7))
@@ -254,49 +255,39 @@ struct StreamView: View {
                         .padding(.horizontal, 20)
                 }
 
-                // Bottom buttons: Pause/Resume + Stop
-                HStack(spacing: 12) {
-                    // Pause / Resume button
-                    if service.isPaused {
-                        Button {
-                            resumeRecording()
-                        } label: {
-                            HStack(spacing: 8) {
-                                if isResuming {
-                                    ProgressView()
-                                        .tint(.white)
+                // Bottom buttons: Period break + Timeout (or Resume) + Stop.
+                // One row in landscape; in portrait three are too narrow, so Stop
+                // gets a row of its own.
+                let buttonLayout = isCompact
+                    ? AnyLayout(HStackLayout(spacing: 12))
+                    : AnyLayout(VStackLayout(spacing: 12))
+                buttonLayout {
+                    HStack(spacing: 12) {
+                        if service.isPaused {
+                            Button {
+                                resumeRecording()
+                            } label: {
+                                HStack(spacing: 8) {
+                                    if isResuming {
+                                        ProgressView()
+                                            .tint(.white)
+                                    }
+                                    Image(systemName: "play.fill")
+                                    Text(isResuming ? "Återupptar..." : "Återuppta")
+                                        .fontWeight(.semibold)
                                 }
-                                Image(systemName: "play.fill")
-                                Text(isResuming ? "Återupptar..." : "Återuppta")
-                                    .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 2)
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(14)
-                            .background(Color.green)
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
+                            .disabled(isResuming || isStopping)
+                        } else {
+                            pauseButton(.period, icon: "pause.fill", title: "Periodpaus")
+                            pauseButton(.timeout, icon: "hand.raised.fill", title: "Timeout")
                         }
-                        .disabled(isResuming || isStopping)
-                    } else {
-                        Button {
-                            pauseRecording()
-                        } label: {
-                            HStack(spacing: 8) {
-                                if isPausing {
-                                    ProgressView()
-                                        .tint(.black)
-                                }
-                                Image(systemName: "pause.fill")
-                                Text(isPausing ? "Pausar..." : "Paus")
-                                    .fontWeight(.semibold)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(14)
-                            .background(Color.orange)
-                            .foregroundColor(.black)
-                            .cornerRadius(8)
-                        }
-                        .disabled(isPausing || isStopping || !service.isConnected)
                     }
 
                     // Stop button
@@ -310,13 +301,15 @@ struct StreamView: View {
                             Text(isStopping ? "Stoppar..." : "Stopp")
                                 .fontWeight(.semibold)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(14)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 2)
                         .background(Color.red)
                         .foregroundColor(.white)
                         .cornerRadius(8)
                     }
                     .disabled(isStopping)
+                    .frame(maxWidth: isCompact ? 160 : .infinity)
                 }
                 .padding(.horizontal, isCompact ? 20 : 32)
                 .padding(.bottom, isCompact ? 16 : 40)
@@ -434,16 +427,53 @@ struct StreamView: View {
         }
     }
 
-    private func pauseRecording() {
-        isPausing = true
+    private func pauseColor(_ type: PauseType) -> Color {
+        switch type {
+        case .period: return .orange
+        case .timeout: return Color(red: 0.11, green: 0.40, blue: 0.82)
+        }
+    }
+
+    private func pauseTextColor(_ type: PauseType) -> Color {
+        type == .period ? .black : .white
+    }
+
+    private func pauseButton(_ type: PauseType, icon: String, title: String) -> some View {
+        Button {
+            pauseRecording(type)
+        } label: {
+            HStack(spacing: 8) {
+                if pausing == type {
+                    ProgressView()
+                        .tint(pauseTextColor(type))
+                }
+                Image(systemName: icon)
+                Text(pausing == type ? "Pausar..." : title)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 2)
+            .background(pauseColor(type))
+            .foregroundColor(pauseTextColor(type))
+            .cornerRadius(8)
+        }
+        .disabled(pausing != nil || isStopping || !service.isConnected)
+    }
+
+    private func pauseRecording(_ type: PauseType) {
+        pausing = type
         Task {
             do {
-                _ = try await APIService.shared.pauseStream(id: streamInfo.id)
-                await service.pauseStream()
+                let response = try await APIService.shared.pauseStream(id: streamInfo.id, type: type)
+                // An older backend ignores the type and pauses for a period.
+                await service.pauseStream(type: PauseType(rawValue: response.pauseType ?? "") ?? .period)
             } catch {
                 service.error = "Kunde inte pausa: \(error.localizedDescription)"
             }
-            isPausing = false
+            pausing = nil
         }
     }
 

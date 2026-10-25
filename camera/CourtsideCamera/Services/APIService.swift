@@ -22,6 +22,19 @@ enum APIError: LocalizedError {
     }
 }
 
+/// Why the broadcast is paused. Only a period break starts a new period.
+enum PauseType: String {
+    case period, timeout
+
+    /// Label for the badge while paused.
+    var badge: String {
+        switch self {
+        case .period: return "PERIODPAUS"
+        case .timeout: return "TIMEOUT"
+        }
+    }
+}
+
 final class APIService {
     static let shared = APIService()
 
@@ -109,13 +122,17 @@ final class APIService {
     struct PauseResponse: Decodable {
         let status: String
         let pausedAt: String
+        /// Missing from backends older than pause types.
+        let pauseType: String?
     }
 
-    func pauseStream(id: String) async throws -> PauseResponse {
+    func pauseStream(id: String, type: PauseType) async throws -> PauseResponse {
         let url = URL(string: "\(baseURL)/api/streams/\(id)/pause")!
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["type": type.rawValue])
 
         let (data, response) = try await URLSession.shared.data(for: request)
 

@@ -56,6 +56,8 @@ export async function restoreStreamMeta(minio: MinioClient, logger?: Logger): Pr
     streamMeta.set(id, {
       ...meta,
       partNumber: meta.partNumber ?? 1,
+      // Before pause types every pause started a new period, so the part is the period.
+      periodNumber: meta.periodNumber ?? meta.partNumber ?? 1,
       completedParts: Array.isArray(meta.completedParts) ? meta.completedParts : [],
     });
     restored.push(id);

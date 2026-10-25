@@ -8,6 +8,11 @@ import { DeviceRegistry } from "./devices.js";
 import type { SegmentCollector } from "./segment-collector.js";
 import type { HighlightClip } from "./types.js";
 
+/** Why a stream is paused. Only a period break starts a new period. */
+export type PauseType = "period" | "timeout";
+
+export const PAUSE_TYPES: readonly PauseType[] = ["period", "timeout"];
+
 export interface StreamMeta {
   name: string;
   createdAt: string;
@@ -16,8 +21,14 @@ export interface StreamMeta {
   wasLive?: boolean;
   /** ISO timestamp when stream was paused (undefined = not paused) */
   pausedAt?: string;
+  /** Which kind of pause is in progress (undefined = not paused) */
+  pauseType?: PauseType;
   /** Current recording part number (starts at 1, increments on each resume) */
   partNumber: number;
+  /** ISO timestamp of the last resume, until the stream is seen live again (for timing) */
+  resumedAt?: string;
+  /** Match period (starts at 1, increments only on resume after a period break) */
+  periodNumber: number;
   /** List of completed part numbers (for playlist stitching on stop) */
   completedParts: number[];
 }

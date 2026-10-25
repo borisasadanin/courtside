@@ -37,6 +37,8 @@ export const state = {
   highlightIndex: -1,
   highlightHls: null,
   isPlayingHighlights: false,
+  /** "period" | "timeout" | null — which pause is in progress, from the API */
+  pauseType: null,
 };
 
 export const MAX_RECONNECT_ATTEMPTS = 30;
@@ -84,6 +86,9 @@ export function initDom() {
   dom.video = document.getElementById("video");
   dom.wrapper = document.getElementById("videoWrapper");
   dom.overlay = document.getElementById("overlay");
+  dom.pauseBanner = document.getElementById("pauseBanner");
+  dom.pauseBannerTitle = document.getElementById("pauseBannerTitle");
+  dom.pauseBannerSub = document.getElementById("pauseBannerSub");
   dom.overlayText = dom.overlay.querySelector(".overlay-text");
   dom.overlaySpinner = document.getElementById("overlaySpinner");
 

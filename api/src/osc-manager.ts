@@ -30,6 +30,8 @@ interface OscManagerOptions {
   healthPollMs?: number;
   logger?: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void };
   s3Config?: S3StorageConfig;
+  /** Called with the instance's real address whenever it is started or found. */
+  onInstanceReady?: (info: InstanceInfo) => void;
 }
 
 export class OscInstanceManager {
@@ -47,6 +49,7 @@ export class OscInstanceManager {
   private activeStreamCount = 0;
   private pausedStreamCount = 0;
   private s3Config?: S3StorageConfig;
+  private onInstanceReady?: (info: InstanceInfo) => void;
   private bgPollTimer: ReturnType<typeof setInterval> | null = null;
   private bgPollRunning = false;
 
@@ -60,6 +63,7 @@ export class OscInstanceManager {
     this.healthPollMs = opts.healthPollMs ?? 2000;
     this.log = opts.logger ?? { info: console.log, error: console.error };
     this.s3Config = opts.s3Config;
+    this.onInstanceReady = opts.onInstanceReady;
   }
 
   getState(): InstanceState {
@@ -140,7 +144,7 @@ export class OscInstanceManager {
     this.startPromise = this.startInstance();
     try {
       const info = await this.startPromise;
-      this.cachedInfo = info;
+      this.setInfo(info);
       this.state = "running";
       return info;
     } catch (err) {
@@ -184,7 +188,7 @@ export class OscInstanceManager {
 
     try {
       const info = await this.startPromise;
-      this.cachedInfo = info;
+      this.setInfo(info);
       this.state = "running";
       return info;
     } catch (err) {
@@ -193,6 +197,27 @@ export class OscInstanceManager {
       this.cachedInfo = null;
       throw err;
     }
+  }
+
+  /** Remember the running instance and tell whoever needs its address. */
+  private setInfo(info: InstanceInfo): void {
+    this.cachedInfo = info;
+    this.onInstanceReady?.(info);
+  }
+
+  getPausedStreamCount(): number {
+    return this.pausedStreamCount;
+  }
+
+  /**
+   * A match that is paused is coming back. If the instance is lost during the
+   * pause, start it again now rather than when someone presses resume — a
+   * fresh start takes minutes, a pause usually leaves enough of them.
+   */
+  private restartForPausedStreams(): void {
+    if (this.pausedStreamCount === 0 || this.state !== "stopped") return;
+    this.log.info(`Restreamer lost with ${this.pausedStreamCount} paused stream(s) — starting it again`);
+    this.ensureRunning().catch((err) => this.log.error(err, "Could not restart Restreamer during a pause"));
   }
 
   getActiveStreamCount(): number {
@@ -350,7 +375,7 @@ export class OscInstanceManager {
           if (res.ok) {
             // Recover state from the live instance
             const rtmpHost = await this.discoverRtmpHost(sat);
-            this.cachedInfo = { url: instance.url, rtmpHost };
+            this.setInfo({ url: instance.url, rtmpHost });
             this.state = "running";
             this.healthFailCount = 0;
             this.log.info(`Recovered running Restreamer instance — URL: ${instance.url}, RTMP: ${rtmpHost}`);
@@ -360,6 +385,7 @@ export class OscInstanceManager {
       } catch {
         // Instance doesn't exist or is unreachable — truly stopped
       }
+      this.restartForPausedStreams();
       return "stopped";
     }
 
@@ -397,6 +423,7 @@ export class OscInstanceManager {
     this.cachedInfo = null;
     this.startPromise = null;
     this.healthFailCount = 0;
+    this.restartForPausedStreams();
     return "stopped";
   }
 

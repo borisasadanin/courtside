@@ -5,7 +5,8 @@
 import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
 import { requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
-import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream } from "../state.js";
+import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream, PAUSE_TYPES } from "../state.js";
+import type { PauseType, StreamMeta } from "../state.js";
 import { SegmentCollector } from "../segment-collector.js";
 import { getViewerCount, registerViewer, viewers } from "../viewer-tracking.js";
 import { determineStreamStatus } from "../stream-status.js";
@@ -19,6 +20,27 @@ import { saveStreamMetaSoon } from "../stream-meta-store.js";
 /** DVR playlist URL for a stream (relative path — frontend prepends API base). */
 function dvrUrl(id: string): string {
   return `/api/streams/${id}/dvr.m3u8`;
+}
+
+/** Match fields for the public API: the current period, and the pause type while paused. */
+function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["status"]): Pick<StreamPublicInfo, "pauseType" | "period"> {
+  if (!meta) return {};
+  const info: Pick<StreamPublicInfo, "pauseType" | "period"> = { period: meta.periodNumber };
+  if (status === "paused") info.pauseType = meta.pauseType ?? "period";
+  return info;
+}
+
+/**
+ * Record that a stream's live playlist is up. After a resume this is also the
+ * moment viewers can see the match again, so log how long that took — the
+ * budget is five seconds from the button in the app (ABL-005).
+ */
+function markLive(id: string, meta: StreamMeta, log: { info: (msg: string) => void }): void {
+  meta.wasLive = true;
+  if (!meta.resumedAt) return;
+  const ms = Date.now() - new Date(meta.resumedAt).getTime();
+  log.info(`Resume ${id}: live again ${ms} ms after the resume request (part ${meta.partNumber})`);
+  meta.resumedAt = undefined;
 }
 
 export default async function streamRoutes(app: FastifyInstance): Promise<void> {
@@ -99,7 +121,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       oscManager.streamStarted();
 
       // Start collecting HLS segments for VOD recording
-      const collector = new SegmentCollector(streamId, config.RESTREAMER_URL, minio, request.log, 1);
+      const collector = new SegmentCollector(streamId, () => restreamer.baseUrlValue, minio, request.log, 1);
       collector.start();
       collectors.set(streamId, collector);
 
@@ -111,7 +133,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         createdAt: new Date().toISOString(),
       };
 
-      streamMeta.set(streamId, { name: displayName, createdAt: info.createdAt, deviceId, partNumber: 1, completedParts: [] });
+      streamMeta.set(streamId, { name: displayName, createdAt: info.createdAt, deviceId, partNumber: 1, periodNumber: 1, completedParts: [] });
       saveStreamMetaSoon(minio, request.log);
 
       // Auto-transition broadcast state to "live" (only if idle or upcoming)
@@ -149,12 +171,20 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     }
   });
 
-  // PATCH /api/streams/:id/pause — Pause a live stream
-  app.patch<{ Params: { id: string } }>("/api/streams/:id/pause", async (request, reply) => {
+  // PATCH /api/streams/:id/pause — Pause a live stream.
+  // Body { type: "period" | "timeout" } is optional; older cameras send none and
+  // get a period break, which is what every pause used to be.
+  app.patch<{ Params: { id: string }; Body: { type?: unknown } | undefined }>("/api/streams/:id/pause", async (request, reply) => {
     if (!(await requireBroadcasterAuth(request, reply))) return;
 
     const { id } = request.params;
     const meta = streamMeta.get(id);
+
+    const requestedType = request.body?.type ?? "period";
+    if (!PAUSE_TYPES.includes(requestedType as PauseType)) {
+      return reply.code(400).send({ error: "invalid_pause_type", message: "Okänd paustyp" });
+    }
+    const pauseType = requestedType as PauseType;
 
     if (!meta) {
       return reply.code(404).send({ error: "not_found", message: "Strömmen hittades inte" });
@@ -174,6 +204,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     }
 
     meta.pausedAt = new Date().toISOString();
+    meta.pauseType = pauseType;
     meta.completedParts.push(meta.partNumber);
     saveStreamMetaSoon(minio, request.log);
 
@@ -183,11 +214,9 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       request.log.error(err, `Failed to upload pause segments for ${id}`);
     });
 
-    // Delete the Restreamer process (it will die anyway after 120s timeout)
-    restreamer.deleteProcess(id).catch((err) => {
-      request.log.warn(err, `Could not delete Restreamer process for ${id} during pause`);
-    });
-
+    // The Restreamer process is kept through the pause (ABL-005). The camera
+    // disconnects, the process waits for it, and resuming only has to point it
+    // at the next part — nothing has to be built up again.
     oscManager.streamPaused();
 
     // Auto-transition broadcast state to "paused" if all streams are now paused
@@ -196,7 +225,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       setBroadcastState("paused");
     }
 
-    return reply.code(200).send({ status: "paused", pausedAt: meta.pausedAt });
+    return reply.code(200).send({ status: "paused", pauseType, pausedAt: meta.pausedAt, period: meta.periodNumber });
   });
 
   // PATCH /api/streams/:id/resume — Resume a paused stream
@@ -216,10 +245,16 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       return reply.code(409).send({ error: "already_stopped", message: "Strömmen är redan stoppad" });
     }
 
-    // Ensure Restreamer is running
+    // Ensure Restreamer is running. The health poll restarts a lost instance on
+    // its own while a stream is paused; this covers a resume that beats it there.
     const oscState = oscManager.getState();
     const oscInfo = oscManager.getInfo();
     if (oscState !== "running" || !oscInfo) {
+      if (oscState === "stopped") {
+        oscManager.ensureRunning().catch((err) => {
+          request.log.error(err, "Background Restreamer start failed");
+        });
+      }
       return reply.code(409).send({
         error: "restreamer_not_ready",
         message: "Sändningsmotorn är inte redo. Försök igen.",
@@ -227,32 +262,29 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     }
     restreamer.rtmpHost = oscInfo.rtmpHost;
 
-    // Increment part number for new recording segment
+    // Every resume is a new recording part; only a period break is a new period.
+    const pausedAt = meta.pausedAt;
+    const pauseType = meta.pauseType;
     meta.partNumber++;
+    if (pauseType !== "timeout") meta.periodNumber++;
     meta.pausedAt = undefined;
+    meta.pauseType = undefined;
+    const resumeStarted = Date.now();
+    meta.resumedAt = new Date(resumeStarted).toISOString();
     // Reset wasLive so status becomes "waiting" (not "stopped") during the
     // gap before HLS is live again.  It gets re-set to true once isHlsLive()
     // returns true in the streams list/detail routes.
     meta.wasLive = false;
 
     try {
-      // Ensure old process is fully removed before creating the new one.
-      // The pause handler fires deleteProcess as fire-and-forget, so it may
-      // still be in flight. Without this guard the async delete can race with
-      // createProcess (same process ID) and kill the *new* process.
-      try {
-        await restreamer.deleteProcess(id);
-      } catch {
-        // Already deleted — expected after a normal pause
-      }
-
       // Restreamer recording disabled — SegmentCollector handles recording via HTTP polling
-      await restreamer.createProcess(id, { recording: false, partNumber: meta.partNumber });
+      const how = await restreamer.switchPart(id, meta.partNumber);
+      request.log.info(`Resume ${id}: process ${how} for part ${meta.partNumber} in ${Date.now() - resumeStarted} ms`);
       oscManager.streamResumed();
       setBroadcastState("live");
 
       // Start collecting segments for the new part
-      const resumeCollector = new SegmentCollector(id, config.RESTREAMER_URL, minio, request.log, meta.partNumber);
+      const resumeCollector = new SegmentCollector(id, () => restreamer.baseUrlValue, minio, request.log, meta.partNumber);
       resumeCollector.start();
       collectors.set(id, resumeCollector);
       saveStreamMetaSoon(minio, request.log);
@@ -261,11 +293,15 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         status: "resumed",
         rtmpUrl: restreamer.rtmpUrl(id),
         partNumber: meta.partNumber,
+        period: meta.periodNumber,
       });
     } catch (err) {
       // Rollback
       meta.partNumber--;
-      meta.pausedAt = new Date().toISOString();
+      if (pauseType !== "timeout") meta.periodNumber--;
+      meta.resumedAt = undefined;
+      meta.pausedAt = pausedAt;
+      meta.pauseType = pauseType;
       request.log.error(err, "Failed to create Restreamer process on resume");
       return reply.code(500).send({
         error: "resume_failed",
@@ -304,6 +340,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             dvrUrl: dvrUrl(streamId),
             createdAt: meta.createdAt,
             status: "paused",
+            ...matchInfo(meta, "paused"),
             viewers: getViewerCount(streamId),
           });
         } else {
@@ -315,6 +352,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             dvrUrl: dvrUrl(streamId),
             createdAt: meta.createdAt,
             status: "waiting",
+            ...matchInfo(meta, "waiting"),
             viewers: getViewerCount(streamId),
           });
         }
@@ -349,9 +387,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           const hlsLive = processIsHealthy ? await restreamer.isHlsLive(streamId, partNum) : false;
 
           // Track whether stream was ever live
-          if (hlsLive && meta) {
-            meta.wasLive = true;
-          }
+          if (hlsLive && meta) markLive(streamId, meta, _request.log);
 
           // If process is in a failed/finished state (no RTMP input), override
           // wasLive to prevent the optimistic "live" status for dead streams.
@@ -373,6 +409,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             dvrUrl: dvrUrl(streamId),
             createdAt: meta?.createdAt || "",
             status,
+            ...matchInfo(meta, status),
             viewers: getViewerCount(streamId),
           };
         })
@@ -403,6 +440,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           dvrUrl: dvrUrl(streamId),
           createdAt: meta.createdAt,
           status: "paused",
+          ...matchInfo(meta, "paused"),
           viewers: getViewerCount(streamId),
         });
       }
@@ -420,6 +458,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           dvrUrl: dvrUrl(streamId),
           createdAt: meta.createdAt,
           status: "waiting",
+          ...matchInfo(meta, "waiting"),
           viewers: getViewerCount(streamId),
         });
       }
@@ -468,6 +507,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           dvrUrl: dvrUrl(id),
           createdAt: meta.createdAt,
           status: "paused",
+          ...matchInfo(meta, "paused"),
           viewers: getViewerCount(id),
         } satisfies StreamPublicInfo);
       }
@@ -488,6 +528,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
               dvrUrl: dvrUrl(id),
               createdAt: meta.createdAt,
               status: "waiting",
+              ...matchInfo(meta, "waiting"),
               viewers: getViewerCount(id),
             } satisfies StreamPublicInfo);
           }
@@ -500,9 +541,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         const hlsLive = processIsHealthy ? await restreamer.isHlsLive(id, partNum) : false;
 
         // Track wasLive for accurate status
-        if (hlsLive && meta) {
-          meta.wasLive = true;
-        }
+        if (hlsLive && meta) markLive(id, meta, request.log);
 
         // If process is failed (no RTMP input), override wasLive to prevent
         // the optimistic "live" status for dead streams.
@@ -522,6 +561,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           dvrUrl: dvrUrl(id),
           createdAt: meta?.createdAt || "",
           status,
+          ...matchInfo(meta, status),
           viewers: getViewerCount(id),
         };
 
@@ -541,6 +581,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             dvrUrl: dvrUrl(id),
             createdAt: meta.createdAt,
             status: fallbackStatus,
+            ...matchInfo(meta, fallbackStatus),
             viewers: getViewerCount(id),
           } satisfies StreamPublicInfo);
         }
@@ -657,7 +698,19 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           : (p.created_at ? p.created_at * 1000 : Date.now());
         const ageMs = Date.now() - createdAtMs;
 
-        // Skip paused streams — they intentionally have no active Restreamer process
+        // A process nobody owns any more: its stream is gone from memory (and
+        // was not restored at startup), or was stopped and the delete in the
+        // stop route did not get through. Either way it only costs money.
+        const orphaned = !meta && ageMs > 10 * 60 * 1000;
+        const leftOver = meta?.stoppedAt && Date.now() - new Date(meta.stoppedAt).getTime() > 2 * 60 * 1000;
+        if (orphaned || leftOver) {
+          app.log.info(`Removing process of ${orphaned ? "unknown" : "stopped"} stream ${streamId} (state: ${state})`);
+          await restreamer.deleteProcess(streamId);
+          continue;
+        }
+
+        // Paused streams keep their process through the pause, waiting for the
+        // camera to come back. It is not active, and it must not be cleaned up.
         if (meta?.pausedAt && !meta.stoppedAt) continue;
 
         // Delete finished/failed processes — but ONLY if older than 3 minutes.

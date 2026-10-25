@@ -13,6 +13,8 @@ final class StreamService: ObservableObject {
     @Published var selectedQuality: StreamQuality = StreamQuality.saved
     @Published var isBitrateReduced = false
     @Published var isPaused = false
+    /// Which pause is in progress, while `isPaused`.
+    @Published var pauseType: PauseType?
     @Published var currentZoom: CGFloat = 1.0
     @Published var maxZoom: CGFloat = 1.0
 
@@ -321,7 +323,7 @@ final class StreamService: ObservableObject {
 
     /// Pause the RTMP stream while keeping the camera mixer alive.
     /// The camera preview stays active so the user can see what the camera sees.
-    func pauseStream() async {
+    func pauseStream(type: PauseType) async {
         shouldReconnect = false
         reconnectTask?.cancel()
         reconnectTask = nil
@@ -331,6 +333,7 @@ final class StreamService: ObservableObject {
 
         isConnected = false
         isPaused = true
+        pauseType = type
 
         // Detach stream from mixer
         if let stream {
@@ -364,6 +367,7 @@ final class StreamService: ObservableObject {
     /// Resume the RTMP stream after a pause, reconnecting with a new RTMP URL.
     func resumeStream(rtmpUrl: String) async {
         isPaused = false
+        pauseType = nil
         currentRtmpUrl = rtmpUrl
         shouldReconnect = true
         // Defensive: if the app was backgrounded during the pause, the audio
