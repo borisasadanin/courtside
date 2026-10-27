@@ -24,7 +24,7 @@ import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import * as oauth from "./oauth.js";
 import { oscFor } from "./osc.js";
-import { install, invalidClub, Job, names, renewToken, sameRepo, Source, uninstall } from "./install.js";
+import { install, invalidClub, Job, names, renewToken, resetAdmin, sameRepo, Source, uninstall } from "./install.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const PUBLIC_URL = process.env.PUBLIC_URL?.replace(/\/$/, "");
@@ -263,6 +263,19 @@ app.post("/api/installations/:club/renew", async (req, reply) => {
   } catch (err) {
     req.log.error(err, "token renewal failed");
     return reply.code(502).send({ error: err instanceof Error ? err.message : "Förnyelsen misslyckades." });
+  }
+});
+
+app.post("/api/installations/:club/reset-admin", async (req, reply) => {
+  const who = await signedIn(req, reply);
+  if (!who) return;
+  const { club } = req.params as { club: string };
+  if (invalidClub(club)) return reply.code(400).send({ error: "Okänt namn." });
+  try {
+    return { setupCode: await resetAdmin(who.osc, club) };
+  } catch (err) {
+    req.log.error(err, "admin reset failed");
+    return reply.code(502).send({ error: err instanceof Error ? err.message : "Återställningen misslyckades." });
   }
 });
 

@@ -1177,6 +1177,21 @@
                 renew.textContent = "Förnyad";
               }).catch(function (e) { alert(e.message); renew.disabled = false; renew.textContent = "Förnya åtkomst"; });
             });
+            var reset = el("button", { type: "button", "class": "btn btn-secondary btn-sm" }, "Glömt admin-koden?");
+            reset.title = "Ger en ny uppsättningskod. Tittarkoden och alla inspelningar finns kvar.";
+            reset.addEventListener("click", function () {
+              if (!confirm("Du får en ny uppsättningskod och väljer en ny admin-kod. Tittarkoden och alla inspelningar finns kvar. Sidan är nere någon minut medan den startar om.")) return;
+              reset.disabled = true; reset.textContent = "Återställer…";
+              api("POST", "/api/installations/" + i.club + "/reset-admin").then(function (d) {
+                reset.textContent = "Återställd";
+                var note = el("p", { "class": "inst-reset" }, "Ny uppsättningskod: " + d.setupCode + ". Öppna er sida om en minut och välj en ny admin-kod.");
+                if (i.url) {
+                  note.appendChild(document.createTextNode(" "));
+                  note.appendChild(el("a", { href: i.url + "/#setup=" + encodeURIComponent(d.setupCode), target: "_blank", rel: "noopener" }, "Öppna"));
+                }
+                li.appendChild(note);
+              }).catch(function (e) { alert(e.message); reset.disabled = false; reset.textContent = "Glömt admin-koden?"; });
+            });
             var del = el("button", { type: "button", "class": "btn btn-secondary btn-sm" }, "Ta bort");
             del.addEventListener("click", function () {
               var answer = prompt("Det här tar bort " + i.club + " och ALLA inspelningar. Det går inte att ångra.\n\nSkriv " + i.club + " för att bekräfta.");
@@ -1186,6 +1201,7 @@
                 .catch(function (e) { alert(e.message); del.disabled = false; del.textContent = "Ta bort"; });
             });
             actions.appendChild(renew);
+            actions.appendChild(reset);
             actions.appendChild(del);
             li.appendChild(actions);
           }
