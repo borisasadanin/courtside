@@ -7,6 +7,7 @@ import {
   HeadBucketCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
+  DeleteBucketCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { VodEntry, HighlightClip } from "./types.js";
@@ -397,6 +398,29 @@ export class MinioClient {
         Delete: { Objects: [{ Key: key }], Quiet: true },
       })
     );
+  }
+
+  /**
+   * Deletes every object in the bucket, then the bucket.  Used when the whole
+   * installation is removed: recordings, clips, settings, codes and logo all
+   * live here.  Returns how many objects were deleted.
+   */
+  async deleteEverything(): Promise<number> {
+    let deleted = 0;
+    for (;;) {
+      const listRes = await this.s3.send(new ListObjectsV2Command({ Bucket: BUCKET }));
+      const objects = listRes.Contents || [];
+      if (objects.length === 0) break;
+      await this.s3.send(
+        new DeleteObjectsCommand({
+          Bucket: BUCKET,
+          Delete: { Objects: objects.map((o) => ({ Key: o.Key })), Quiet: true },
+        })
+      );
+      deleted += objects.length;
+    }
+    await this.s3.send(new DeleteBucketCommand({ Bucket: BUCKET }));
+    return deleted;
   }
 
   /** Delete all objects under a prefix (streamId/) */

@@ -6,6 +6,7 @@ import { requireAdminAuth } from "../auth.js";
 import { config } from "../config.js";
 import { minio } from "../state.js";
 import { runPreflight, overallStatus } from "../preflight.js";
+import { plan, removeData, removeSelf } from "../teardown.js";
 
 export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/admin/storage — Get storage usage info (admin)
@@ -48,6 +49,36 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
 
     const checks = await runPreflight(minio);
     return reply.send({ status: overallStatus(checks), checks });
+  });
+
+  // GET /api/admin/platform — What removing the whole installation would remove
+  app.get("/api/admin/platform", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    try {
+      const p = await plan();
+      if (typeof p === "string") return reply.send({ removable: false, reason: p });
+      return reply.send({ removable: true, club: p.club, app: p.app.name, store: p.store, storage: p.storage, restreamer: p.restreamer });
+    } catch (err) {
+      request.log.error(err, "teardown plan failed");
+      return reply.send({ removable: false, reason: "Kunde inte nå Open Source Cloud. Försök igen om en stund." });
+    }
+  });
+
+  // POST /api/admin/platform/delete — Remove the whole installation, recordings included.
+  // The body must name the club's short name, typed by the admin.
+  app.post<{ Body: { confirm?: string } }>("/api/admin/platform/delete", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    const p = await plan().catch(() => "Kunde inte nå Open Source Cloud. Försök igen om en stund.");
+    if (typeof p === "string") return reply.code(409).send({ error: p });
+    if (request.body?.confirm !== p.club) return reply.code(400).send({ error: `Skriv ${p.club} för att bekräfta.` });
+
+    request.log.warn({ club: p.club }, "removing the whole installation on the admin's request");
+    const removed = await removeData(p, minio);
+    removed.push({ what: `Webbplatsen och servern (${p.app.name})`, ok: true, detail: "tas bort nu" });
+    removed.push({ what: "Courtsides åtkomst till ert OSC-konto", ok: true, detail: "återkallas nu" });
+    reply.send({ club: p.club, removed });
+    // After the answer is on its way: removing the app ends this process.
+    setTimeout(() => void removeSelf(p, request.log), 1000);
   });
 
   // GET /api/admin/verify — Check if admin token is still valid
