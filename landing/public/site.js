@@ -152,11 +152,34 @@ var T = ({
         credentials: "same-origin"
       }).then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (data) {
-          if (r.status === 401) { signedIn = false; showPanel(false); }
+          if (r.status === 401) sessionExpired();
           if (!r.ok) throw new Error(data.error || T.error(r.status));
           return data;
         });
       });
+    }
+
+    // The sign-in can run out while the page is open (it lasts a while, and a
+    // restart of this page's server ends it). Keep the panel and what was
+    // typed, say so, and come back to the same form after signing in again.
+    var DRAFT = "courtside-draft";
+    function sessionExpired() {
+      signedIn = false;
+      try {
+        sessionStorage.setItem(DRAFT, JSON.stringify({ display: $("f-display").value, club: $("f-club").value }));
+      } catch (e) { /* no storage: the form is just empty afterwards */ }
+      $("inst-expired").hidden = false;
+      $("inst-expired").scrollIntoView({ block: "center" });
+    }
+    function restoreDraft() {
+      try {
+        var d = JSON.parse(sessionStorage.getItem(DRAFT) || "null");
+        sessionStorage.removeItem(DRAFT);
+        if (!d) return;
+        $("f-display").value = d.display || "";
+        $("f-club").value = d.club || "";
+        if (d.club) { clubTouched = true; checkAvailable(); }
+      } catch (e) { /* nothing saved */ }
     }
 
     function showPanel(on) {
@@ -327,7 +350,7 @@ var T = ({
         poll(club);
         loadList();
       }).catch(function (e) {
-        $("create-error").textContent = e.message;
+        if (signedIn) $("create-error").textContent = e.message;
       }).then(function () { $("create-btn").disabled = false; });
     });
 
@@ -348,6 +371,7 @@ var T = ({
       if (!signedIn) return;
       loadAccount();
       loadList();
+      restoreDraft();
       var params = new URLSearchParams(location.search);
       if (params.get("start") === "1") {
         history.replaceState(null, "", location.pathname);

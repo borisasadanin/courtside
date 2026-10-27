@@ -476,3 +476,7 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
 .avail { display: block; font-size: .85rem; margin-top: .3rem; min-height: 1.2em; color: var(--muted, #9a9aa5); }
 .avail.ok { color: #4ade80; }
 .avail.bad { color: #f87171; }
+
+.inst-expired { margin: 0 0 1.25rem; padding: 1rem 1.1rem; border-radius: 12px;
+  background: rgba(255, 196, 0, .12); border: 1px solid rgba(255, 196, 0, .45); }
+.inst-expired p { margin: 0 0 .75rem; }

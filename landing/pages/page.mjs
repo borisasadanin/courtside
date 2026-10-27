@@ -88,6 +88,10 @@ export function page(t) {
             <button type="button" id="signout">${t.inst.signout}</button>
           </div>
         </div>
+        <div class="inst-expired" id="inst-expired" role="alert" hidden>
+          <p>${t.inst.expired}</p>
+          <a class="btn btn-primary" id="inst-expired-signin" href="/auth/signin?returnTo=${encodeURIComponent(t.path + "?start=1")}">${t.inst.expiredBtn}</a>
+        </div>
         <div class="inst-grid">
           <div class="inst-box">
             <h3>${t.inst.listH}</h3>
