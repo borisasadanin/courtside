@@ -124,6 +124,11 @@ function safeReturn(v: unknown): string {
   return typeof v === "string" && /^\/(?!\/)[^\\\s]*$/.test(v) ? v : "/";
 }
 
+/** The page the sign-in started from, with the reason it did not finish. */
+function backTo(returnTo: string, reason: "denied" | "failed" | "unavailable"): string {
+  return `${returnTo.split(/[?#]/)[0]}?auth=${reason}#kom-igang`;
+}
+
 app.get("/health", async () => ({ ok: true }));
 
 app.get("/auth/signin", async (req, reply) => {
@@ -135,7 +140,7 @@ app.get("/auth/signin", async (req, reply) => {
     s.client = await oauth.client(redirectUri);
   } catch (err) {
     req.log.error(err, "OAuth client registration failed");
-    return reply.code(502).send("Kunde inte nå Open Source Cloud. Försök igen om en stund.");
+    return reply.redirect(backTo(safeReturn((req.query as Record<string, unknown>).returnTo), "unavailable"));
   }
   const { verifier, challenge, state } = oauth.pkce();
   Object.assign(s, { verifier, state, redirectUri, returnTo: safeReturn((req.query as Record<string, unknown>).returnTo) });
@@ -144,17 +149,22 @@ app.get("/auth/signin", async (req, reply) => {
 
 app.get("/auth/callback", async (req, reply) => {
   const s = session(req, reply);
-  const { code, state } = req.query as Record<string, string | undefined>;
-  if (!code || !state || state !== s.state || !s.client || !s.verifier || !s.redirectUri) {
-    return reply.code(400).send("Inloggningen gick inte att slutföra. Försök igen.");
+  const { code, state, error } = req.query as Record<string, string | undefined>;
+  const returnTo = s.returnTo ?? "/";
+  const valid = !!code && !!state && state === s.state && !!s.client && !!s.verifier && !!s.redirectUri;
+  if (!valid) {
+    // The user pressed Deny on OSC's consent page (error=access_denied), or
+    // the session expired on the way. Back to the page, which explains it.
+    s.verifier = s.state = s.returnTo = undefined;
+    return reply.redirect(backTo(returnTo, error === "access_denied" ? "denied" : "failed"));
   }
   try {
-    store(s, await oauth.exchangeCode(s.client, code, s.verifier, s.redirectUri));
+    store(s, await oauth.exchangeCode(s.client!, code!, s.verifier!, s.redirectUri!));
   } catch (err) {
     req.log.error(err, "OAuth code exchange failed");
-    return reply.code(502).send("Inloggningen misslyckades. Försök igen.");
+    s.verifier = s.state = s.returnTo = undefined;
+    return reply.redirect(backTo(returnTo, "failed"));
   }
-  const returnTo = s.returnTo ?? "/";
   s.verifier = s.state = s.returnTo = undefined;
   return reply.redirect(returnTo);
 });

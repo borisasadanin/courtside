@@ -399,6 +399,7 @@ export function page(t) {
     <div class="wrap">
       <h2 id="cta-h2">${t.end.h2}</h2>
       <p>${t.end.sub}</p>
+      <p class="auth-notice" id="auth-notice" role="alert" hidden></p>
       <div class="actions">
         <a class="btn btn-primary" href="${start}" data-start>${t.end.cta}</a>
         <a class="btn btn-secondary" href="${t.end.mail}">${t.end.cta2}</a>

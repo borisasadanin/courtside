@@ -20,6 +20,11 @@ var T = ({
     resetNote: function (c) { return "Ny uppsättningskod: " + c + ". Öppna er sida om en minut och välj en ny admin-kod."; },
     open: "Öppna", remove: "Ta bort", removing: "Tar bort…",
     removeConfirm: function (c) { return "Det här tar bort " + c + " och ALLA inspelningar. Det går inte att ångra.\n\nSkriv " + c + " för att bekräfta."; },
+    auth: {
+      denied: "Du tackade nej till att ge Courtside åtkomst, så inget har skapats på ditt Open Source Cloud-konto. Courtside behöver åtkomsten för att kunna starta tjänsterna åt er. Ändrar du dig går det bra att försöka igen.",
+      failed: "Inloggningen hos Open Source Cloud blev inte klar, kanske för att den tog för lång tid. Försök igen.",
+      unavailable: "Vi når inte Open Source Cloud just nu. Försök igen om en stund."
+    },
     done: "Klart!", needName: "Skriv föreningens namn.",
     badShortName: "Kortnamnet ska vara 3–21 små bokstäver eller siffror och börja med en bokstav."
   },
@@ -41,6 +46,11 @@ var T = ({
     resetNote: function (c) { return "New setup code: " + c + ". Open your site in a minute and choose a new admin code."; },
     open: "Open", remove: "Remove", removing: "Removing…",
     removeConfirm: function (c) { return "This removes " + c + " and ALL recordings. It cannot be undone.\n\nType " + c + " to confirm."; },
+    auth: {
+      denied: "You declined to give Courtside access, so nothing was created in your Open Source Cloud account. Courtside needs that access to start the services for you. If you change your mind, just try again.",
+      failed: "Signing in with Open Source Cloud didn't finish, perhaps because it took too long. Please try again.",
+      unavailable: "We can't reach Open Source Cloud right now. Please try again in a moment."
+    },
     done: "Done!", needName: "Enter your club's name.",
     badShortName: "The short name must be 3–21 lowercase letters or digits and start with a letter."
   }
@@ -299,6 +309,13 @@ var T = ({
       fetch("/auth/signout", { method: "POST", credentials: "same-origin" }).then(function () { location.href = location.pathname; });
     });
 
+    var authReason = new URLSearchParams(location.search).get("auth");
+    if (authReason && T.auth[authReason]) {
+      $("auth-notice").textContent = T.auth[authReason];
+      $("auth-notice").hidden = false;
+      history.replaceState(null, "", location.pathname + location.hash);
+    }
+
     fetch("/auth/status", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (s) {
       signedIn = !!s.authenticated;
       showPanel(signedIn);
@@ -307,7 +324,7 @@ var T = ({
       loadList();
       var params = new URLSearchParams(location.search);
       if (params.get("start") === "1") {
-        history.replaceState(null, "", "/");
+        history.replaceState(null, "", location.pathname);
         $("installera").scrollIntoView();
         $("f-display").focus();
       }
