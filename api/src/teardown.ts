@@ -17,6 +17,7 @@ import type { MinioClient } from "./minio.js";
 const STORAGE_SERVICE = "minio-minio";
 const RESTREAMER_SERVICE = "datarhei-restreamer";
 const ACCOUNT = "https://app.osaas.io/api/user/tokens";
+const APP_RUNNER = "eyevinn-web-runner";
 
 export interface Plan {
   club: string;
@@ -25,6 +26,8 @@ export interface Plan {
   storage: string;
   restreamer: string;
   tokenPrefix: string;
+  /** The club's own address (club.apps.osaas.io), freed when the app goes. */
+  domain: string;
 }
 
 export interface Removed {
@@ -74,6 +77,7 @@ export async function plan(): Promise<Plan | string> {
     storage: `${club}storage`,
     restreamer: config.OSC_INSTANCE_NAME,
     tokenPrefix: `courtside-${club}-`,
+    domain: config.OSC_REGION === "prod" ? `${club}.apps.osaas.io` : `${club}.apps.${config.OSC_REGION}.osaas.io`,
   };
 }
 
@@ -117,6 +121,11 @@ export async function removeData(p: Plan, minio: MinioClient): Promise<Removed[]
  * for the token calls.  The newest token is the one in use, so it goes last.
  */
 export async function removeSelf(p: Plan, log: { error: (...a: unknown[]) => void }): Promise<void> {
+  try {
+    await call("DELETE", `${deployBase()}/mydomains/${APP_RUNNER}/${encodeURIComponent(p.app.name)}/${encodeURIComponent(p.domain)}`);
+  } catch (err) {
+    log.error(err, "freeing own address failed");
+  }
   try {
     await call("DELETE", `${deployBase()}/myapps/${encodeURIComponent(p.app.id)}`);
   } catch (err) {

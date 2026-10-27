@@ -25,6 +25,8 @@ var T = ({
       failed: "Inloggningen hos Open Source Cloud blev inte klar, kanske för att den tog för lång tid. Försök igen.",
       unavailable: "Vi når inte Open Source Cloud just nu. Försök igen om en stund."
     },
+    free: function (d) { return "✓ " + d + " är ledig"; }, checking: "Kontrollerar adressen…",
+    taken: function (d) { return d + " är redan tagen. Välj ett annat kortnamn."; },
     done: "Klart!", needName: "Skriv föreningens namn.",
     badShortName: "Kortnamnet ska vara 3–21 små bokstäver eller siffror och börja med en bokstav."
   },
@@ -51,6 +53,8 @@ var T = ({
       failed: "Signing in with Open Source Cloud didn't finish, perhaps because it took too long. Please try again.",
       unavailable: "We can't reach Open Source Cloud right now. Please try again in a moment."
     },
+    free: function (d) { return "✓ " + d + " is free"; }, checking: "Checking the address…",
+    taken: function (d) { return d + " is already taken. Choose another short name."; },
     done: "Done!", needName: "Enter your club's name.",
     badShortName: "The short name must be 3–21 lowercase letters or digits and start with a letter."
   }
@@ -168,8 +172,29 @@ var T = ({
         .replace(/[^a-z0-9]/g, "").replace(/^[0-9]+/, "").slice(0, 21);
     }
     var clubTouched = false;
-    $("f-display").addEventListener("input", function () { if (!clubTouched) $("f-club").value = slug(this.value); });
-    $("f-club").addEventListener("input", function () { clubTouched = true; this.value = this.value.toLowerCase(); });
+    // The short name becomes the club's address, shared by every OSC account,
+    // so it is checked as it is typed rather than after a failed install.
+    var availTimer, availFor = "", availOk;
+    function checkAvailable() {
+      var club = $("f-club").value.trim(), out = $("f-club-avail");
+      clearTimeout(availTimer);
+      availOk = undefined;
+      out.textContent = ""; out.className = "avail";
+      if (!/^[a-z][a-z0-9]{2,20}$/.test(club)) return;
+      out.textContent = T.checking;
+      availTimer = setTimeout(function () {
+        availFor = club;
+        fetch("/api/available/" + encodeURIComponent(club), { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (a) {
+          if (availFor !== $("f-club").value.trim()) return;
+          availOk = a.available;
+          if (a.available === true) { out.textContent = T.free(a.domain); out.className = "avail ok"; }
+          else if (a.available === false) { out.textContent = /redan en Courtside|already have/.test(a.reason || "") ? a.reason : T.taken(a.domain); out.className = "avail bad"; }
+          else out.textContent = "";
+        }).catch(function () { out.textContent = ""; });
+      }, 400);
+    }
+    $("f-display").addEventListener("input", function () { if (!clubTouched) $("f-club").value = slug(this.value); checkAvailable(); });
+    $("f-club").addEventListener("input", function () { clubTouched = true; this.value = this.value.toLowerCase(); checkAvailable(); });
 
     function el(tag, attrs, text) {
       var e = document.createElement(tag);
@@ -294,6 +319,7 @@ var T = ({
         $("f-club").focus();
         return;
       }
+      if (availOk === false) { $("create-error").textContent = $("f-club-avail").textContent; $("f-club").focus(); return; }
       $("f-club").removeAttribute("aria-invalid");
       $("create-btn").disabled = true;
       api("POST", "/api/installations", { club: club, displayName: displayName }).then(function (job) {

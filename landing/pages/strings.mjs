@@ -14,7 +14,7 @@ export const sv = {
   inst: {
     h: "Er Courtside", signout: "Logga ut", listH: "Installationer i ert konto", empty: "Ni har ingen Courtside ännu.",
     createH: "Starta en ny Courtside", display: "Föreningens namn", displayPh: "Älta IF Basket",
-    club: "Kortnamn", clubPh: "altaif", clubHint: "Små bokstäver och siffror. Används för att namnge tjänsterna i ert konto.",
+    club: "Kortnamn", clubPh: "altaif", clubHint: "Små bokstäver och siffror. Blir er adress, kortnamn.apps.osaas.io, och namnet på tjänsterna i ert konto.",
     create: "Skapa", takes: "Tar runt tio minuter. Allt skapas i ert eget OSC-konto och drar tokens därifrån.",
     creating: "Skapar", steps: ["Kontrollerar namnet", "Lagring för inspelningar", "Åtkomst för sändningsmotorn", "Inställningar", "Webbplats och backend", "Bygger (flera minuter)", "Startar"],
     codeNote: "Er setupkod. Den visas bara nu, så skriv upp den.", address: "Adress:", openPins: "Öppna och välj PIN-koder", back: "Tillbaka",
@@ -224,7 +224,7 @@ export const en = {
   inst: {
     h: "Your Courtside", signout: "Sign out", listH: "Installations in your account", empty: "You don't have a Courtside yet.",
     createH: "Start a new Courtside", display: "Club name", displayPh: "Hornets Basketball",
-    club: "Short name", clubPh: "hornets", clubHint: "Lowercase letters and digits. Used to name the services in your account.",
+    club: "Short name", clubPh: "hornets", clubHint: "Lowercase letters and digits. Becomes your address, shortname.apps.osaas.io, and names the services in your account.",
     create: "Create", takes: "Takes about ten minutes. Everything is created in your own OSC account and uses tokens from it.",
     creating: "Creating", steps: ["Checking the name", "Storage for recordings", "Access for the streaming engine", "Settings", "Website and backend", "Building (several minutes)", "Starting"],
     codeNote: "Your setup code. It is only shown now, so write it down.", address: "Address:", openPins: "Open and choose PIN codes", back: "Back",

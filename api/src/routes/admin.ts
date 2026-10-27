@@ -75,6 +75,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
     request.log.warn({ club: p.club }, "removing the whole installation on the admin's request");
     const removed = await removeData(p, minio);
     removed.push({ what: `Webbplatsen och servern (${p.app.name})`, ok: true, detail: "tas bort nu" });
+    removed.push({ what: `Adressen ${p.domain}`, ok: true, detail: "frigörs nu" });
     removed.push({ what: "Courtsides åtkomst till ert OSC-konto", ok: true, detail: "återkallas nu" });
     reply.send({ club: p.club, removed });
     // After the answer is on its way: removing the app ends this process.

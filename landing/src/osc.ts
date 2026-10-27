@@ -16,6 +16,7 @@ import {
 
 export const STORAGE_SERVICE = "minio-minio";
 export const CONFIG_SERVICE = "eyevinn-app-config-svc";
+export const APP_RUNNER = "eyevinn-web-runner";
 export const RESTREAMER_SERVICE = "datarhei-restreamer";
 
 export interface Parameter {
@@ -57,6 +58,13 @@ export interface Osc {
   getApp(id: string): Promise<App | undefined>;
   restartApp(id: string): Promise<void>;
   removeApp(id: string): Promise<void>;
+  /** Whether a platform address (club.apps.osaas.io) is free in every tenant. */
+  domainAvailable(domain: string): Promise<boolean>;
+  /** Maps a platform address to a My App, beside the one it was given. */
+  addDomain(appName: string, domain: string): Promise<void>;
+  removeDomain(appName: string, domain: string): Promise<void>;
+  /** Every address mapped to each My App, by app name. */
+  listDomains(): Promise<Map<string, string[]>>;
   mintToken(name: string, purpose: string): Promise<string>;
   /** Revokes every token whose name starts with prefix, except the one named keep. */
   revokeTokens(prefix: string, keep?: string): Promise<void>;
@@ -229,6 +237,33 @@ export function oscFor(token: string, environment = "prod"): Osc {
       } catch (err) {
         if (!(err instanceof OscError && err.status === 404)) throw err;
       }
+    },
+
+    async domainAvailable(domain) {
+      const out = await deploy<{ available?: boolean }>("GET", `/mydomains/available/${encodeURIComponent(domain)}`);
+      return out?.available === true;
+    },
+
+    async addDomain(appName, domain) {
+      await deploy("POST", "/mydomains", { domain, instanceName: appName, serviceId: APP_RUNNER });
+    },
+
+    async removeDomain(appName, domain) {
+      try {
+        await deploy("DELETE", `/mydomains/${APP_RUNNER}/${encodeURIComponent(appName)}/${encodeURIComponent(domain)}`);
+      } catch (err) {
+        if (!(err instanceof OscError && err.status === 404)) throw err;
+      }
+    },
+
+    async listDomains() {
+      const all = await deploy<{ instanceName: string; domain: string; serviceId: string }[]>("GET", "/mydomains");
+      const out = new Map<string, string[]>();
+      for (const d of all ?? []) {
+        if (d.serviceId !== APP_RUNNER) continue;
+        out.set(d.instanceName, [...(out.get(d.instanceName) ?? []), d.domain]);
+      }
+      return out;
     },
 
     // A token of the installation's own, so the backend does not depend on

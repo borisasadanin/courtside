@@ -3,11 +3,12 @@ import { install, invalidClub, Job, renewToken, resetAdmin, setupCode, uninstall
 import { App, CONFIG_SERVICE, NewApp, Osc, Parameter, RESTREAMER_SERVICE, STORAGE_SERVICE } from "./osc.js";
 
 /** An OSC tenant in memory. */
-function fakeTenant(opts: { failAt?: string; buildStatus?: string } = {}) {
+function fakeTenant(opts: { failAt?: string; buildStatus?: string; takenDomain?: string } = {}) {
   const instances = new Set<string>();
   const stores = new Map<string, Map<string, Parameter>>();
   const apps = new Map<string, App & { body: NewApp }>();
   const tokens = new Map<string, boolean>();
+  const domains = new Map<string, string>();
   const calls: string[] = [];
   const fail = (what: string) => {
     calls.push(what);
@@ -50,6 +51,22 @@ function fakeTenant(opts: { failAt?: string; buildStatus?: string } = {}) {
     async listApps() {
       return [...apps.values()];
     },
+    async domainAvailable(domain) {
+      return !domains.has(domain) && !(opts.takenDomain === domain);
+    },
+    async addDomain(app, domain) {
+      fail("addDomain");
+      domains.set(domain, app);
+    },
+    async removeDomain(_app, domain) {
+      calls.push(`remove domain ${domain}`);
+      domains.delete(domain);
+    },
+    async listDomains() {
+      const out = new Map<string, string[]>();
+      for (const [d, a] of domains) out.set(a, [...(out.get(a) ?? []), d]);
+      return out;
+    },
     async createApp(body) {
       fail("createApp");
       const app = { id: body.name, name: body.name, url: "", gitUrl: body.gitUrl, buildStatus: "building", body };
@@ -83,7 +100,7 @@ function fakeTenant(opts: { failAt?: string; buildStatus?: string } = {}) {
       return "PERSONAL";
     },
   };
-  return { osc, instances, stores, apps, tokens, calls };
+  return { osc, instances, stores, apps, tokens, calls, domains };
 }
 
 const fast = { buildTimeout: 1000, onlineTimeout: 200, poll: 1, failedGrace: 50 };
@@ -98,7 +115,8 @@ describe("install", () => {
     await install(t.osc, req, source, job, fast, async () => true);
 
     expect(job.state).toBe("done");
-    expect(job.siteUrl).toBe("https://abc123.apps.osaas.io");
+    expect(job.siteUrl).toBe("https://alta.apps.osaas.io");
+    expect(t.domains.get("alta.apps.osaas.io")).toBe("altaapi");
     expect(job.setupCode).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
 
     expect(t.instances.has(`${STORAGE_SERVICE}/altastorage`)).toBe(true);
@@ -142,6 +160,23 @@ describe("install", () => {
     expect(job.error).toMatch(/misslyckades/);
     expect(t.apps.size).toBe(0);
     expect(t.instances.size).toBe(0);
+  });
+
+  it("refuses an address another account already has, before creating anything", async () => {
+    const t = fakeTenant({ takenDomain: "alta.apps.osaas.io" });
+    const job = newJob();
+    await install(t.osc, req, source, job, fast, async () => true);
+    expect(job.state).toBe("failed");
+    expect(job.error).toMatch(/redan tagen/);
+    expect(t.calls).not.toContain("createStorage");
+  });
+
+  it("falls back to the platform's address if the own one cannot be mapped", async () => {
+    const t = fakeTenant({ failAt: "addDomain" });
+    const job = newJob();
+    await install(t.osc, req, source, job, fast, async () => true);
+    expect(job.state).toBe("done");
+    expect(job.siteUrl).toBe("https://abc123.apps.osaas.io");
   });
 
   it("trusts an app that answers even while the platform still says failed", async () => {

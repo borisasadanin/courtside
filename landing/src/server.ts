@@ -24,7 +24,7 @@ import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import * as oauth from "./oauth.js";
 import { oscFor } from "./osc.js";
-import { install, invalidClub, Job, names, renewToken, resetAdmin, sameRepo, Source, uninstall } from "./install.js";
+import { install, invalidClub, Job, names, renewToken, resetAdmin, sameRepo, siteDomain, Source, uninstall } from "./install.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const PUBLIC_URL = process.env.PUBLIC_URL?.replace(/\/$/, "");
@@ -211,19 +211,44 @@ app.get("/api/installations", async (req, reply) => {
   const who = await signedIn(req, reply);
   if (!who) return;
   let apps;
+  let domains = new Map<string, string[]>();
   try {
-    apps = await who.osc.listApps();
+    [apps, domains] = await Promise.all([who.osc.listApps(), who.osc.listDomains().catch(() => domains)]);
   } catch (err) {
     req.log.error(err, "listing apps failed");
     return reply.code(502).send({ error: "Kunde inte läsa era installationer från Open Source Cloud." });
   }
   const installed = apps
     .filter((a) => sameRepo(a.gitUrl, SOURCE.gitUrl) && a.name.endsWith("api"))
-    .map((a) => ({ club: a.name.slice(0, -3), url: a.url ? (a.url.startsWith("http") ? a.url : `https://${a.url}`) : undefined, status: a.buildStatus }));
+    .map((a) => {
+      const club = a.name.slice(0, -3);
+      // The club's own address when it has one, else the platform's.
+      const own = domains.get(a.name)?.find((d) => d === siteDomain(club, who.osc.environment));
+      const url = own ? `https://${own}` : a.url ? (a.url.startsWith("http") ? a.url : `https://${a.url}`) : undefined;
+      return { club, url, status: a.buildStatus };
+    });
   const running = [...jobs.values()]
     .filter((j) => j.tenant === who.tenant && j.state === "running" && !installed.some((i) => i.club === j.club))
     .map((j) => ({ club: j.club, status: "installing" }));
   return { installations: [...running, ...installed] };
+});
+
+// Whether a short name is free, as the club types it: both the address,
+// shared by every OSC account, and the names in this account.
+app.get("/api/available/:club", async (req, reply) => {
+  const who = await signedIn(req, reply);
+  if (!who) return;
+  const { club } = req.params as { club: string };
+  const domain = siteDomain(club, who.osc.environment);
+  if (invalidClub(club)) return { club, domain, available: false, reason: invalidClub(club) };
+  try {
+    const [free, apps] = await Promise.all([who.osc.domainAvailable(domain), who.osc.listApps()]);
+    if (apps.some((a) => a.name === names(club).app)) return { club, domain, available: false, reason: `Ni har redan en Courtside som heter ${club}.` };
+    if (!free) return { club, domain, available: false, reason: `Adressen ${domain} är redan tagen.` };
+    return { club, domain, available: true };
+  } catch {
+    return { club, domain, available: undefined };
+  }
 });
 
 app.post("/api/installations", async (req, reply) => {

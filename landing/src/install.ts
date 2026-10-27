@@ -47,6 +47,14 @@ export function names(club: string) {
   };
 }
 
+/**
+ * The club's own address on the platform, e.g. myclub.apps.osaas.io.  These
+ * names are shared by every OSC tenant, so one is only ever handed out once.
+ */
+export function siteDomain(club: string, environment = "prod"): string {
+  return environment === "prod" ? `${club}.apps.osaas.io` : `${club}.apps.${environment}.osaas.io`;
+}
+
 const CLUB = /^[a-z][a-z0-9]{2,20}$/;
 
 /** The reason a club name cannot be used, or undefined if it can. */
@@ -110,6 +118,12 @@ export async function install(
     if (await osc.instanceExists(CONFIG_SERVICE, n.store)) {
       throw new Error(`Det finns redan en parameter store som heter ${n.store}. Välj ett annat namn.`);
     }
+    const domain = siteDomain(req.club, osc.environment);
+    // Unknown is not a no: if the check itself fails, the address is tried
+    // after the build and the platform's own address is used if it is taken.
+    if ((await osc.domainAvailable(domain).catch(() => true)) === false) {
+      throw new Error(`Adressen ${domain} är redan tagen. Välj ett annat kortnamn.`);
+    }
 
     job.step = "storage";
     const storagePassword = secret(32);
@@ -160,7 +174,7 @@ export async function install(
     await waitUntil(() => probe(`${siteUrl.replace(/\/$/, "")}/health`), timing.onlineTimeout, timing.poll,
       "Courtside byggdes men svarar inte. Försök igen om en stund.");
 
-    job.siteUrl = siteUrl;
+    job.siteUrl = (await ownAddress(osc, n.app, domain, undo, timing, probe)) ?? siteUrl;
     job.setupCode = code;
     job.state = "done";
   } catch (err) {
@@ -171,6 +185,34 @@ export async function install(
     }
   } finally {
     job.finishedAt = Date.now();
+  }
+}
+
+/**
+ * Gives the app its own address.  Never fails the installation: if the name
+ * was taken in the meantime or does not answer in time, the platform's own
+ * address is used instead.
+ */
+async function ownAddress(
+  osc: Osc,
+  app: string,
+  domain: string,
+  undo: Array<() => Promise<void>>,
+  timing: Timing,
+  probe: (url: string) => Promise<boolean>
+): Promise<string | undefined> {
+  try {
+    await osc.addDomain(app, domain);
+  } catch {
+    return undefined;
+  }
+  undo.push(() => osc.removeDomain(app, domain));
+  const url = `https://${domain}`;
+  try {
+    await waitUntil(() => probe(`${url}/health`), timing.onlineTimeout, timing.poll, "");
+    return url;
+  } catch {
+    return undefined;
   }
 }
 
@@ -223,6 +265,7 @@ export async function uninstall(osc: Osc, club: string): Promise<void> {
   const attempt = async (what: string, f: () => Promise<void>) => {
     await f().catch((err) => errors.push(`${what}: ${err instanceof Error ? err.message : err}`));
   };
+  await attempt("address", () => osc.removeDomain(n.app, siteDomain(club, osc.environment)));
   await attempt("app", () => osc.removeApp(n.app));
   await attempt("restreamer", async () => {
     if (await osc.instanceExists(RESTREAMER_SERVICE, n.restreamer)) await osc.removeInstance(RESTREAMER_SERVICE, n.restreamer);

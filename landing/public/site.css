@@ -472,3 +472,7 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
 
 .auth-notice { max-width: 40rem; margin: 1rem auto 0; padding: .85rem 1rem; border-radius: 10px;
   background: rgba(255, 196, 0, .12); border: 1px solid rgba(255, 196, 0, .45); text-align: left; }
+
+.avail { display: block; font-size: .85rem; margin-top: .3rem; min-height: 1.2em; color: var(--muted, #9a9aa5); }
+.avail.ok { color: #4ade80; }
+.avail.bad { color: #f87171; }

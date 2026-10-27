@@ -106,6 +106,7 @@ export function page(t) {
                   <label for="f-club">${t.inst.club}</label>
                   <input type="text" id="f-club" maxlength="21" autocapitalize="off" spellcheck="false" placeholder="${t.inst.clubPh}" required aria-describedby="f-club-hint">
                   <span class="hint" id="f-club-hint">${t.inst.clubHint}</span>
+                  <span class="avail" id="f-club-avail" aria-live="polite"></span>
                 </div>
                 <p class="form-error" id="create-error" role="alert"></p>
                 <button type="submit" class="btn btn-primary btn-block" id="create-btn">${t.inst.create}</button>
