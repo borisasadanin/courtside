@@ -12,7 +12,8 @@ struct StartView: View {
     var autoStartRestreamer: Bool = false
     @State private var name = UserDefaults.standard.string(forKey: "courtside_last_name") ?? ""
     @State private var opponent = UserDefaults.standard.string(forKey: "courtside_last_opponent") ?? ""
-    @State private var team = UserDefaults.standard.string(forKey: "courtside_last_team") ?? "Älta IF"
+    @State private var team = UserDefaults.standard.string(forKey: "courtside_last_team")
+        ?? Pairing.shared.credentials?.clubName ?? ""
     @State private var selectedQuality: StreamQuality = StreamQuality.saved
     @State private var supports1080p = StreamQuality.deviceSupports1080p
     @State private var isLoading = false
@@ -27,6 +28,8 @@ struct StartView: View {
     @State private var isNotifying = false
     @State private var hasNotified = false
     @State private var showNotifyConfirmation = false
+    @State private var showUnpairConfirmation = false
+    @State private var isUnpairing = false
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
@@ -46,7 +49,7 @@ struct StartView: View {
     }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .topTrailing) {
             Color.black.ignoresSafeArea()
 
             ScrollView {
@@ -72,7 +75,7 @@ struct StartView: View {
                             .offset(y: isCompact ? 4 : 6)
                     }
 
-                    Text("ÄLTA COURTSIDE")
+                    Text((Pairing.shared.credentials?.clubName ?? "Courtside").uppercased())
                         .font(isCompact ? .subheadline.bold() : .title2.bold())
                         .foregroundColor(gold)
                 }
@@ -302,6 +305,34 @@ struct StartView: View {
             }
             .frame(minHeight: UIScreen.main.bounds.height)
             }
+
+            Menu {
+                Button(role: .destructive) {
+                    showUnpairConfirmation = true
+                } label: {
+                    Label("Koppla bort från \(Pairing.shared.credentials?.clubName ?? "klubben")",
+                          systemImage: "link.badge.minus")
+                }
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.title3)
+                    .foregroundColor(.white.opacity(0.6))
+                    .padding(16)
+            }
+            .disabled(isUnpairing)
+            .accessibilityLabel("Inställningar")
+        }
+        .confirmationDialog(
+            "Koppla bort från \(Pairing.shared.credentials?.clubName ?? "klubben")?",
+            isPresented: $showUnpairConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Koppla bort", role: .destructive) {
+                isUnpairing = true
+                Task { await Pairing.shared.unpair() }
+            }
+        } message: {
+            Text("Appen nollställs och du behöver skanna en ny kod för att sända igen.")
         }
         .onAppear {
             OrientationManager.shared.lockPortrait()

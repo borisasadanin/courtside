@@ -111,6 +111,21 @@ describe("Setup", () => {
     expect(mutableConfig.ADMIN_PIN).toBe("");
   });
 
+  it("keeps the viewer PIN through a reset, so matches never stand open", async () => {
+    const storage = memoryStorage();
+    const first = new Setup(storage, CODE);
+    await first.load();
+    await first.complete({ code: CODE, adminPin: "123456", viewerPin: "4321" });
+
+    mutableConfig.VIEWER_PIN = "";
+    const reset = new Setup(storage, "NEWC-ODE2");
+    await reset.load();
+    expect(mutableConfig.VIEWER_PIN).toBe("4321");
+
+    expect(await reset.complete({ code: "NEWC-ODE2", adminPin: "654321" })).toBeNull();
+    expect(mutableConfig.VIEWER_PIN).toBe("4321");
+  });
+
   it("does not mistake a storage outage for a fresh installation", async () => {
     const storage = memoryStorage();
     storage.failReads = true;
@@ -136,7 +151,7 @@ describe("setup routes", () => {
 
   it("tells the website that setup is needed", async () => {
     const res = await app.inject({ url: "/api/setup" });
-    expect(res.json()).toEqual({ required: true });
+    expect(res.json()).toEqual({ required: true, keepsViewerPin: false });
   });
 
   it("lets nobody in as admin before setup", async () => {

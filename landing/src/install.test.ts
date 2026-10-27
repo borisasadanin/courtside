@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { install, invalidClub, Job, renewToken, setupCode, uninstall } from "./install.js";
+import { install, invalidClub, Job, renewToken, resetAdmin, setupCode, uninstall } from "./install.js";
 import { App, CONFIG_SERVICE, NewApp, Osc, Parameter, RESTREAMER_SERVICE, STORAGE_SERVICE } from "./osc.js";
 
 /** An OSC tenant in memory. */
@@ -217,6 +217,26 @@ describe("renewToken", () => {
     expect(t.calls).toContain("restart altaapi");
     expect(t.tokens.get(old.replace(/^pat-/, ""))).toBe(false);
     expect(t.tokens.get(fresh.replace(/^pat-/, ""))).toBe(true);
+  });
+});
+
+describe("resetAdmin", () => {
+  it("writes a new setup code and restarts the app, leaving the rest alone", async () => {
+    const t = fakeTenant();
+    await install(t.osc, req, source, newJob(), fast, async () => true);
+    const store = t.stores.get("altaconfig")!;
+    const old = store.get("SETUP_CODE")!.value;
+    const apiKey = store.get("API_KEY")?.value;
+
+    const code = await resetAdmin(t.osc, "alta");
+    expect(code).not.toBe(old);
+    expect(store.get("SETUP_CODE")!.value).toBe(code);
+    expect(store.get("API_KEY")?.value).toBe(apiKey);
+    expect(t.calls).toContain("restart altaapi");
+  });
+
+  it("refuses a club that is not installed", async () => {
+    await expect(resetAdmin(fakeTenant().osc, "nobody")).rejects.toThrow(/Hittar ingen/);
   });
 });
 

@@ -72,6 +72,17 @@ export default async function deviceRoutes(app: FastifyInstance): Promise<void> 
     return reply.send(await devices.list());
   });
 
+  // DELETE /api/devices/self — a camera disconnecting itself from the club
+  app.delete("/api/devices/self", async (request, reply) => {
+    const header = request.headers["x-device-token"];
+    const device = typeof header === "string" && header ? await devices.verify(header) : null;
+    if (!device) {
+      return reply.code(401).send({ error: "not_paired" });
+    }
+    await devices.revoke(device.id);
+    return reply.code(204).send();
+  });
+
   // DELETE /api/devices/:id — revoke one camera
   app.delete<{ Params: { id: string } }>("/api/devices/:id", async (request, reply) => {
     if (!requireAdminAuth(request, reply)) return;

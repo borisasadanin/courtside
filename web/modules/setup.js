@@ -13,6 +13,11 @@ export async function isSetupRequired() {
     const res = await fetch(`${CONFIG.API_URL}/api/setup`);
     if (!res.ok) return false;
     const data = await res.json();
+    // After a reset, an empty viewer PIN keeps the one viewers already have.
+    if (data.keepsViewerPin) {
+      const hint = document.getElementById("setupViewerPinHint");
+      if (hint) hint.textContent = "Lämna tom för att behålla den tittarkod ni redan har.";
+    }
     return !!data.required;
   } catch {
     return false;

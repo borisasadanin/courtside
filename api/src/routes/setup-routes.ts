@@ -13,7 +13,10 @@ export default async function setupRoutes(
 
   // GET /api/setup — whether the website should show setup instead of the PIN screen
   app.get("/api/setup", async (_request, reply) => {
-    return reply.header("Cache-Control", "no-cache").send({ required: setup.isRequired() });
+    return reply.header("Cache-Control", "no-cache").send({
+      required: setup.isRequired(),
+      keepsViewerPin: setup.keepsViewerPin(),
+    });
   });
 
   // POST /api/setup — choose the PINs, and come out of it logged in as admin

@@ -201,9 +201,15 @@ final class Pairing: ObservableObject {
         credentials = creds
     }
 
-    /// Forget this club. The club's admin view revokes the token separately.
-    func unpair() {
+    /// Forget this club and return to a freshly installed state. The camera
+    /// revokes its own token if the club can be reached; if not, the admin view
+    /// can still revoke it.
+    func unpair() async {
+        await APIService.shared.revokeOwnToken()
         PairingStore.shared.clear()
+        for key in ["courtside_last_name", "courtside_last_opponent", "courtside_last_team"] {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
         credentials = nil
     }
 }

@@ -28,6 +28,7 @@ import dvrRoutes from "./routes/dvr.js";
 import webRoutes, { webDistDir } from "./routes/web.js";
 import setupRoutes from "./routes/setup-routes.js";
 import { Setup } from "./setup.js";
+import { Branding } from "./club-branding.js";
 
 // --- Validate required env vars (exits on failure) ---
 validateConfig();
@@ -62,6 +63,7 @@ const oscManager = new OscInstanceManager({
 initServices(restreamer, minio, oscManager);
 
 const setup = new Setup(minio, config.SETUP_CODE);
+const branding = new Branding(minio);
 
 // --- Fastify setup ---
 
@@ -94,7 +96,7 @@ await app.register(adminRoutes);
 await app.register(restreamerRoutes);
 await app.register(broadcastRoutes);
 await app.register(clipRoutes);
-await app.register(clubRoutes);
+await app.register(clubRoutes, { branding });
 await app.register(mediaRoutes);
 await app.register(deviceRoutes);
 await app.register(dvrRoutes);
@@ -149,6 +151,14 @@ try {
   // Storage unreachable: keep setup closed rather than guess.  Admin stays
   // locked (no PIN) until storage is back and the process restarts.
   console.error("Could not read setup state:", err);
+}
+
+// The look the club chose in the admin view. Without it the environment's
+// values stand, which is a fine way to fail.
+try {
+  await branding.load();
+} catch (err) {
+  console.error("Could not read club branding:", err);
 }
 
 // Start background health polling for Restreamer

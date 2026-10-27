@@ -7,8 +7,8 @@
  * viewer PINs, which are kept in the club's own storage and survive restarts.
  *
  * Setting a new SETUP_CODE reopens setup.  That is the "forgot the admin PIN"
- * path, and it needs access to the installation's configuration — the same
- * access that would let someone change the PINs anyway.
+ * path: the landing page does it for whoever signs in with the OSC account that
+ * owns the installation.  The viewer PIN carries over unless a new one is chosen.
  */
 import crypto from "node:crypto";
 import { mutableConfig } from "./config.js";
@@ -46,6 +46,8 @@ export const VIEWER_PIN_PATTERN = /^\d{4,8}$/;
 
 export class Setup {
   private required = false;
+  /** The record from before a reset, whose viewer PIN carries over. */
+  private previous: SetupRecord | null = null;
 
   constructor(
     private readonly storage: SetupStorage,
@@ -55,6 +57,11 @@ export class Setup {
   /** Whether the installation is waiting for first-run setup. */
   isRequired(): boolean {
     return this.required;
+  }
+
+  /** Whether setup was reopened by a reset that keeps an existing viewer PIN. */
+  keepsViewerPin(): boolean {
+    return this.required && !!this.previous?.viewerPin;
   }
 
   /**
@@ -79,8 +86,12 @@ export class Setup {
     }
 
     // No record, or one made with an earlier code: setup is open, and nobody
-    // gets in with an old PIN in the meantime.
+    // gets in with an old admin PIN in the meantime.  A new code is how an
+    // owner who forgot the admin PIN gets back in, so viewers keep theirs —
+    // a reset must not leave the matches open to anyone with the link.
     mutableConfig.ADMIN_PIN = "";
+    this.previous = record;
+    if (record) mutableConfig.VIEWER_PIN = record.viewerPin;
     this.required = true;
   }
 
@@ -94,7 +105,8 @@ export class Setup {
     if (!codeMatches(input.code ?? "", this.setupCode)) return "Fel uppsättningskod.";
 
     const adminPin = (input.adminPin ?? "").trim();
-    const viewerPin = (input.viewerPin ?? "").trim();
+    // After a reset an empty viewer PIN means "keep the one we have".
+    const viewerPin = (input.viewerPin ?? "").trim() || this.previous?.viewerPin || "";
     if (!ADMIN_PIN_PATTERN.test(adminPin)) return "Admin-koden ska vara 6–8 siffror.";
     if (viewerPin && !VIEWER_PIN_PATTERN.test(viewerPin)) return "Tittarkoden ska vara 4–8 siffror.";
     if (viewerPin === adminPin) return "Tittarkoden och admin-koden måste vara olika.";
@@ -110,6 +122,7 @@ export class Setup {
     mutableConfig.ADMIN_PIN = adminPin;
     mutableConfig.VIEWER_PIN = viewerPin;
     this.required = false;
+    this.previous = null;
     return null;
   }
 

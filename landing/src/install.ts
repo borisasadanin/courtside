@@ -238,6 +238,25 @@ export async function renewToken(osc: Osc, club: string): Promise<void> {
   await osc.revokeTokens(n.tokenPrefix, tokenName);
 }
 
+/**
+ * Lets the owner back into a club's admin view, whatever they forgot.  A new
+ * setup code reopens first-run setup when the backend restarts; the viewer PIN
+ * and every recording stay as they are.  Signing in with the OSC account that
+ * owns the installation is the proof of ownership, so nobody else — Eyevinn
+ * included — is needed for this.
+ */
+export async function resetAdmin(osc: Osc, club: string): Promise<string> {
+  const n = names(club);
+  const app = (await osc.listApps()).find((a) => a.name === n.app);
+  if (!app) throw new Error(`Hittar ingen Courtside som heter ${club}.`);
+  const apiKey = await osc.parameterStoreKey(n.store);
+  if (!apiKey) throw new Error(`Parameter storen ${n.store} saknar nyckel.`);
+  const code = setupCode();
+  await osc.writeParameters(n.store, apiKey, [{ key: "SETUP_CODE", value: code, secret: true }]);
+  await osc.restartApp(app.id);
+  return code;
+}
+
 export function sameRepo(a: string, b: string): boolean {
   const norm = (u: string) => u.toLowerCase().replace(/\.git$/, "").replace(/\/$/, "");
   return norm(a) === norm(b);
