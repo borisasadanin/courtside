@@ -24,10 +24,8 @@ export function renderBranding() {
     <div class="branding-logo-row">
       <img class="branding-logo" id="brandingLogoPreview" src="${escapeHtml(currentLogo())}" alt="">
       <div class="branding-logo-actions">
-        <label class="admin-pair-btn branding-upload">
-          Byt logotyp
-          <input type="file" id="brandingLogoInput" accept="image/png,image/jpeg,image/webp" hidden>
-        </label>
+        <button type="button" class="admin-pair-btn branding-upload" id="brandingLogoPick">Byt logotyp</button>
+        <input type="file" id="brandingLogoInput" accept="image/*" class="visually-hidden-file">
         ${club.logoUrl.startsWith("/api/club/logo") ? '<button class="branding-link" id="brandingLogoRemove">Ta bort logotyp</button>' : ""}
       </div>
     </div>
@@ -54,8 +52,14 @@ export function renderBranding() {
   showContrast(colour.value);
 
   document.getElementById("brandingSave").addEventListener("click", save);
-  document.getElementById("brandingLogoInput").addEventListener("change", (e) => {
-    const file = e.target.files?.[0];
+  // Safari greys out "Open" in the file dialog when accept lists exact MIME
+  // types, and is unreliable with a display:none input, so the input is
+  // visually hidden instead and opened from a button.
+  const input = document.getElementById("brandingLogoInput");
+  document.getElementById("brandingLogoPick").addEventListener("click", () => input.click());
+  input.addEventListener("change", () => {
+    const file = input.files?.[0];
+    input.value = "";
     if (file) uploadLogo(file);
   });
   document.getElementById("brandingLogoRemove")?.addEventListener("click", removeLogo);
@@ -121,15 +125,31 @@ async function removeLogo() {
 
 /** Scale an image down in the browser, so a photo straight off a phone is fine to pick. */
 async function resize(file) {
-  const bitmap = await createImageBitmap(file).catch(() => {
+  const bitmap = await decode(file).catch(() => {
     throw new Error("Bilden gick inte att läsa. Välj en PNG eller JPG.");
   });
-  const scale = Math.min(1, LOGO_MAX_PX / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, LOGO_MAX_PX / Math.max(bitmap.width || bitmap.naturalWidth, bitmap.height || bitmap.naturalHeight));
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
+  canvas.width = Math.round((bitmap.width || bitmap.naturalWidth) * scale);
+  canvas.height = Math.round((bitmap.height || bitmap.naturalHeight) * scale);
   canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL("image/png");
+}
+
+/** createImageBitmap where it works, an <img> otherwise (older Safari, HEIC). */
+async function decode(file) {
+  if (typeof createImageBitmap === "function") {
+    try { return await createImageBitmap(file); } catch { /* fall through */ }
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    return img;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 // --- Contrast against the dark background, WCAG relative luminance ---

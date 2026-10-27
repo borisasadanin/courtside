@@ -121,8 +121,8 @@ export function page(t) {
               <div class="done-box" id="done-box" hidden>
                 <p class="muted" style="margin-bottom:0.4rem">${t.inst.codeNote}</p>
                 <p class="code" id="done-code"></p>
-                <p class="muted" style="margin-bottom:1rem">${t.inst.address} <a id="done-url" target="_blank" rel="noopener"></a></p>
-                <a class="btn btn-primary btn-block" id="done-open" target="_blank" rel="noopener">${t.inst.openPins}</a>
+                <p class="muted" style="margin-bottom:1rem">${t.inst.address} <a id="done-url"></a></p>
+                <a class="btn btn-primary btn-block" id="done-open">${t.inst.openPins}</a>
               </div>
               <button type="button" class="btn btn-secondary btn-block" id="progress-back" hidden style="margin-top:1rem">${t.inst.back}</button>
             </div>

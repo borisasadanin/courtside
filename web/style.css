@@ -2112,3 +2112,13 @@ footer {
 .teardown-done li.bad { color: var(--red); }
 .teardown-done a { color: var(--accent); }
 .teardown-done .bad { color: var(--red); }
+
+/* A file input that is out of sight but still a real, clickable element (Safari). */
+.visually-hidden-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
