@@ -2070,3 +2070,45 @@ footer {
 
 .pin-help { margin-top: 24px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
 .pin-help a { color: var(--accent); }
+
+/* ── Remove the platform (admin) ────────────────────────────────────────── */
+
+.admin-danger {
+  margin-top: 40px;
+  padding: 16px;
+  border: 1px solid rgba(231, 76, 60, 0.45);
+  border-radius: var(--radius);
+}
+
+.teardown-text {
+  color: var(--text-muted, #aaa);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.teardown-btn {
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.teardown-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.teardown-done {
+  max-width: 40rem;
+  margin: 12vh auto;
+  padding: 0 16px;
+  line-height: 1.55;
+}
+
+.teardown-done ul { list-style: none; padding: 0; }
+.teardown-done li { margin: 6px 0; }
+.teardown-done li.bad { color: var(--red); }
+.teardown-done a { color: var(--accent); }
+.teardown-done .bad { color: var(--red); }
