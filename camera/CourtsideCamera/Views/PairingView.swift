@@ -65,6 +65,13 @@ struct PairingView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
+            // The app does nothing on its own, so say what it belongs to and
+            // where to start — for a new user and for App Review alike.
+            Link("Har ni ingen Courtside än? Starta en på courtside.apps.osaas.io",
+                 destination: URL(string: "https://courtside.apps.osaas.io")!)
+                .font(.footnote)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
         }
     }
 
