@@ -53,6 +53,7 @@
         </div>
         <button id="pinSubmit" class="pin-btn">Öppna</button>
         <p class="pin-error hidden" id="pinError">Fel kod — försök igen</p>
+        <p class="pin-help">Glömt admin-koden? Logga in på <a href="https://courtside.apps.osaas.io" target="_blank" rel="noopener">courtside.apps.osaas.io</a> med ert OSC-konto och välj <em>Glömt admin-koden?</em></p>
       </div>
     </section>
 
@@ -78,7 +79,7 @@
         <label class="setup-field">
           <span>Tittarkod</span>
           <input type="tel" id="setupViewerPin" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="8" placeholder="4–8 siffror" autocomplete="off">
-          <small>Delas med föräldrar och supportrar. Lämna tom så kan alla med länken titta.</small>
+          <small id="setupViewerPinHint">Delas med föräldrar och supportrar. Lämna tom så kan alla med länken titta.</small>
         </label>
 
         <button type="submit" id="setupSubmit" class="pin-btn">Spara och fortsätt</button>
@@ -213,6 +214,13 @@
       <div class="admin-storage-summary" id="adminStorageSummary">
         <div class="spinner"></div>
       </div>
+      <div class="admin-section">
+        <div class="admin-section-head">
+          <h3 class="admin-section-title">Utseende</h3>
+        </div>
+        <div class="admin-branding" id="adminBranding"></div>
+      </div>
+
       <div class="admin-section">
         <div class="admin-section-head">
           <h3 class="admin-section-title">Kameror</h3>

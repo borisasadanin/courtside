@@ -25,7 +25,7 @@ const FETCH_TIMEOUT_MS = 4000;
  * Called once at boot, before the PIN screen is shown — the PIN screen is
  * branded too.
  */
-function applyTheme() {
+export function applyTheme() {
   if (club.accentColor) {
     document.documentElement.style.setProperty("--accent", club.accentColor);
   }

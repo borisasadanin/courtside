@@ -6,6 +6,7 @@ import { state, dom } from "./state.js";
 import { escapeHtml, formatDuration, formatDate, formatBytes } from "./utils.js";
 import { logoutViewer } from "./auth.js";
 import { loadDevices, startPairing } from "./devices.js";
+import { renderBranding } from "./branding.js";
 
 // Callback injected by the orchestrator
 let onSwitchTab = null;
@@ -50,6 +51,7 @@ export async function loadAdminStorage() {
 
   // Cameras load alongside storage — both belong to the admin view.
   loadDevices();
+  renderBranding();
 
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/admin/storage`, {
