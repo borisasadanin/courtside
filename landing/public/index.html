@@ -63,8 +63,8 @@
         </div>
         <div class="inst-grid">
           <div class="inst-box">
-            <h3>Installationer i ert konto</h3>
-            <p class="muted" id="inst-empty">Ni har ingen Courtside ännu.</p>
+            <h3>Era plattformar</h3>
+            <p class="muted" id="inst-empty">Ni har ingen Courtside ännu. När den är skapad står er adress här, den som ni delar med alla som vill titta.</p>
             <ul class="inst-list" id="inst-list"></ul>
           </div>
           <div class="inst-box">
@@ -99,10 +99,17 @@
               </ol>
               <p class="form-error" id="progress-error" role="alert"></p>
               <div class="done-box" id="done-box" hidden>
-                <p class="muted" style="margin-bottom:0.4rem">Er setupkod. Den visas bara nu, så skriv upp den.</p>
+                <p class="done-label">Er adress, dela den med alla som vill titta</p>
+                <p class="done-share"><a id="done-url"></a> <button type="button" class="btn btn-secondary btn-sm" id="done-copy">Kopiera</button></p>
+                <p class="muted">Föräldrar, spelare och supportrar öppnar den i webbläsaren. Ingen app behövs. Där ser de livesändningar, highlights och alla sparade matcher.</p>
+                <p class="done-label" style="margin-top:1rem">Er uppsättningskod. Den visas bara nu, så skriv upp den.</p>
                 <p class="code" id="done-code"></p>
-                <p class="muted" style="margin-bottom:1rem">Adress: <a id="done-url"></a></p>
-                <a class="btn btn-primary btn-block" id="done-open">Öppna och välj PIN-koder</a>
+                <p class="done-label" style="margin-top:1rem">Nästa steg: välj två koder</p>
+                <ul class="done-codes">
+                  <li><b>Admin-kod:</b> för er som hanterar inspelningar och lägger till kameror. Dela den inte med tittarna.</li>
+                  <li><b>Tittarkod:</b> för alla som bara ska titta på livesändningar och inspelningar. Dela den tillsammans med adressen.</li>
+                </ul>
+                <a class="btn btn-primary btn-block" id="done-open">Öppna er plattform och välj koderna</a>
               </div>
               <button type="button" class="btn btn-secondary btn-block" id="progress-back" hidden style="margin-top:1rem">Tillbaka</button>
             </div>

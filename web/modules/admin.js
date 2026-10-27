@@ -46,6 +46,16 @@ export function deactivateAdmin() {
 // Storage & VOD list
 // ============================
 
+/** The address viewers use: this site, without any path or code. */
+function renderShare() {
+  const a = document.getElementById("adminShareUrl");
+  if (!a) return;
+  a.href = location.origin;
+  a.textContent = location.host;
+  const copy = document.getElementById("adminShareCopy");
+  copy.onclick = () => navigator.clipboard.writeText(location.origin).then(() => { copy.textContent = "Kopierad"; });
+}
+
 export async function loadAdminStorage() {
   dom.adminStorageSummary.innerHTML = '<div class="spinner"></div>';
   dom.adminVodList.innerHTML = "";
@@ -54,6 +64,7 @@ export async function loadAdminStorage() {
   loadDevices();
   renderBranding();
   renderTeardown();
+  renderShare();
 
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/admin/storage`, {

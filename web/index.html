@@ -73,13 +73,13 @@
         <label class="setup-field">
           <span>Admin-kod</span>
           <input type="tel" id="setupAdminPin" inputmode="numeric" pattern="[0-9]*" minlength="6" maxlength="8" placeholder="6–8 siffror" autocomplete="new-password" required>
-          <small>För dig som sköter sändningarna. Ger tillgång till adminvyn.</small>
+          <small>För er som hanterar inspelningar och lägger till kameror. Dela den inte med tittarna.</small>
         </label>
 
         <label class="setup-field">
           <span>Tittarkod</span>
           <input type="tel" id="setupViewerPin" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="8" placeholder="4–8 siffror" autocomplete="off">
-          <small id="setupViewerPinHint">Delas med föräldrar och supportrar. Lämna tom så kan alla med länken titta.</small>
+          <small id="setupViewerPinHint">För alla som bara ska titta på livesändningar och inspelningar. Dela den tillsammans med adressen. Lämna tom så kan alla med adressen titta.</small>
         </label>
 
         <button type="submit" id="setupSubmit" class="pin-btn">Spara och fortsätt</button>
@@ -214,6 +214,14 @@
       <div class="admin-storage-summary" id="adminStorageSummary">
         <div class="spinner"></div>
       </div>
+      <div class="admin-section admin-share">
+        <div class="admin-section-head">
+          <h3 class="admin-section-title">Dela med tittarna</h3>
+        </div>
+        <p class="admin-share-url"><a id="adminShareUrl"></a> <button class="branding-link" id="adminShareCopy" type="button">Kopiera</button></p>
+        <p class="teardown-text">Det här är adressen till er Courtside. Dela den med föräldrar, spelare och supportrar, tillsammans med tittarkoden. De öppnar den i webbläsaren och ser livesändningar, highlights och alla sparade matcher. Admin-koden behåller ni själva, den är för att hantera inspelningar och lägga till kameror.</p>
+      </div>
+
       <div class="admin-section">
         <div class="admin-section-head">
           <h3 class="admin-section-title">Utseende</h3>

@@ -27,6 +27,7 @@ var T = ({
     },
     free: function (d) { return "✓ " + d + " är ledig"; }, checking: "Kontrollerar adressen…",
     taken: function (d) { return d + " är redan tagen. Välj ett annat kortnamn."; },
+    shareLabel: "Adress att dela med tittarna", copied: "Kopierad",
     done: "Klart!", needName: "Skriv föreningens namn.",
     badShortName: "Kortnamnet ska vara 3–21 små bokstäver eller siffror och börja med en bokstav."
   },
@@ -55,6 +56,7 @@ var T = ({
     },
     free: function (d) { return "✓ " + d + " is free"; }, checking: "Checking the address…",
     taken: function (d) { return d + " is already taken. Choose another short name."; },
+    shareLabel: "Address to share with viewers", copied: "Copied",
     done: "Done!", needName: "Enter your club's name.",
     badShortName: "The short name must be 3–21 lowercase letters or digits and start with a letter."
   }
@@ -248,6 +250,7 @@ var T = ({
           row.appendChild(el("span", { "class": "status " + st[1] }, st[0]));
           li.appendChild(row);
           if (i.url) {
+            li.appendChild(el("span", { "class": "url-label" }, T.shareLabel));
             var a = el("a", { "class": "url", href: i.url, target: "_blank", rel: "noopener" }, i.url.replace(/^https:\/\//, ""));
             li.appendChild(a);
           }
@@ -312,6 +315,10 @@ var T = ({
         $("done-url").textContent = job.siteUrl.replace(/^https:\/\//, "");
         $("done-url").href = job.siteUrl;
         $("done-open").href = job.siteUrl + "/#setup=" + encodeURIComponent(job.setupCode);
+        $("done-copy").onclick = function () {
+          var b = this;
+          navigator.clipboard.writeText(job.siteUrl).then(function () { b.textContent = T.copied; });
+        };
       }
       if (job.state !== "running") { clearInterval(pollTimer); pollTimer = null; loadList(); loadAccount(); }
     }

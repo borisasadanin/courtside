@@ -480,3 +480,9 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
 .inst-expired { margin: 0 0 1.25rem; padding: 1rem 1.1rem; border-radius: 12px;
   background: rgba(255, 196, 0, .12); border: 1px solid rgba(255, 196, 0, .45); }
 .inst-expired p { margin: 0 0 .75rem; }
+
+.done-label { font-weight: 600; color: var(--text-strong); margin: 0 0 .35rem; }
+.done-share { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 0 0 .4rem; font-size: 1.1rem; word-break: break-all; }
+.done-codes { margin: 0 0 1rem; padding-left: 1.1rem; }
+.done-codes li { margin: .3rem 0; }
+.inst-item .url-label { display: block; font-size: .8rem; color: var(--muted, #9a9aa5); margin-top: .35rem; }

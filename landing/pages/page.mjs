@@ -124,9 +124,16 @@ export function page(t) {
               </ol>
               <p class="form-error" id="progress-error" role="alert"></p>
               <div class="done-box" id="done-box" hidden>
-                <p class="muted" style="margin-bottom:0.4rem">${t.inst.codeNote}</p>
+                <p class="done-label">${t.inst.shareH}</p>
+                <p class="done-share"><a id="done-url"></a> <button type="button" class="btn btn-secondary btn-sm" id="done-copy">${t.inst.copy}</button></p>
+                <p class="muted">${t.inst.shareNote}</p>
+                <p class="done-label" style="margin-top:1rem">${t.inst.codeNote}</p>
                 <p class="code" id="done-code"></p>
-                <p class="muted" style="margin-bottom:1rem">${t.inst.address} <a id="done-url"></a></p>
+                <p class="done-label" style="margin-top:1rem">${t.inst.nextH}</p>
+                <ul class="done-codes">
+                  <li><b>${t.inst.adminCode}</b> ${t.inst.adminCodeNote}</li>
+                  <li><b>${t.inst.viewerCode}</b> ${t.inst.viewerCodeNote}</li>
+                </ul>
                 <a class="btn btn-primary btn-block" id="done-open">${t.inst.openPins}</a>
               </div>
               <button type="button" class="btn btn-secondary btn-block" id="progress-back" hidden style="margin-top:1rem">${t.inst.back}</button>

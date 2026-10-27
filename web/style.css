@@ -2122,3 +2122,6 @@ footer {
   overflow: hidden;
   pointer-events: none;
 }
+
+.admin-share-url { font-size: 1.15rem; font-weight: 600; margin: 0 0 8px; word-break: break-all; }
+.admin-share-url a { color: var(--accent); }

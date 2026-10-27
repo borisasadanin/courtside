@@ -63,8 +63,8 @@
         </div>
         <div class="inst-grid">
           <div class="inst-box">
-            <h3>Installations in your account</h3>
-            <p class="muted" id="inst-empty">You don't have a Courtside yet.</p>
+            <h3>Your platforms</h3>
+            <p class="muted" id="inst-empty">You don't have a Courtside yet. Once it is created, your address shows here, the one you share with everyone who wants to watch.</p>
             <ul class="inst-list" id="inst-list"></ul>
           </div>
           <div class="inst-box">
@@ -99,10 +99,17 @@
               </ol>
               <p class="form-error" id="progress-error" role="alert"></p>
               <div class="done-box" id="done-box" hidden>
-                <p class="muted" style="margin-bottom:0.4rem">Your setup code. It is only shown now, so write it down.</p>
+                <p class="done-label">Your address, share it with everyone who wants to watch</p>
+                <p class="done-share"><a id="done-url"></a> <button type="button" class="btn btn-secondary btn-sm" id="done-copy">Copy</button></p>
+                <p class="muted">Parents, players and supporters open it in their browser. No app needed. There they watch live games, highlights and every saved game.</p>
+                <p class="done-label" style="margin-top:1rem">Your setup code. It is only shown now, so write it down.</p>
                 <p class="code" id="done-code"></p>
-                <p class="muted" style="margin-bottom:1rem">Address: <a id="done-url"></a></p>
-                <a class="btn btn-primary btn-block" id="done-open">Open and choose PIN codes</a>
+                <p class="done-label" style="margin-top:1rem">Next: choose two codes</p>
+                <ul class="done-codes">
+                  <li><b>Admin code:</b> for those who manage recordings and add cameras. Don't share it with viewers.</li>
+                  <li><b>Viewer code:</b> for everyone who only watches live games and recordings. Share it along with the address.</li>
+                </ul>
+                <a class="btn btn-primary btn-block" id="done-open">Open your platform and choose the codes</a>
               </div>
               <button type="button" class="btn btn-secondary btn-block" id="progress-back" hidden style="margin-top:1rem">Back</button>
             </div>
