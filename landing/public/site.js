@@ -23,7 +23,8 @@ var T = ({
     auth: {
       denied: "Du tackade nej till att ge Courtside åtkomst, så inget har skapats på ditt Open Source Cloud-konto. Courtside behöver åtkomsten för att kunna starta tjänsterna åt er. Ändrar du dig går det bra att försöka igen.",
       failed: "Inloggningen hos Open Source Cloud blev inte klar, kanske för att den tog för lång tid. Försök igen.",
-      unavailable: "Vi når inte Open Source Cloud just nu. Försök igen om en stund."
+      unavailable: "Vi når inte Open Source Cloud just nu. Försök igen om en stund.",
+      signedout: "Du är utloggad från Courtside. Du kan fortfarande vara inloggad på Open Source Cloud i den här webbläsaren, och då släpps du in direkt nästa gång. Delar du datorn med andra, logga ut även på app.osaas.io."
     },
     free: function (d) { return "✓ " + d + " är ledig"; }, checking: "Kontrollerar adressen…",
     taken: function (d) { return d + " är redan tagen. Välj ett annat kortnamn."; },
@@ -52,7 +53,8 @@ var T = ({
     auth: {
       denied: "You declined to give Courtside access, so nothing was created in your Open Source Cloud account. Courtside needs that access to start the services for you. If you change your mind, just try again.",
       failed: "Signing in with Open Source Cloud didn't finish, perhaps because it took too long. Please try again.",
-      unavailable: "We can't reach Open Source Cloud right now. Please try again in a moment."
+      unavailable: "We can't reach Open Source Cloud right now. Please try again in a moment.",
+      signedout: "You are signed out of Courtside. You may still be signed in to Open Source Cloud in this browser, in which case you are let straight in next time. If you share this computer, sign out at app.osaas.io too."
     },
     free: function (d) { return "✓ " + d + " is free"; }, checking: "Checking the address…",
     taken: function (d) { return d + " is already taken. Choose another short name."; },
@@ -362,7 +364,14 @@ var T = ({
     });
 
     $("signout").addEventListener("click", function () {
-      fetch("/auth/signout", { method: "POST", credentials: "same-origin" }).then(function () { location.href = location.pathname; });
+      fetch("/auth/signout", { method: "POST", credentials: "same-origin" }).then(function () { location.href = location.pathname + "?auth=signedout#kom-igang"; });
+    });
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden || !signedIn) return;
+      fetch("/auth/status", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (st) {
+        if (!st.authenticated) sessionExpired();
+      }).catch(function () {});
     });
 
     var authReason = new URLSearchParams(location.search).get("auth");

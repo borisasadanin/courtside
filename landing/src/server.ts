@@ -47,17 +47,28 @@ interface Session {
   redirectUri?: string;
   returnTo?: string;
   touched: number;
+  signedInAt?: number;
 }
 
 const COOKIE = "courtside_session";
-const SESSION_TTL = 12 * 60 * 60_000;
+/**
+ * A sign-in ends after half an hour without use, and four hours after it
+ * began whatever happens, so a forgotten tab on a shared computer does not
+ * stay in charge of the club's OSC account.
+ */
+const IDLE_TTL = 30 * 60_000;
+const SESSION_TTL = 4 * 60 * 60_000;
 const sessions = new Map<string, Session>();
 
 function session(req: FastifyRequest, reply: FastifyReply): Session {
   const id = req.cookies[COOKIE];
   const existing = id ? sessions.get(id) : undefined;
   if (existing) {
-    existing.touched = Date.now();
+    const now = Date.now();
+    if (existing.token && (now - existing.touched > IDLE_TTL || now - (existing.signedInAt ?? now) > SESSION_TTL)) {
+      existing.token = existing.refreshToken = existing.expiresAt = existing.signedInAt = undefined;
+    }
+    existing.touched = now;
     return existing;
   }
   const fresh: Session = { touched: Date.now() };
@@ -160,6 +171,7 @@ app.get("/auth/callback", async (req, reply) => {
   }
   try {
     store(s, await oauth.exchangeCode(s.client!, code!, s.verifier!, s.redirectUri!));
+    s.signedInAt = Date.now();
   } catch (err) {
     req.log.error(err, "OAuth code exchange failed");
     s.verifier = s.state = s.returnTo = undefined;

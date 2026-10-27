@@ -14,7 +14,7 @@ export const sv = {
   inst: {
     h: "Er Courtside", signout: "Logga ut", listH: "Era plattformar", empty: "Ni har ingen Courtside ännu. När den är skapad står er adress här, den som ni delar med alla som vill titta.",
     createH: "Starta en ny Courtside", display: "Föreningens namn", displayPh: "Älta IF Basket",
-    expired: "Inloggningen hos Open Source Cloud har gått ut, så inget har skapats. Logga in igen, så finns det du skrev kvar.", expiredBtn: "Logga in igen",
+    expired: "Du har loggats ut, eftersom sidan inte använts på en stund eller inloggningen har gått ut. Inget nytt har skapats. Logga in igen, så finns det du skrev kvar.", expiredBtn: "Logga in igen",
     club: "Kortnamn", clubPh: "altaif", clubHint: "Små bokstäver och siffror. Blir er adress, kortnamn.apps.osaas.io, och namnet på tjänsterna i ert konto.",
     create: "Skapa", takes: "Tar runt tio minuter. Allt skapas i ert eget OSC-konto och drar tokens därifrån.",
     creating: "Skapar", steps: ["Kontrollerar namnet", "Lagring för inspelningar", "Åtkomst för sändningsmotorn", "Inställningar", "Webbplats och backend", "Bygger (flera minuter)", "Startar"],
@@ -231,7 +231,7 @@ export const en = {
   inst: {
     h: "Your Courtside", signout: "Sign out", listH: "Your platforms", empty: "You don't have a Courtside yet. Once it is created, your address shows here, the one you share with everyone who wants to watch.",
     createH: "Start a new Courtside", display: "Club name", displayPh: "Hornets Basketball",
-    expired: "Your Open Source Cloud sign-in has expired, so nothing was created. Sign in again and what you typed will still be there.", expiredBtn: "Sign in again",
+    expired: "You have been signed out, because the page was idle for a while or the sign-in ran out. Nothing new was created. Sign in again and what you typed will still be there.", expiredBtn: "Sign in again",
     club: "Short name", clubPh: "hornets", clubHint: "Lowercase letters and digits. Becomes your address, shortname.apps.osaas.io, and names the services in your account.",
     create: "Create", takes: "Takes about ten minutes. Everything is created in your own OSC account and uses tokens from it.",
     creating: "Creating", steps: ["Checking the name", "Storage for recordings", "Access for the streaming engine", "Settings", "Website and backend", "Building (several minutes)", "Starting"],
