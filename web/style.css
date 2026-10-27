@@ -2111,3 +2111,4 @@ footer {
 .teardown-done li { margin: 6px 0; }
 .teardown-done li.bad { color: var(--red); }
 .teardown-done a { color: var(--accent); }
+.teardown-done .bad { color: var(--red); }

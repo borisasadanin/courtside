@@ -85,8 +85,28 @@ function showDone({ club, removed }) {
         alla inspelningar och highlights, logotypen, inställningarna, admin- och tittarkoderna,
         alla lösenord och nycklar och kopplingarna till kamerorna. Webbplatsen slutar svara inom någon minut.</p>
       <ul>${rows}</ul>
+      <p id="teardownSite" role="status">Väntar på att webbplatsen ska stängas…</p>
       ${failed.length ? "<p>Det som inte gick att ta bort kan du ta bort själv i Open Source Cloud under My Apps och Services.</p>" : ""}
       <p>Ert OSC-konto finns kvar. Vill ni börja om kan ni skapa en ny Courtside på
         <a href="https://courtside.apps.osaas.io/">courtside.apps.osaas.io</a>. Kameraappen kan kopplas bort under kugghjulet.</p>
     </main>`;
+  watchSiteGo(removed);
+}
+
+/** The site removes itself after answering; tell the admin once it has. */
+function watchSiteGo(removed) {
+  const app = removed.find((r) => r.what.startsWith("Webbplatsen"))?.what.match(/\((.+)\)/)?.[1] || "appen";
+  const el = document.getElementById("teardownSite");
+  const deadline = Date.now() + 3 * 60_000;
+  const check = async () => {
+    const up = await fetch(`${CONFIG.API_URL}/health`, { cache: "no-store" }).then((r) => r.ok).catch(() => false);
+    if (!up) { el.textContent = "✓ Webbplatsen är avstängd och borttagen."; return; }
+    if (Date.now() > deadline) {
+      el.textContent = `Webbplatsen svarar fortfarande. Ta bort ${app} i Open Source Cloud under My Apps.`;
+      el.classList.add("bad");
+      return;
+    }
+    setTimeout(check, 5000);
+  };
+  setTimeout(check, 5000);
 }
