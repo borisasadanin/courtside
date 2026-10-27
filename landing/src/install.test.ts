@@ -86,7 +86,7 @@ function fakeTenant(opts: { failAt?: string; buildStatus?: string } = {}) {
   return { osc, instances, stores, apps, tokens, calls };
 }
 
-const fast = { buildTimeout: 1000, onlineTimeout: 200, poll: 1 };
+const fast = { buildTimeout: 1000, onlineTimeout: 200, poll: 1, failedGrace: 50 };
 const source = { gitUrl: "https://github.com/x/courtside" };
 const newJob = (): Job => ({ club: "alta", tenant: "t1", step: "check", state: "running", startedAt: Date.now() });
 const req = { club: "alta", displayName: "Älta IF Basket", tenant: "t1" };
@@ -137,10 +137,19 @@ describe("install", () => {
   it("removes everything when the build fails", async () => {
     const t = fakeTenant({ buildStatus: "failed" });
     const job = newJob();
-    await install(t.osc, req, source, job, { ...fast, buildTimeout: 50 }, async () => true);
+    await install(t.osc, req, source, job, { ...fast, buildTimeout: 200 }, async () => false);
     expect(job.state).toBe("failed");
+    expect(job.error).toMatch(/misslyckades/);
     expect(t.apps.size).toBe(0);
     expect(t.instances.size).toBe(0);
+  });
+
+  it("trusts an app that answers even while the platform still says failed", async () => {
+    const t = fakeTenant({ buildStatus: "failed" });
+    const job = newJob();
+    await install(t.osc, req, source, job, fast, async () => true);
+    expect(job.state).toBe("done");
+    expect(t.apps.size).toBe(1);
   });
 
   it("removes everything when the app never answers", async () => {

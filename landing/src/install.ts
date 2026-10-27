@@ -71,9 +71,11 @@ export interface Timing {
   buildTimeout: number;
   onlineTimeout: number;
   poll: number;
+  /** How long "failed" must last before it is believed. */
+  failedGrace: number;
 }
 
-const TIMING: Timing = { buildTimeout: 15 * 60_000, onlineTimeout: 5 * 60_000, poll: 5000 };
+const TIMING: Timing = { buildTimeout: 15 * 60_000, onlineTimeout: 5 * 60_000, poll: 5000, failedGrace: 6 * 60_000 };
 
 /** Whether the token for a private repository may go to this tenant. */
 function gitToken(source: Source, tenant: string): string | undefined {
@@ -151,7 +153,7 @@ export async function install(
     });
 
     job.step = "build";
-    const built = await waitForBuild(osc, app.id, timing);
+    const built = await waitForBuild(osc, app.id, timing, probe);
 
     job.step = "online";
     const siteUrl = built.url.startsWith("http") ? built.url : `https://${built.url}`;
@@ -172,17 +174,27 @@ export async function install(
   }
 }
 
-async function waitForBuild(osc: Osc, id: string, timing: Timing) {
+async function waitForBuild(osc: Osc, id: string, timing: Timing, probe: (url: string) => Promise<boolean>) {
   const deadline = Date.now() + timing.buildTimeout;
-  // The platform reports "failed" for a while during some builds before they
-  // come up, so a failure only counts once it has lasted.
+  // The platform reports "failed" for minutes during some first builds that
+  // then come up fine, so the status alone is not trusted: an app that answers
+  // on /health is built, whatever the status says, and a failure only counts
+  // once it has lasted well past that.
   let failedSince = 0;
   for (;;) {
     const app = await osc.getApp(id).catch(() => undefined);
-    if (app?.buildStatus === "running" && app.url) return app;
+    if (app?.url) {
+      const url = app.url.startsWith("http") ? app.url : `https://${app.url}`;
+      if (app.buildStatus === "running" || (await probe(`${url.replace(/\/$/, "")}/health`).catch(() => false))) {
+        return app;
+      }
+    }
     if (app?.buildStatus === "failed") {
       failedSince ||= Date.now();
-      if (Date.now() - failedSince > 90_000) throw new Error("Bygget av Courtside misslyckades.");
+      if (Date.now() - failedSince > timing.failedGrace) {
+        console.error(JSON.stringify({ msg: "build failed", app }));
+        throw new Error("Bygget av Courtside misslyckades.");
+      }
     } else {
       failedSince = 0;
     }
