@@ -340,6 +340,15 @@ final class APIService {
         return (200...299).contains(http.statusCode)
     }
 
+    /// Revoke this camera's own token. Best effort: unpairing goes ahead locally either way.
+    func revokeOwnToken() async {
+        guard let url = URL(string: "\(baseURL)/api/devices/self") else { return }
+        var request = URLRequest(url: url, timeoutInterval: 5)
+        request.httpMethod = "DELETE"
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
+        _ = try? await URLSession.shared.data(for: request)
+    }
+
     func checkWebsiteHealth() async -> Bool {
         guard !websiteURL.isEmpty, let url = URL(string: websiteURL) else { return false }
         var request = URLRequest(url: url, timeoutInterval: 5)

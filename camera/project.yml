@@ -30,6 +30,7 @@ targets:
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Mikrofonen används för ljud i livesändningen"
         INFOPLIST_KEY_UILaunchScreen_Generation: true
         INFOPLIST_KEY_UIBackgroundModes: audio
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: false
         SWIFT_EMIT_LOC_STRINGS: true
         GENERATE_INFOPLIST_FILE: true
         INFOPLIST_FILE: CourtsideCamera/Info.plist
