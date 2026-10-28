@@ -122,7 +122,17 @@ export function page(t) {
               <ol class="steps" id="steps">
                 ${["check", "storage", "token", "config", "app", "build", "online"].map((s, i) => `<li data-step="${s}">${t.inst.steps[i]}</li>`).join("\n                ")}
               </ol>
-              <p class="form-error" id="progress-error" role="alert"></p>
+              <p class="progress-meta" id="progress-meta" aria-live="off"></p>
+              <p class="progress-now" id="progress-now" aria-live="polite"></p>
+              <div class="progress-calm" id="progress-calm">
+                <p><b>${t.inst.calmH}</b> ${t.inst.calm}</p>
+              </div>
+              <div class="progress-fail" id="progress-fail" role="alert" hidden>
+                <p class="progress-fail-h">${t.inst.failH}</p>
+                <p id="progress-error"></p>
+                <p id="progress-advice"></p>
+                <p class="muted">${t.inst.cleaned}</p>
+              </div>
               <div class="done-box" id="done-box" hidden>
                 <p class="done-label">${t.inst.shareH}</p>
                 <p class="done-share"><a id="done-url"></a> <button type="button" class="btn btn-secondary btn-sm" id="done-copy">${t.inst.copy}</button></p>

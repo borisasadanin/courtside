@@ -73,6 +73,9 @@ export interface Osc {
   plan(): Promise<string | undefined>;
 }
 
+/** Pauses before each new try of a call that failed for a passing reason. */
+const BACKOFF = [1000, 3000, 8000];
+
 const DEPLOY = (env: string) => `https://deploy.svc.${env}.osaas.io`;
 const ACCOUNT = "https://app.osaas.io/api/user/tokens";
 const MONEY = "https://money.svc.prod.osaas.io";
@@ -87,15 +90,37 @@ export function oscFor(token: string, environment = "prod"): Osc {
   const ctx = new Context({ personalAccessToken: token, environment });
   const pat = { "x-pat-jwt": `Bearer ${token}` };
 
+  // OSC answers 429 or a gateway error now and then, and the network can
+  // drop a call.  Those are tried again after a growing pause.  A POST is only
+  // retried on 429, where nothing was done: after a gateway error it may have
+  // gone through, and trying again could create the thing twice.
   async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
-    const res = await fetch(url, {
-      method,
-      headers: body === undefined ? pat : { ...pat, "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const text = await res.text();
-    if (!res.ok) throw new OscError(`${method} ${new URL(url).pathname} → ${res.status}: ${text.slice(0, 300)}`, res.status);
-    return (text ? JSON.parse(text) : undefined) as T;
+    const path = new URL(url).pathname;
+    for (let attempt = 0; ; attempt++) {
+      const more = attempt < BACKOFF.length;
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method,
+          headers: body === undefined ? pat : { ...pat, "Content-Type": "application/json" },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+      } catch {
+        if (more && method !== "POST") {
+          await sleep(BACKOFF[attempt]);
+          continue;
+        }
+        throw new OscError(`${method} ${path} did not answer`, 503);
+      }
+      const transient = res.status === 429 || (method !== "POST" && [502, 503, 504].includes(res.status));
+      if (!res.ok && transient && more) {
+        await sleep(BACKOFF[attempt]);
+        continue;
+      }
+      const text = await res.text();
+      if (!res.ok) throw new OscError(`${method} ${path} → ${res.status}: ${text.slice(0, 300)}`, res.status);
+      return (text ? JSON.parse(text) : undefined) as T;
+    }
   }
 
   const deploy = <T>(method: string, path: string, body?: unknown) =>

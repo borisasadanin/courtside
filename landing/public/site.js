@@ -30,6 +30,30 @@ var T = ({
     taken: function (d) { return d + " är redan tagen. Välj ett annat kortnamn."; },
     shareLabel: "Adress att dela med tittarna", copied: "Kopierad",
     done: "Klart!", needName: "Skriv föreningens namn.",
+    elapsed: function (t) { return "Har pågått " + t + " · brukar ta 4–6 minuter"; },
+    slowNote: "Det tar längre tid än vanligt, men installationen pågår fortfarande. Ni behöver inte göra något.",
+    retrying: "Första bygget gick inte igenom, så vi bygger om automatiskt. Det tar några minuter extra. Ni behöver inte göra något.",
+    lostContact: "Tappade kontakten med sidan en stund. Installationen fortsätter hos Open Source Cloud, vi försöker nå den igen…",
+    stepNote: {
+      check: "Kontrollerar att namnet och adressen är lediga.",
+      storage: "Startar lagringen för inspelningar och inställningarna. Det tar oftast en till två minuter.",
+      token: "Ger sändningsmotorn åtkomst till ert konto.",
+      config: "Sparar inställningarna för er plattform.",
+      app: "Skapar webbplatsen och backend.",
+      build: "Open Source Cloud hämtar koden och bygger er webbplats. Det är det längsta steget, oftast två till fyra minuter.",
+      online: "Startar webbplatsen och kopplar på er adress. Snart klart."
+    },
+    reason: {
+      taken: "Välj ett annat kortnamn och försök igen.",
+      source: "Det här kontot kan inte installera Courtside ännu. Kontakta oss på sales@eyevinn.se så hjälper vi er.",
+      build: "Det berodde troligen på en tillfällig störning hos Open Source Cloud. Vänta några minuter och försök igen med samma namn. Händer det igen, kontakta oss på sales@eyevinn.se.",
+      slow: "Open Source Cloud var ovanligt långsamt. Vänta några minuter och försök igen med samma namn.",
+      unreachable: "Vi nådde inte Open Source Cloud. Vänta några minuter och försök igen med samma namn.",
+      signin: "Åtkomsten till ert konto gick ut. Logga ut, logga in igen och försök på nytt.",
+      unknown: "Försök igen om en stund. Händer det igen, kontakta oss på sales@eyevinn.se och berätta vilket kortnamn ni valde.",
+      lost: "Vi tappade bort installationen, troligen för att den här sidan startades om. Titta under Era plattformar om den finns där. Annars, försök igen."
+    },
+    tryAgain: "Försök igen",
     badShortName: "Kortnamnet ska vara 3–21 små bokstäver eller siffror och börja med en bokstav."
   },
   en: {
@@ -60,6 +84,30 @@ var T = ({
     taken: function (d) { return d + " is already taken. Choose another short name."; },
     shareLabel: "Address to share with viewers", copied: "Copied",
     done: "Done!", needName: "Enter your club's name.",
+    elapsed: function (t) { return "Running for " + t + " · usually takes 4–6 minutes"; },
+    slowNote: "This is taking longer than usual, but the installation is still running. You don't need to do anything.",
+    retrying: "The first build didn't go through, so we are rebuilding automatically. It takes a few extra minutes. You don't need to do anything.",
+    lostContact: "Lost contact with the page for a moment. The installation carries on at Open Source Cloud, trying to reach it again…",
+    stepNote: {
+      check: "Checking that the name and the address are free.",
+      storage: "Starting storage for recordings and the settings. Usually takes one to two minutes.",
+      token: "Giving the streaming engine access to your account.",
+      config: "Saving your platform's settings.",
+      app: "Creating the website and backend.",
+      build: "Open Source Cloud fetches the code and builds your website. This is the longest step, usually two to four minutes.",
+      online: "Starting the website and connecting your address. Almost done."
+    },
+    reason: {
+      taken: "Choose another short name and try again.",
+      source: "This account cannot install Courtside yet. Contact us at sales@eyevinn.se and we will help.",
+      build: "Most likely a passing problem at Open Source Cloud. Wait a few minutes and try again with the same name. If it happens again, contact us at sales@eyevinn.se.",
+      slow: "Open Source Cloud was unusually slow. Wait a few minutes and try again with the same name.",
+      unreachable: "We couldn't reach Open Source Cloud. Wait a few minutes and try again with the same name.",
+      signin: "Access to your account ran out. Sign out, sign in again and try once more.",
+      unknown: "Try again in a while. If it happens again, contact us at sales@eyevinn.se and tell us which short name you chose.",
+      lost: "We lost track of the installation, most likely because this page was restarted. Look under Your platforms to see if it is there. Otherwise, try again."
+    },
+    tryAgain: "Try again",
     badShortName: "The short name must be 3–21 lowercase letters or digits and start with a letter."
   }
 })[document.documentElement.lang === "en" ? "en" : "sv"];
@@ -299,6 +347,16 @@ var T = ({
       }).catch(function (e) { $("inst-empty").hidden = false; $("inst-empty").textContent = e.message; });
     }
 
+    // How long it has run, from the server's own count, ticking between polls.
+    var elapsedAt = 0, elapsedBase = 0, tickTimer = null;
+    function clock(ms) {
+      var sec = Math.floor(ms / 1000);
+      return Math.floor(sec / 60) + ":" + ("0" + (sec % 60)).slice(-2);
+    }
+    function tick() {
+      $("progress-meta").textContent = T.elapsed(clock(elapsedBase + Date.now() - elapsedAt));
+    }
+
     function showProgress(job) {
       $("create-view").hidden = true;
       $("progress-view").hidden = false;
@@ -308,8 +366,29 @@ var T = ({
         var i = STEPS.indexOf(li.dataset.step);
         li.className = i < at || job.state === "done" ? "done" : i === at ? (job.state === "failed" ? "fail" : "now") : "";
       });
-      $("progress-error").textContent = job.state === "failed" ? job.error + " Det som hann skapas har tagits bort." : "";
-      $("progress-back").hidden = job.state === "running";
+      var running = job.state === "running";
+      elapsedBase = job.elapsed || 0;
+      elapsedAt = Date.now();
+      clearInterval(tickTimer);
+      if (running) { tick(); tickTimer = setInterval(tick, 1000); } else { $("progress-meta").textContent = ""; }
+      var note = "";
+      if (running) {
+        note = job.retrying ? T.retrying : elapsedBase > 9 * 60000 ? T.slowNote : (T.stepNote[job.step] || "");
+      }
+      $("progress-now").textContent = note;
+      $("progress-now").className = "progress-now" + (job.retrying || elapsedBase > 9 * 60000 ? " progress-warn" : "");
+      $("progress-calm").hidden = !running;
+      var failed = job.state === "failed";
+      $("progress-fail").hidden = !failed;
+      if (failed) {
+        // The server's own wording is Swedish; the English page relies on the advice.
+        $("progress-error").textContent = T.locale === "sv-SE" ? (job.error || "") : "";
+        $("progress-error").hidden = !$("progress-error").textContent;
+        $("progress-advice").textContent = T.reason[job.reason] || T.reason.unknown;
+      }
+      $("progress-back").hidden = running;
+      $("progress-back").textContent = failed ? T.tryAgain : backLabel;
+      $("progress-back").dataset.reason = failed ? job.reason || "" : "";
       if (job.state === "done") {
         $("progress-h").textContent = T.done;
         $("done-box").hidden = false;
@@ -322,21 +401,55 @@ var T = ({
           navigator.clipboard.writeText(job.siteUrl).then(function () { b.textContent = T.copied; });
         };
       }
-      if (job.state !== "running") { clearInterval(pollTimer); pollTimer = null; loadList(); loadAccount(); }
+      if (!running) { clearTimeout(pollTimer); pollTimer = null; loadList(); loadAccount(); }
     }
 
+    // Asks every three seconds. When the page cannot reach its server, it
+    // waits longer each time, up to half a minute, and says so instead of
+    // giving up: the installation itself runs on regardless.
     function poll(club) {
-      clearInterval(pollTimer);
-      pollTimer = setInterval(function () {
-        api("GET", "/api/installations/" + club + "/job").then(showProgress).catch(function () {});
-      }, 3000);
+      clearTimeout(pollTimer);
+      var delay = 3000, misses = 0;
+      function next() { pollTimer = setTimeout(once, delay); }
+      function once() {
+        fetch("/api/installations/" + club + "/job", { credentials: "same-origin" }).then(function (r) {
+          if (r.status === 401) { sessionExpired(); return; }
+          if (r.status === 404) {
+            showProgress({ club: club, step: "build", state: "failed", reason: "lost", error: "" });
+            return;
+          }
+          if (!r.ok) throw new Error(String(r.status));
+          return r.json().then(function (job) {
+            misses = 0; delay = 3000;
+            showProgress(job);
+            if (job.state === "running") next();
+          });
+        }).catch(function () {
+          misses += 1;
+          delay = Math.min(30000, delay * 2);
+          if (misses >= 2) {
+            $("progress-now").textContent = T.lostContact;
+            $("progress-now").className = "progress-now progress-warn";
+          }
+          next();
+        });
+      }
+      next();
     }
 
+    var backLabel = $("progress-back").textContent;
+    var headHTML = $("progress-h").innerHTML;
     $("progress-back").addEventListener("click", function () {
+      var reason = this.dataset.reason;
+      clearInterval(tickTimer);
       $("progress-view").hidden = true;
       $("done-box").hidden = true;
-      $("progress-h").innerHTML = 'Skapar <span id="progress-club"></span>';
+      $("progress-fail").hidden = true;
+      $("progress-h").innerHTML = headHTML;
       $("create-view").hidden = false;
+      // The form still holds what was typed; a taken name is the thing to change.
+      if (reason === "taken") { $("f-club").focus(); $("f-club").select(); }
+      if (reason === "signin") $("signout").focus();
     });
 
     $("create-form").addEventListener("submit", function (ev) {

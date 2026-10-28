@@ -6,7 +6,7 @@
  */
 
 import crypto from "node:crypto";
-import { CONFIG_SERVICE, Osc, Parameter, RESTREAMER_SERVICE, STORAGE_SERVICE, sleep } from "./osc.js";
+import { CONFIG_SERVICE, Osc, OscError, Parameter, RESTREAMER_SERVICE, STORAGE_SERVICE, sleep } from "./osc.js";
 
 export interface Source {
   gitUrl: string;
@@ -25,12 +25,32 @@ export interface Request {
 export type Step = "check" | "storage" | "token" | "config" | "app" | "build" | "online";
 export const STEPS: Step[] = ["check", "storage", "token", "config", "app", "build", "online"];
 
+export type Reason = "taken" | "source" | "build" | "slow" | "unreachable" | "signin" | "unknown";
+
+/** A failure the installer understands, with what the user can do about it. */
+export class InstallError extends Error {
+  constructor(message: string, readonly reason: Reason) {
+    super(message);
+  }
+}
+
+function reasonOf(err: unknown): Reason {
+  if (err instanceof InstallError) return err.reason;
+  if (err instanceof OscError && (err.status === 401 || err.status === 403)) return "signin";
+  if (err instanceof OscError && err.status !== undefined && (err.status === 429 || err.status >= 500)) return "unreachable";
+  return "unknown";
+}
+
 export interface Job {
   club: string;
   tenant: string;
   step: Step;
   state: "running" | "done" | "failed";
   error?: string;
+  /** Why it failed, so the page can say what to do about it. */
+  reason?: Reason;
+  /** The first build failed and is being tried again. */
+  retrying?: boolean;
   siteUrl?: string;
   setupCode?: string;
   startedAt: number;
@@ -123,23 +143,23 @@ export async function install(
   try {
     job.step = "check";
     const invalid = invalidClub(req.club);
-    if (invalid) throw new Error(invalid);
+    if (invalid) throw new InstallError(invalid, "taken");
     if (source.token && !gitToken(source, req.tenant)) {
-      throw new Error("Courtside kan inte installeras i det här kontot ännu: källkoden är inte publicerad.");
+      throw new InstallError("Courtside kan inte installeras i det här kontot ännu: källkoden är inte publicerad.", "source");
     }
     const apps = await osc.listApps();
-    if (apps.some((a) => a.name === n.app)) throw new Error(`Det finns redan en Courtside som heter ${req.club}.`);
+    if (apps.some((a) => a.name === n.app)) throw new InstallError(`Det finns redan en Courtside som heter ${req.club}.`, "taken");
     if (await osc.instanceExists(STORAGE_SERVICE, n.storage)) {
-      throw new Error(`Det finns redan lagring som heter ${n.storage}. Välj ett annat namn.`);
+      throw new InstallError(`Det finns redan lagring som heter ${n.storage}. Välj ett annat namn.`, "taken");
     }
     if (await osc.instanceExists(CONFIG_SERVICE, n.store)) {
-      throw new Error(`Det finns redan en parameter store som heter ${n.store}. Välj ett annat namn.`);
+      throw new InstallError(`Det finns redan en parameter store som heter ${n.store}. Välj ett annat namn.`, "taken");
     }
     const domain = siteDomain(req.club, osc.environment);
     // Unknown is not a no: if the check itself fails, the address is tried
     // after the build and the platform's own address is used if it is taken.
     if ((await osc.domainAvailable(domain).catch(() => true)) === false) {
-      throw new Error(`Adressen ${domain} är redan tagen. Välj ett annat kortnamn.`);
+      throw new InstallError(`Adressen ${domain} är redan tagen. Välj ett annat kortnamn.`, "taken");
     }
 
     // Storage and the parameter store each take a minute or two to come up
@@ -188,12 +208,12 @@ export async function install(
     });
 
     at("build");
-    const built = await waitForBuild(osc, app.id, timing, probe);
+    const built = await waitForBuild(osc, app.id, timing, probe, () => (job.retrying = true));
 
     at("online");
     const siteUrl = built.url.startsWith("http") ? built.url : `https://${built.url}`;
     await waitUntil(() => probe(`${siteUrl.replace(/\/$/, "")}/health`), timing.onlineTimeout, timing.poll,
-      "Courtside byggdes men svarar inte. Försök igen om en stund.");
+      new InstallError("Courtside byggdes men svarar inte.", "slow"));
 
     job.siteUrl = (await ownAddress(osc, n.app, domain, undo, timing, probe)) ?? siteUrl;
     job.setupCode = code;
@@ -202,6 +222,7 @@ export async function install(
   } catch (err) {
     job.state = "failed";
     job.error = err instanceof Error ? err.message : String(err);
+    job.reason = reasonOf(err);
     console.log(JSON.stringify({ msg: "install failed", club: req.club, step: job.step, error: job.error }));
     await Promise.allSettled(inFlight);
     for (const step of undo.reverse()) {
@@ -233,14 +254,20 @@ async function ownAddress(
   undo.push(() => osc.removeDomain(app, domain));
   const url = `https://${domain}`;
   try {
-    await waitUntil(() => probe(`${url}/health`), timing.onlineTimeout, timing.poll, "");
+    await waitUntil(() => probe(`${url}/health`), timing.onlineTimeout, timing.poll, new InstallError("", "slow"));
     return url;
   } catch {
     return undefined;
   }
 }
 
-async function waitForBuild(osc: Osc, id: string, timing: Timing, probe: (url: string) => Promise<boolean>) {
+async function waitForBuild(
+  osc: Osc,
+  id: string,
+  timing: Timing,
+  probe: (url: string) => Promise<boolean>,
+  onRebuild: () => void
+) {
   const deadline = Date.now() + timing.buildTimeout;
   // The platform reports "failed" for minutes during some first builds that
   // then come up fine, so the status alone is not trusted: an app that answers
@@ -263,25 +290,26 @@ async function waitForBuild(osc: Osc, id: string, timing: Timing, probe: (url: s
       // waiting for the platform to try again by itself.
       if (!rebuilt && Date.now() - failedSince > timing.rebuildAfter) {
         rebuilt = true;
+        onRebuild();
         console.log(JSON.stringify({ msg: "build failed, rebuilding once", app: id }));
         await osc.restartApp(id, true).catch(() => undefined);
         failedSince = 0;
       } else if (Date.now() - failedSince > timing.failedGrace) {
         console.error(JSON.stringify({ msg: "build failed", app }));
-        throw new Error("Bygget av Courtside misslyckades.");
+        throw new InstallError("Bygget av Courtside misslyckades.", "build");
       }
     } else {
       failedSince = 0;
     }
-    if (Date.now() > deadline) throw new Error("Bygget av Courtside tog för lång tid.");
+    if (Date.now() > deadline) throw new InstallError("Bygget av Courtside tog för lång tid.", "slow");
     await sleep(timing.poll);
   }
 }
 
-async function waitUntil(check: () => Promise<boolean>, timeout: number, poll: number, message: string) {
+async function waitUntil(check: () => Promise<boolean>, timeout: number, poll: number, failure: Error) {
   const deadline = Date.now() + timeout;
   while (!(await check().catch(() => false))) {
-    if (Date.now() > deadline) throw new Error(message);
+    if (Date.now() > deadline) throw failure;
     await sleep(poll);
   }
 }

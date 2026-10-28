@@ -306,7 +306,7 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
 
 /* Installer — shown once signed in with an OSC account */
 .installer { padding: 48px 0 24px; }
-.installer[hidden] { display: none; }
+[hidden] { display: none !important; }
 .inst-panel {
   background: var(--bg-raise); border: 1px solid var(--card-border-strong);
   border-radius: var(--radius); padding: 28px;
@@ -359,6 +359,18 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
   .inst-grid { grid-template-columns: 1fr; }
   .inst-panel { padding: 20px; }
 }
+.progress-meta { margin: 0 0 0.25rem; font-size: 14px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.progress-meta:empty, .progress-now:empty { display: none; }
+.progress-now { margin: 0 0 1rem; font-size: 15px; color: var(--text); }
+.progress-now.progress-warn { color: var(--text-strong); padding: 0.6rem 0.8rem; border-left: 3px solid var(--accent); background: var(--accent-weak); border-radius: 4px; }
+.progress-calm { margin: 0 0 1rem; padding: 0.8rem 1rem; border-radius: var(--radius-sm); background: var(--card); border: 1px solid var(--card-border); font-size: 14px; color: var(--text-muted); }
+.progress-calm p { margin: 0; }
+.progress-calm b { color: var(--text-strong); }
+.progress-fail { margin: 0 0 1rem; padding: 0.9rem 1rem; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.08); border: 1px solid var(--live); }
+.progress-fail p { margin: 0 0 0.5rem; }
+.progress-fail p:last-child { margin-bottom: 0; }
+.progress-fail-h { font-weight: 600; color: var(--live); }
+#progress-advice { color: var(--text-strong); }
 @media (prefers-reduced-motion: reduce) { .steps li.now::before { animation: none; border-top-color: var(--accent); } }
 
 @media (prefers-reduced-motion: reduce) {

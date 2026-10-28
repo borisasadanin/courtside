@@ -84,7 +84,7 @@
                 <p class="form-error" id="create-error" role="alert"></p>
                 <button type="submit" class="btn btn-primary btn-block" id="create-btn">Skapa</button>
               </form>
-              <p class="muted" style="margin-top:1rem">Tar runt tio minuter. Allt skapas i ert eget OSC-konto och drar tokens därifrån.</p>
+              <p class="muted" style="margin-top:1rem">Tar oftast 4–6 minuter och sker helt automatiskt. Allt skapas i ert eget OSC-konto och drar tokens därifrån.</p>
             </div>
             <div id="progress-view" hidden>
               <h3 id="progress-h">Skapar <span id="progress-club"></span></h3>
@@ -97,7 +97,17 @@
                 <li data-step="build">Bygger (flera minuter)</li>
                 <li data-step="online">Startar</li>
               </ol>
-              <p class="form-error" id="progress-error" role="alert"></p>
+              <p class="progress-meta" id="progress-meta" aria-live="off"></p>
+              <p class="progress-now" id="progress-now" aria-live="polite"></p>
+              <div class="progress-calm" id="progress-calm">
+                <p><b>Allt sker automatiskt.</b> Ni behöver inte göra något medan plattformen sätts upp. Det mesta av tiden går åt till att bygga er webbplats, och det är normalt att ett steg står still i flera minuter. Ni kan stänga sidan, installationen fortsätter ändå och syns under Era plattformar när den är klar. Går något fel säger vi till här, och tar då bort det som hann skapas.</p>
+              </div>
+              <div class="progress-fail" id="progress-fail" role="alert" hidden>
+                <p class="progress-fail-h">Plattformen kunde inte skapas</p>
+                <p id="progress-error"></p>
+                <p id="progress-advice"></p>
+                <p class="muted">Det som hann skapas i ert konto har tagits bort, så inget ligger kvar och drar tokens.</p>
+              </div>
               <div class="done-box" id="done-box" hidden>
                 <p class="done-label">Er adress, dela den med alla som vill titta</p>
                 <p class="done-share"><a id="done-url"></a> <button type="button" class="btn btn-secondary btn-sm" id="done-copy">Kopiera</button></p>

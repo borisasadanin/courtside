@@ -347,7 +347,18 @@ app.delete("/api/installations/:club", async (req, reply) => {
 });
 
 function publicJob(j: Job) {
-  return { club: j.club, step: j.step, state: j.state, error: j.error, siteUrl: j.siteUrl, setupCode: j.setupCode };
+  return {
+    club: j.club,
+    step: j.step,
+    state: j.state,
+    error: j.error,
+    reason: j.reason,
+    retrying: j.retrying,
+    // Measured here, so a wrong clock on the user's computer does not matter.
+    elapsed: (j.finishedAt ?? Date.now()) - j.startedAt,
+    siteUrl: j.siteUrl,
+    setupCode: j.setupCode,
+  };
 }
 
 // Housekeeping: forget idle sessions and finished jobs.

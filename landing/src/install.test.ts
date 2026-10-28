@@ -171,6 +171,24 @@ describe("install", () => {
     expect(job.state).toBe("done");
   });
 
+  it("says why it failed, so the page can tell the user what to do", async () => {
+    const taken = fakeTenant({ takenDomain: "alta.apps.osaas.io" });
+    const a = newJob();
+    await install(taken.osc, req, source, a, fast, async () => true);
+    expect(a.reason).toBe("taken");
+
+    const broken = fakeTenant({ buildStatus: "failed" });
+    const b = newJob();
+    await install(broken.osc, req, source, b, { ...fast, buildTimeout: 500 }, async () => false);
+    expect(b.reason).toBe("build");
+    expect(b.retrying).toBe(true);
+
+    const odd = fakeTenant({ failAt: "createApp" });
+    const c = newJob();
+    await install(odd.osc, req, source, c, fast, async () => true);
+    expect(c.reason).toBe("unknown");
+  });
+
   it("rebuilds only once before giving up", async () => {
     const t = fakeTenant({ buildStatus: "failed" });
     const job = newJob();

@@ -84,7 +84,7 @@
                 <p class="form-error" id="create-error" role="alert"></p>
                 <button type="submit" class="btn btn-primary btn-block" id="create-btn">Create</button>
               </form>
-              <p class="muted" style="margin-top:1rem">Takes about ten minutes. Everything is created in your own OSC account and uses tokens from it.</p>
+              <p class="muted" style="margin-top:1rem">Usually takes 4–6 minutes and runs on its own. Everything is created in your own OSC account and uses tokens from it.</p>
             </div>
             <div id="progress-view" hidden>
               <h3 id="progress-h">Creating <span id="progress-club"></span></h3>
@@ -97,7 +97,17 @@
                 <li data-step="build">Building (several minutes)</li>
                 <li data-step="online">Starting</li>
               </ol>
-              <p class="form-error" id="progress-error" role="alert"></p>
+              <p class="progress-meta" id="progress-meta" aria-live="off"></p>
+              <p class="progress-now" id="progress-now" aria-live="polite"></p>
+              <div class="progress-calm" id="progress-calm">
+                <p><b>Everything happens automatically.</b> You don't need to do anything while the platform is set up. Most of the time goes into building your website, and it is normal for a step to sit still for several minutes. You can close this page, the installation carries on and shows under Your platforms when it is done. If something goes wrong we say so here, and remove whatever had been created.</p>
+              </div>
+              <div class="progress-fail" id="progress-fail" role="alert" hidden>
+                <p class="progress-fail-h">The platform could not be created</p>
+                <p id="progress-error"></p>
+                <p id="progress-advice"></p>
+                <p class="muted">Whatever had been created in your account has been removed, so nothing is left behind using tokens.</p>
+              </div>
               <div class="done-box" id="done-box" hidden>
                 <p class="done-label">Your address, share it with everyone who wants to watch</p>
                 <p class="done-share"><a id="done-url"></a> <button type="button" class="btn btn-secondary btn-sm" id="done-copy">Copy</button></p>
