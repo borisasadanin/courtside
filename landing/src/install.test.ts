@@ -3,7 +3,7 @@ import { install, invalidClub, Job, renewToken, resetAdmin, setupCode, uninstall
 import { App, CONFIG_SERVICE, NewApp, Osc, Parameter, RESTREAMER_SERVICE, STORAGE_SERVICE } from "./osc.js";
 
 /** An OSC tenant in memory. */
-function fakeTenant(opts: { failAt?: string; buildStatus?: string; takenDomain?: string } = {}) {
+function fakeTenant(opts: { failAt?: string; buildStatus?: string; takenDomain?: string; fixedByRebuild?: boolean } = {}) {
   const instances = new Set<string>();
   const stores = new Map<string, Map<string, Parameter>>();
   const apps = new Map<string, App & { body: NewApp }>();
@@ -78,8 +78,9 @@ function fakeTenant(opts: { failAt?: string; buildStatus?: string; takenDomain?:
       if (!a) return undefined;
       return { ...a, buildStatus: opts.buildStatus ?? "running", url: `https://abc123.apps.osaas.io` };
     },
-    async restartApp(id) {
-      calls.push(`restart ${id}`);
+    async restartApp(id, rebuild) {
+      calls.push(rebuild ? `rebuild ${id}` : `restart ${id}`);
+      if (rebuild && opts.buildStatus === "failed" && opts.fixedByRebuild) opts.buildStatus = "running";
     },
     async removeApp(id) {
       calls.push(`remove app ${id}`);
@@ -103,7 +104,7 @@ function fakeTenant(opts: { failAt?: string; buildStatus?: string; takenDomain?:
   return { osc, instances, stores, apps, tokens, calls, domains };
 }
 
-const fast = { buildTimeout: 1000, onlineTimeout: 200, poll: 1, failedGrace: 50 };
+const fast = { buildTimeout: 1000, onlineTimeout: 200, poll: 1, rebuildAfter: 10, failedGrace: 50 };
 const source = { gitUrl: "https://github.com/x/courtside" };
 const newJob = (): Job => ({ club: "alta", tenant: "t1", step: "check", state: "running", startedAt: Date.now() });
 const req = { club: "alta", displayName: "Älta IF Basket", tenant: "t1" };
@@ -160,6 +161,22 @@ describe("install", () => {
     expect(job.error).toMatch(/misslyckades/);
     expect(t.apps.size).toBe(0);
     expect(t.instances.size).toBe(0);
+  });
+
+  it("rebuilds a failed first build once, and carries on when that helps", async () => {
+    const t = fakeTenant({ buildStatus: "failed", fixedByRebuild: true });
+    const job = newJob();
+    await install(t.osc, req, source, job, fast, async () => t.calls.includes("rebuild altaapi"));
+    expect(t.calls.filter((c) => c === "rebuild altaapi")).toHaveLength(1);
+    expect(job.state).toBe("done");
+  });
+
+  it("rebuilds only once before giving up", async () => {
+    const t = fakeTenant({ buildStatus: "failed" });
+    const job = newJob();
+    await install(t.osc, req, source, job, { ...fast, buildTimeout: 500 }, async () => false);
+    expect(t.calls.filter((c) => c === "rebuild altaapi")).toHaveLength(1);
+    expect(job.state).toBe("failed");
   });
 
   it("refuses an address another account already has, before creating anything", async () => {

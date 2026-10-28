@@ -79,11 +79,19 @@ export interface Timing {
   buildTimeout: number;
   onlineTimeout: number;
   poll: number;
-  /** How long "failed" must last before it is believed. */
+  /** How long "failed" lasts before the app is rebuilt once. */
+  rebuildAfter: number;
+  /** How long "failed" must last, after that rebuild, before it is believed. */
   failedGrace: number;
 }
 
-const TIMING: Timing = { buildTimeout: 15 * 60_000, onlineTimeout: 5 * 60_000, poll: 5000, failedGrace: 6 * 60_000 };
+const TIMING: Timing = {
+  buildTimeout: 15 * 60_000,
+  onlineTimeout: 5 * 60_000,
+  poll: 5000,
+  rebuildAfter: 60_000,
+  failedGrace: 4 * 60_000,
+};
 
 /** Whether the token for a private repository may go to this tenant. */
 function gitToken(source: Source, tenant: string): string | undefined {
@@ -102,6 +110,15 @@ export async function install(
   const n = names(req.club);
   // What this run has created, so a failure removes exactly that and nothing else.
   const undo: Array<() => Promise<void>> = [];
+  // Work started but not yet awaited, settled before anything is undone.
+  const inFlight: Promise<unknown>[] = [];
+  let stepStart = Date.now();
+  const lap = () => console.log(JSON.stringify({ msg: "install step", club: req.club, step: job.step, ms: Date.now() - stepStart }));
+  const at = (step: Job["step"]) => {
+    lap();
+    job.step = step;
+    stepStart = Date.now();
+  };
 
   try {
     job.step = "check";
@@ -125,19 +142,23 @@ export async function install(
       throw new Error(`Adressen ${domain} är redan tagen. Välj ett annat kortnamn.`);
     }
 
-    job.step = "storage";
+    // Storage and the parameter store each take a minute or two to come up
+    // and do not depend on each other, so both are created at once.
+    at("storage");
     const storagePassword = secret(32);
     undo.push(() => osc.removeInstance(STORAGE_SERVICE, n.storage));
-    const storageEndpoint = await osc.createStorage(n.storage, storagePassword);
-
-    job.step = "token";
-    const tokenName = `${n.tokenPrefix}${Date.now().toString(36)}`;
-    const oscToken = await osc.mintToken(tokenName, `Courtside ${req.club}: starts and stops Restreamer`);
-    undo.push(() => osc.revokeTokens(n.tokenPrefix));
-
-    job.step = "config";
+    const storage = osc.createStorage(n.storage, storagePassword);
     undo.push(() => osc.removeParameterStore(n.store));
-    const apiKey = await osc.createParameterStore(n.store);
+    const store = osc.createParameterStore(n.store);
+    inFlight.push(storage, store);
+    for (const p of inFlight) p.catch(() => undefined);
+
+    const tokenName = `${n.tokenPrefix}${Date.now().toString(36)}`;
+    undo.push(() => osc.revokeTokens(n.tokenPrefix));
+    const oscToken = await osc.mintToken(tokenName, `Courtside ${req.club}: starts and stops Restreamer`);
+    const [storageEndpoint, apiKey] = await Promise.all([storage, store]);
+
+    at("config");
     const code = setupCode();
     const params: Parameter[] = [
       { key: "API_KEY", value: secret(48), secret: true },
@@ -155,7 +176,7 @@ export async function install(
     ];
     await osc.writeParameters(n.store, apiKey, params);
 
-    job.step = "app";
+    at("app");
     undo.push(() => osc.removeApp(n.app));
     const app = await osc.createApp({
       name: n.app,
@@ -166,20 +187,23 @@ export async function install(
       configApiKey: apiKey,
     });
 
-    job.step = "build";
+    at("build");
     const built = await waitForBuild(osc, app.id, timing, probe);
 
-    job.step = "online";
+    at("online");
     const siteUrl = built.url.startsWith("http") ? built.url : `https://${built.url}`;
     await waitUntil(() => probe(`${siteUrl.replace(/\/$/, "")}/health`), timing.onlineTimeout, timing.poll,
       "Courtside byggdes men svarar inte. Försök igen om en stund.");
 
     job.siteUrl = (await ownAddress(osc, n.app, domain, undo, timing, probe)) ?? siteUrl;
     job.setupCode = code;
+    lap();
     job.state = "done";
   } catch (err) {
     job.state = "failed";
     job.error = err instanceof Error ? err.message : String(err);
+    console.log(JSON.stringify({ msg: "install failed", club: req.club, step: job.step, error: job.error }));
+    await Promise.allSettled(inFlight);
     for (const step of undo.reverse()) {
       await step().catch(() => undefined);
     }
@@ -223,6 +247,7 @@ async function waitForBuild(osc: Osc, id: string, timing: Timing, probe: (url: s
   // on /health is built, whatever the status says, and a failure only counts
   // once it has lasted well past that.
   let failedSince = 0;
+  let rebuilt = false;
   for (;;) {
     const app = await osc.getApp(id).catch(() => undefined);
     if (app?.url) {
@@ -233,7 +258,15 @@ async function waitForBuild(osc: Osc, id: string, timing: Timing, probe: (url: s
     }
     if (app?.buildStatus === "failed") {
       failedSince ||= Date.now();
-      if (Date.now() - failedSince > timing.failedGrace) {
+      // A first build that fails usually started before something it needs
+      // was reachable.  One fresh rebuild fixes that, in far less time than
+      // waiting for the platform to try again by itself.
+      if (!rebuilt && Date.now() - failedSince > timing.rebuildAfter) {
+        rebuilt = true;
+        console.log(JSON.stringify({ msg: "build failed, rebuilding once", app: id }));
+        await osc.restartApp(id, true).catch(() => undefined);
+        failedSince = 0;
+      } else if (Date.now() - failedSince > timing.failedGrace) {
         console.error(JSON.stringify({ msg: "build failed", app }));
         throw new Error("Bygget av Courtside misslyckades.");
       }

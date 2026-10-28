@@ -56,7 +56,8 @@ export interface Osc {
   listApps(): Promise<App[]>;
   createApp(app: NewApp): Promise<App>;
   getApp(id: string): Promise<App | undefined>;
-  restartApp(id: string): Promise<void>;
+  /** rebuild recreates the app from scratch, for a first build that failed. */
+  restartApp(id: string, rebuild?: boolean): Promise<void>;
   removeApp(id: string): Promise<void>;
   /** Whether a platform address (club.apps.osaas.io) is free in every tenant. */
   domainAvailable(domain: string): Promise<boolean>;
@@ -162,6 +163,14 @@ export function oscFor(token: string, environment = "prod"): Osc {
       const created = await deploy<{ configApiKey?: string }>("POST", "/parameter-stores", { name, enableSecrets: true });
       if (!created?.configApiKey) throw new OscError(`Parameter store ${name} returned no API key`);
       await waitForInstanceReady(CONFIG_SERVICE, name, ctx);
+      // The app runner looks the store up by name when it starts, and that
+      // lookup answers 404 for a while after the store is ready.  An app
+      // created in that window never starts, so wait it out here.
+      const deadline = Date.now() + 120_000;
+      while (!(await deploy("GET", `/parameter-stores/${encodeURIComponent(name)}`).then(() => true, () => false))) {
+        if (Date.now() > deadline) break;
+        await sleep(3000);
+      }
       return created.configApiKey;
     },
 
@@ -227,8 +236,8 @@ export function oscFor(token: string, environment = "prod"): Osc {
       }
     },
 
-    async restartApp(id) {
-      await deploy("PUT", `/myapps/${encodeURIComponent(id)}`);
+    async restartApp(id, rebuild) {
+      await deploy("PUT", `/myapps/${encodeURIComponent(id)}${rebuild ? "?rebuild=true" : ""}`);
     },
 
     async removeApp(id) {
