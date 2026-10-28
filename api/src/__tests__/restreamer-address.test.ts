@@ -1,7 +1,7 @@
 /**
  * The Restreamer address is whatever OSC reports for the instance, not the one
  * built from tenant and region — OSC can place the instance in another region
- * (csdemo: configured "prod", instance in "prod-se").
+ * (configured "prod", instance in "prod-se").
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { RestreamerClient } from "../restreamer.js";

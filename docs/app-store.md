@@ -58,7 +58,7 @@ plattform användaren själv parat med; varken appen eller Eyevinn samlar in ell
 > 1. Open the demo URL on a computer, enter the admin code, choose "Lägg till kamera".
 > 2. Scan the QR code with the app. 3. Press "Starta sändning". The stream appears on the demo page.
 
-Håll en demoinstallation igång under granskningen (t.ex. `csdemo`) och byt admin-koden efteråt.
+Håll en testplattform skapad från landningssidan igång under granskningen, på sin egna adress (kortnamn.apps.osaas.io), och byt admin-koden efteråt.
 
 ## TestFlight först
 
