@@ -136,6 +136,7 @@ export function page(t) {
               <div class="done-box" id="done-box" hidden>
                 <p class="done-label">${t.inst.shareH}</p>
                 <p class="done-share"><a id="done-url"></a> <button type="button" class="btn btn-secondary btn-sm" id="done-copy">${t.inst.copy}</button></p>
+                <p class="done-warn" id="done-noown" hidden>${t.inst.noOwn}</p>
                 <p class="muted">${t.inst.shareNote}</p>
                 <p class="done-label" style="margin-top:1rem">${t.inst.codeNote}</p>
                 <p class="code" id="done-code"></p>

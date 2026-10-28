@@ -237,12 +237,36 @@ app.get("/api/installations", async (req, reply) => {
       // The club's own address when it has one, else the platform's.
       const own = domains.get(a.name)?.find((d) => d === siteDomain(club, who.osc.environment));
       const url = own ? `https://${own}` : a.url ? (a.url.startsWith("http") ? a.url : `https://${a.url}`) : undefined;
-      return { club, url, status: a.buildStatus };
+      return { club, url, own: !!own, address: siteDomain(club, who.osc.environment), status: a.buildStatus };
     });
   const running = [...jobs.values()]
     .filter((j) => j.tenant === who.tenant && j.state === "running" && !installed.some((i) => i.club === j.club))
     .map((j) => ({ club: j.club, status: "installing" }));
   return { installations: [...running, ...installed] };
+});
+
+// Gives an installation its own address (club.apps.osaas.io) afterwards:
+// for one made before installations got one, or where it was not free or did
+// not answer in time when it was made.
+app.post("/api/installations/:club/address", async (req, reply) => {
+  const who = await signedIn(req, reply);
+  if (!who) return;
+  const { club } = req.params as { club: string };
+  if (invalidClub(club)) return reply.code(400).send({ error: "Okänt namn." });
+  const domain = siteDomain(club, who.osc.environment);
+  try {
+    const app = (await who.osc.listApps()).find((a) => a.name === names(club).app && sameRepo(a.gitUrl, SOURCE.gitUrl));
+    if (!app) return reply.code(404).send({ error: `Hittar ingen Courtside som heter ${club}.` });
+    if ((await who.osc.listDomains()).get(app.name)?.includes(domain)) return { url: `https://${domain}` };
+    if (!(await who.osc.domainAvailable(domain))) {
+      return reply.code(409).send({ error: `Adressen ${domain} är redan tagen av någon annan. Plattformen fungerar på sin nuvarande adress.` });
+    }
+    await who.osc.addDomain(app.name, domain);
+    return { url: `https://${domain}` };
+  } catch (err) {
+    req.log.error(err, "adding address failed");
+    return reply.code(502).send({ error: "Det gick inte att ge plattformen en egen adress just nu. Försök igen om en stund." });
+  }
 });
 
 // Whether a short name is free, as the club types it: both the address,
@@ -354,6 +378,8 @@ function publicJob(j: Job) {
     error: j.error,
     reason: j.reason,
     retrying: j.retrying,
+    // Whether it got its own address, or the platform's numbered one.
+    own: !!j.siteUrl && new URL(j.siteUrl).hostname.startsWith(`${j.club}.apps.`),
     // Measured here, so a wrong clock on the user's computer does not matter.
     elapsed: (j.finishedAt ?? Date.now()) - j.startedAt,
     siteUrl: j.siteUrl,

@@ -307,6 +307,9 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
 /* Installer — shown once signed in with an OSC account */
 .installer { padding: 48px 0 24px; }
 [hidden] { display: none !important; }
+.url-tech { color: var(--text-muted); }
+.url-note { margin: 0.4rem 0 0.6rem; font-size: 14px; color: var(--text-muted); }
+.done-warn { margin: 0.5rem 0; padding: 0.6rem 0.8rem; border-left: 3px solid var(--live); background: rgba(239, 68, 68, 0.08); border-radius: 4px; font-size: 14px; color: var(--text-strong); }
 .inst-panel {
   background: var(--bg-raise); border: 1px solid var(--card-border-strong);
   border-radius: var(--radius); padding: 28px;

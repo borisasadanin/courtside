@@ -29,6 +29,10 @@ var T = ({
     free: function (d) { return "✓ " + d + " är ledig"; }, checking: "Kontrollerar adressen…",
     taken: function (d) { return d + " är redan tagen. Välj ett annat kortnamn."; },
     shareLabel: "Adress att dela med tittarna", copied: "Kopierad",
+    techLabel: "Teknisk adress, dela den inte med tittarna",
+    techNote: function (d) { return "Plattformen har ingen egen adress ännu. Ge den " + d + ", så får tittarna en adress som är lätt att komma ihåg."; },
+    getOwn: function (d) { return "Skaffa egen adress: " + d; }, gettingOwn: "Kopplar adressen…",
+    gotOwn: "Klart. Adressen kan behöva en minut innan den svarar.",
     done: "Klart!", needName: "Skriv föreningens namn.",
     elapsed: function (t) { return "Har pågått " + t + " · brukar ta 4–6 minuter"; },
     slowNote: "Det tar längre tid än vanligt, men installationen pågår fortfarande. Ni behöver inte göra något.",
@@ -83,6 +87,10 @@ var T = ({
     free: function (d) { return "✓ " + d + " is free"; }, checking: "Checking the address…",
     taken: function (d) { return d + " is already taken. Choose another short name."; },
     shareLabel: "Address to share with viewers", copied: "Copied",
+    techLabel: "Technical address, don't share it with viewers",
+    techNote: function (d) { return "The platform has no address of its own yet. Give it " + d + ", so viewers get an address that is easy to remember."; },
+    getOwn: function (d) { return "Get your own address: " + d; }, gettingOwn: "Connecting the address…",
+    gotOwn: "Done. The address may need a minute before it answers.",
     done: "Done!", needName: "Enter your club's name.",
     elapsed: function (t) { return "Running for " + t + " · usually takes 4–6 minutes"; },
     slowNote: "This is taking longer than usual, but the installation is still running. You don't need to do anything.",
@@ -299,10 +307,26 @@ var T = ({
           var st = STATUS[i.status] || [i.status || T.unknown, ""];
           row.appendChild(el("span", { "class": "status " + st[1] }, st[0]));
           li.appendChild(row);
-          if (i.url) {
+          if (i.url && i.own) {
             li.appendChild(el("span", { "class": "url-label" }, T.shareLabel));
-            var a = el("a", { "class": "url", href: i.url, target: "_blank", rel: "noopener" }, i.url.replace(/^https:\/\//, ""));
-            li.appendChild(a);
+            li.appendChild(el("a", { "class": "url", href: i.url, target: "_blank", rel: "noopener" }, i.url.replace(/^https:\/\//, "")));
+          } else if (i.url) {
+            // Only the club's own address is worth handing out. Without one,
+            // the numbered address still works but is offered as a fix, not a link to share.
+            li.appendChild(el("span", { "class": "url-label" }, T.techLabel));
+            li.appendChild(el("a", { "class": "url url-tech", href: i.url, target: "_blank", rel: "noopener" }, i.url.replace(/^https:\/\//, "")));
+            if (i.address && i.status !== "installing") {
+              li.appendChild(el("p", { "class": "url-note" }, T.techNote(i.address)));
+              var own = el("button", { type: "button", "class": "btn btn-primary btn-sm" }, T.getOwn(i.address));
+              own.addEventListener("click", function () {
+                own.disabled = true; own.textContent = T.gettingOwn;
+                api("POST", "/api/installations/" + i.club + "/address").then(function () {
+                  alert(T.gotOwn);
+                  loadList();
+                }).catch(function (e) { alert(e.message); own.disabled = false; own.textContent = T.getOwn(i.address); });
+              });
+              li.appendChild(own);
+            }
           }
           if (i.status !== "installing") {
             var actions = el("div", { "class": "inst-actions" });
@@ -395,6 +419,7 @@ var T = ({
         $("done-code").textContent = job.setupCode;
         $("done-url").textContent = job.siteUrl.replace(/^https:\/\//, "");
         $("done-url").href = job.siteUrl;
+        $("done-noown").hidden = job.own !== false;
         $("done-open").href = job.siteUrl + "/#setup=" + encodeURIComponent(job.setupCode);
         $("done-copy").onclick = function () {
           var b = this;
