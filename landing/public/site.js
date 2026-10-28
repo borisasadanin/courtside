@@ -225,8 +225,11 @@ var T = ({
     var DRAFT = "courtside-draft";
     function sessionExpired() {
       signedIn = false;
+      // Only a form being filled in is worth keeping, not one already sent.
+      var filling = !$("create-view").hidden && ($("f-display").value || $("f-club").value);
       try {
-        sessionStorage.setItem(DRAFT, JSON.stringify({ display: $("f-display").value, club: $("f-club").value }));
+        if (filling) sessionStorage.setItem(DRAFT, JSON.stringify({ display: $("f-display").value, club: $("f-club").value }));
+        else sessionStorage.removeItem(DRAFT);
       } catch (e) { /* no storage: the form is just empty afterwards */ }
       $("inst-expired").hidden = false;
       $("inst-expired").scrollIntoView({ block: "center" });
@@ -238,7 +241,8 @@ var T = ({
         if (!d) return;
         $("f-display").value = d.display || "";
         $("f-club").value = d.club || "";
-        if (d.club) { clubTouched = true; checkAvailable(); }
+        suggested = slug(d.display || "");
+        checkAvailable();
       } catch (e) { /* nothing saved */ }
     }
 
@@ -254,7 +258,9 @@ var T = ({
       return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
         .replace(/[^a-z0-9]/g, "").replace(/^[0-9]+/, "").slice(0, 21);
     }
-    var clubTouched = false;
+    // The short name follows the club's name, unless someone has written a
+    // different one: it is theirs only while it differs from the suggestion.
+    var suggested = "";
     // The short name becomes the club's address, shared by every OSC account,
     // so it is checked as it is typed rather than after a failed install.
     var availTimer, availFor = "", availOk;
@@ -276,8 +282,17 @@ var T = ({
         }).catch(function () { out.textContent = ""; });
       }, 400);
     }
-    $("f-display").addEventListener("input", function () { if (!clubTouched) $("f-club").value = slug(this.value); checkAvailable(); });
-    $("f-club").addEventListener("input", function () { clubTouched = true; this.value = this.value.toLowerCase(); checkAvailable(); });
+    $("f-display").addEventListener("input", function () {
+      var club = $("f-club").value.trim(), next = slug(this.value);
+      if (!club || club === suggested) $("f-club").value = next;
+      suggested = next;
+      checkAvailable();
+    });
+    $("f-club").addEventListener("input", function () { this.value = this.value.toLowerCase(); checkAvailable(); });
+    function clearForm() {
+      $("f-display").value = ""; $("f-club").value = ""; suggested = "";
+      checkAvailable();
+    }
 
     function el(tag, attrs, text) {
       var e = document.createElement(tag);
@@ -466,6 +481,9 @@ var T = ({
     var headHTML = $("progress-h").innerHTML;
     $("progress-back").addEventListener("click", function () {
       var reason = this.dataset.reason;
+      // After a platform is made, the form starts over; after a failure it
+      // keeps what was typed, to try again.
+      if (!$("done-box").hidden) clearForm();
       clearInterval(tickTimer);
       $("progress-view").hidden = true;
       $("done-box").hidden = true;

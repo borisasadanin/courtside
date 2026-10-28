@@ -104,11 +104,11 @@ export function page(t) {
               <form id="create-form" novalidate>
                 <div class="field">
                   <label for="f-display">${t.inst.display}</label>
-                  <input type="text" id="f-display" maxlength="80" autocomplete="organization" placeholder="${t.inst.displayPh}" required>
+                  <input type="text" id="f-display" maxlength="80" autocomplete="off" placeholder="${t.inst.displayPh}" required>
                 </div>
                 <div class="field">
                   <label for="f-club">${t.inst.club}</label>
-                  <input type="text" id="f-club" maxlength="21" autocapitalize="off" spellcheck="false" placeholder="${t.inst.clubPh}" required aria-describedby="f-club-hint">
+                  <input type="text" id="f-club" maxlength="21" autocomplete="off" autocapitalize="off" spellcheck="false" required aria-describedby="f-club-hint">
                   <span class="hint" id="f-club-hint">${t.inst.clubHint}</span>
                   <span class="avail" id="f-club-avail" aria-live="polite"></span>
                 </div>

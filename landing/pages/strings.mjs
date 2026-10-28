@@ -13,9 +13,9 @@ export const sv = {
 
   inst: {
     h: "Er Courtside", signout: "Logga ut", listH: "Era plattformar", empty: "Ni har ingen Courtside ännu. När den är skapad står er adress här, den som ni delar med alla som vill titta.",
-    createH: "Starta en ny Courtside", display: "Föreningens namn", displayPh: "Älta IF Basket",
+    createH: "Starta en ny Courtside", display: "Föreningens namn", displayPh: "Föreningens fullständiga namn",
     expired: "Du har loggats ut, eftersom sidan inte använts på en stund eller inloggningen har gått ut. Inget nytt har skapats. Logga in igen, så finns det du skrev kvar.", expiredBtn: "Logga in igen",
-    club: "Kortnamn", clubPh: "altaif", clubHint: "Små bokstäver och siffror. Blir er adress, kortnamn.apps.osaas.io, och namnet på tjänsterna i ert konto.",
+    club: "Kortnamn", clubHint: "Små bokstäver och siffror. Blir er adress, kortnamn.apps.osaas.io, och namnet på tjänsterna i ert konto.",
     create: "Skapa", takes: "Tar oftast 4–6 minuter och sker helt automatiskt. Allt skapas i ert eget OSC-konto och drar tokens därifrån.",
     calmH: "Allt sker automatiskt.", calm: "Ni behöver inte göra något medan plattformen sätts upp. Det mesta av tiden går åt till att bygga er webbplats, och det är normalt att ett steg står still i flera minuter. Ni kan stänga sidan, installationen fortsätter ändå och syns under Era plattformar när den är klar. Går något fel säger vi till här, och tar då bort det som hann skapas.",
     failH: "Plattformen kunde inte skapas", cleaned: "Det som hann skapas i ert konto har tagits bort, så inget ligger kvar och drar tokens.",
@@ -233,9 +233,9 @@ export const en = {
 
   inst: {
     h: "Your Courtside", signout: "Sign out", listH: "Your platforms", empty: "You don't have a Courtside yet. Once it is created, your address shows here, the one you share with everyone who wants to watch.",
-    createH: "Start a new Courtside", display: "Club name", displayPh: "Hornets Basketball",
+    createH: "Start a new Courtside", display: "Club name", displayPh: "Your club's full name",
     expired: "You have been signed out, because the page was idle for a while or the sign-in ran out. Nothing new was created. Sign in again and what you typed will still be there.", expiredBtn: "Sign in again",
-    club: "Short name", clubPh: "hornets", clubHint: "Lowercase letters and digits. Becomes your address, shortname.apps.osaas.io, and names the services in your account.",
+    club: "Short name", clubHint: "Lowercase letters and digits. Becomes your address, shortname.apps.osaas.io, and names the services in your account.",
     create: "Create", takes: "Usually takes 4–6 minutes and runs on its own. Everything is created in your own OSC account and uses tokens from it.",
     calmH: "Everything happens automatically.", calm: "You don't need to do anything while the platform is set up. Most of the time goes into building your website, and it is normal for a step to sit still for several minutes. You can close this page, the installation carries on and shows under Your platforms when it is done. If something goes wrong we say so here, and remove whatever had been created.",
     failH: "The platform could not be created", cleaned: "Whatever had been created in your account has been removed, so nothing is left behind using tokens.",
