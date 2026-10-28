@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { readFileSync } from "node:fs";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
@@ -110,6 +111,16 @@ if (webRoot) {
   console.log("No built website found — serving the API only");
 }
 
+// The release this installation runs: the repository root's package.json,
+// whose version is bumped in the commit each vX.Y.Z tag points to.
+const VERSION = (() => {
+  try {
+    return JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version as string;
+  } catch {
+    return "unknown";
+  }
+})();
+
 // --- Health check ---
 app.get("/health", async () => {
   const restreamerState = oscManager.getState();
@@ -120,6 +131,7 @@ app.get("/health", async () => {
 
   return {
     status: "ok",
+    version: VERSION,
     components: {
       restreamer: restreamerState,
       minio: minioReachable ? "ok" : "unreachable",

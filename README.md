@@ -26,7 +26,8 @@ now:
 | Backend | Configurable per installation, no built-in credentials; survives a restart mid-match |
 | Website | One prebuilt bundle, themed at runtime per club |
 | Camera app | Pairs with a club at runtime — no backend compiled in, so one build serves any club |
-| One-command install | Not yet — see `docs/roadmap.md` |
+| Install | From the landing page, courtside.apps.osaas.io: sign in with OSC, pick a name |
+| Versions | Clubs run a release tag, see [CHANGELOG.md](CHANGELOG.md) |
 
 ## What you need
 

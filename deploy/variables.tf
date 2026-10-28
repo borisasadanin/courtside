@@ -64,7 +64,7 @@ variable "api_git_token" {
 variable "api_git_ref" {
   type        = string
   default     = null
-  description = "Branch or tag to deploy. Defaults to the repository's default branch."
+  description = "Release tag to deploy, e.g. \"v0.2.0\". Upgrading is changing it and applying again. Leave unset only to follow the default branch, which gets every push."
 }
 
 # Leave api_key empty and it is generated.  Leave the PINs empty and the club

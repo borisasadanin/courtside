@@ -11,7 +11,7 @@
  *   PORT                      default 8080
  *   PUBLIC_URL                this page's address, if the Host header cannot be trusted
  *   COURTSIDE_GIT_URL         repository a club's app is built from
- *   COURTSIDE_GIT_REF         branch or tag to build
+ *   COURTSIDE_GIT_REF         branch or tag to build; default the newest release tag (vX.Y.Z)
  *   COURTSIDE_GIT_TOKEN       only while the repository is private, and
  *   COURTSIDE_GIT_TOKEN_TENANTS  then only for these tenants (comma-separated)
  */
@@ -24,6 +24,7 @@ import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import * as oauth from "./oauth.js";
 import { oscFor } from "./osc.js";
+import { latestRelease } from "./release.js";
 import { install, invalidClub, Job, names, renewToken, resetAdmin, sameRepo, siteDomain, Source, uninstall } from "./install.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -305,12 +306,21 @@ app.post("/api/installations", async (req, reply) => {
     return reply.code(402).send({ error: "Kontot har för få tokens kvar. Courtside behöver runt 40 tokens per dygn." });
   }
 
+  // A new club gets the newest release, not the latest push.
+  let ref = SOURCE.ref;
+  try {
+    ref ??= await latestRelease(SOURCE.gitUrl, SOURCE.token);
+  } catch (err) {
+    req.log.error(err, "reading releases failed");
+    return reply.code(503).send({ error: "Kunde inte läsa vilken version av Courtside som är senast. Försök igen om en stund." });
+  }
+
   const job: Job = { club, tenant: who.tenant, step: "check", state: "running", startedAt: Date.now() };
   jobs.set(k, job);
   // The run outlives this request.  It holds the token it was started with,
   // which lasts an hour; an installation takes about ten minutes.
-  void install(who.osc, { club, displayName, tenant: who.tenant }, SOURCE, job).then(() =>
-    req.log.info({ club, tenant: who.tenant, state: job.state, error: job.error }, "installation finished")
+  void install(who.osc, { club, displayName, tenant: who.tenant }, { ...SOURCE, ref }, job).then(() =>
+    req.log.info({ club, tenant: who.tenant, ref, state: job.state, error: job.error }, "installation finished")
   );
   return reply.code(202).send(publicJob(job));
 });

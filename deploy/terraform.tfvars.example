@@ -20,9 +20,11 @@ club_accent_color = "#C8A43F"
 # use the app's generated <hash>.apps.osaas.io address.
 # site_hostname = "myclub.apps.osaas.io"
 
-# The Courtside repository, built from its root (backend + website).
-api_git_url = "https://github.com/myclub/courtside.git"
-api_git_ref = "main"
+# The Courtside repository, built from its root (backend + website), at a
+# release. To upgrade, set the newer tag and apply again; to go back, set the
+# old one. Releases: https://github.com/borisasadanin/courtside/tags
+api_git_url = "https://github.com/borisasadanin/courtside.git"
+api_git_ref = "v0.2.0"
 # Only for a private repository:
 # api_git_token = ""
 
