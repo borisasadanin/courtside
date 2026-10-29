@@ -18,6 +18,13 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.3.2 — 2026-10-30
+
+- Admin kan logga in även när matcherna är öppna för alla utan tittarkod. Tidigare ledde admin-koden
+  till tittarsidan och Admin-fliken kom aldrig fram
+- En felskriven kod ger "Fel kod" i stället för att släppa in en som tittare
+- Utan tittarkod säger kodrutan att den är för admin, med en knapp för att titta utan kod
+
 ## v0.3.1 — 2026-10-30
 
 - Inloggningen överlever en omstart eller uppdatering. Tidigare loggades admin och tittare ut i det tysta,
