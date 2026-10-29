@@ -18,8 +18,16 @@ export function authHeaders() {
   return h;
 }
 
+/** Whether watching needs a code. Without one, the PIN screen is only for admin. */
+let pinRequired = true;
+
 /** Show the PIN overlay and hide everything else */
 export function showPinScreen() {
+  document.getElementById("pinTitle").textContent = pinRequired ? "Privat sändning" : "Admin";
+  document.getElementById("pinDesc").textContent = pinRequired
+    ? "Ange koden för att se matcher"
+    : "Ange admin-koden. Matcherna kan alla se utan kod.";
+  document.getElementById("pinSkip").classList.toggle("hidden", pinRequired);
   stopListPolling();
   stopVodPolling();
   dom.streamListView.classList.add("hidden");
@@ -118,6 +126,7 @@ export async function checkAuthAndStart() {
     const res = await fetch(`${CONFIG.API_URL}/api/auth/status`);
     const data = await res.json();
 
+    pinRequired = !!data.pinRequired;
     if (!data.pinRequired) {
       // No PIN needed -- go straight to streams
       hidePinScreen();
@@ -157,6 +166,10 @@ function bindPinEvents() {
     if (e.key === "Enter") submitPin();
   });
   dom.headerLogout.addEventListener("click", logoutViewer);
+  document.getElementById("pinSkip").addEventListener("click", () => {
+    hidePinScreen();
+    if (onAuthSuccess) onAuthSuccess();
+  });
 }
 
 /**

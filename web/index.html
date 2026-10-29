@@ -46,13 +46,14 @@
     <section id="pinView" class="hidden">
       <div class="pin-container">
         <img src="icon.png" alt="" data-club-logo class="pin-logo">
-        <h2 class="pin-title">Privat sändning</h2>
-        <p class="pin-desc">Ange koden för att se matcher</p>
+        <h2 class="pin-title" id="pinTitle">Privat sändning</h2>
+        <p class="pin-desc" id="pinDesc">Ange koden för att se matcher</p>
         <div class="pin-input-group">
           <input type="tel" id="pinInput" maxlength="8" placeholder="000000" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
         </div>
         <button id="pinSubmit" class="pin-btn">Öppna</button>
         <p class="pin-error hidden" id="pinError">Fel kod — försök igen</p>
+        <button type="button" class="branding-link pin-skip hidden" id="pinSkip">Titta utan kod</button>
         <p class="pin-help">Glömt admin-koden? Logga in på <a href="https://courtside.apps.osaas.io" target="_blank" rel="noopener">courtside.apps.osaas.io</a> med ert OSC-konto och välj <em>Glömt admin-koden?</em></p>
       </div>
     </section>

@@ -2069,6 +2069,7 @@ footer {
 .admin-version { margin-top: 24px; text-align: center; font-size: 0.8rem; color: var(--text-muted); }
 .branding-status.error { color: var(--red); }
 
+.pin-skip:not(.hidden) { display: block; margin: 16px auto 0; }
 .pin-help { margin-top: 24px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
 .pin-help a { color: var(--accent); }
 

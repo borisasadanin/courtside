@@ -19,18 +19,21 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: { pin?: string } }>("/api/auth/verify", {
     config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
   }, async (request, reply) => {
-    if (!mutableConfig.VIEWER_PIN) {
-      // No PIN configured — return a token anyway
-      return reply.send({ token: createViewerToken(), role: "viewer" });
-    }
-
     const { pin } = request.body || {};
 
-    // Check admin PIN first
-    if (pin && pin === mutableConfig.ADMIN_PIN) {
+    // Check admin PIN first — also when watching needs no code, or the admin
+    // of an open platform could never get in.
+    if (pin && mutableConfig.ADMIN_PIN && pin === mutableConfig.ADMIN_PIN) {
       const viewerTok = createViewerToken();
       const adminTok = createAdminToken();
       return reply.send({ token: viewerTok, role: "admin", adminToken: adminTok });
+    }
+
+    if (!mutableConfig.VIEWER_PIN) {
+      // Watching needs no code. A code that is not the admin code is a
+      // mistyped admin code, so say so rather than quietly let a viewer in.
+      if (pin) return reply.code(401).send({ error: "Fel kod" });
+      return reply.send({ token: createViewerToken(), role: "viewer" });
     }
 
     // Check viewer PIN
