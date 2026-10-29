@@ -13,7 +13,7 @@ struct StartView: View {
     @State private var name = UserDefaults.standard.string(forKey: "courtside_last_name") ?? ""
     @State private var opponent = UserDefaults.standard.string(forKey: "courtside_last_opponent") ?? ""
     @State private var team = UserDefaults.standard.string(forKey: "courtside_last_team")
-        ?? Pairing.shared.credentials?.clubName ?? ""
+        ?? Club.shared.homeTeam
     @State private var selectedQuality: StreamQuality = StreamQuality.saved
     @State private var supports1080p = StreamQuality.deviceSupports1080p
     @State private var isLoading = false
@@ -30,10 +30,11 @@ struct StartView: View {
     @State private var showNotifyConfirmation = false
     @State private var showUnpairConfirmation = false
     @State private var isUnpairing = false
+    @State private var platformVersion: String?
+
+    @StateObject private var club = Club.shared
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
-
-    private let gold = Color(red: 200/255, green: 164/255, blue: 63/255)
 
     private var isCompact: Bool { verticalSizeClass == .compact }
     private var logoSize: CGFloat { isCompact ? 50 : 100 }
@@ -59,9 +60,7 @@ struct StartView: View {
                 // Logo + Title
                 VStack(spacing: isCompact ? 2 : 4) {
                     ZStack(alignment: .bottom) {
-                        Image("logo")
-                            .resizable()
-                            .scaledToFit()
+                        ClubLogo(url: club.logoURL, accent: club.accent)
                             .frame(width: logoSize, height: logoSize)
 
                         Text("LIVE")
@@ -75,9 +74,9 @@ struct StartView: View {
                             .offset(y: isCompact ? 4 : 6)
                     }
 
-                    Text((Pairing.shared.credentials?.clubName ?? "Courtside").uppercased())
+                    Text(club.name.uppercased())
                         .font(isCompact ? .subheadline.bold() : .title2.bold())
-                        .foregroundColor(gold)
+                        .foregroundColor(club.accent)
                 }
 
                 // System status
@@ -92,13 +91,21 @@ struct StartView: View {
                         } label: {
                             Image(systemName: "arrow.clockwise")
                                 .font(.caption)
-                                .foregroundColor(gold)
+                                .foregroundColor(club.accent)
                         }
                     }
 
                     StatusRow(label: "Server", status: backendStatus)
                     StatusRow(label: "Sändningsmotor", status: restreamerStatus)
                     StatusRow(label: "Tittarsida", status: websiteStatus)
+
+                    if let hint = statusHint {
+                        Text(hint)
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 4)
+                    }
                 }
                 .padding(14)
                 .background(Color(white: 0.08))
@@ -114,7 +121,7 @@ struct StartView: View {
                             if isStartingRestreamer {
                                 ProgressView()
                                     .scaleEffect(0.7)
-                                    .tint(.black)
+                                    .tint(club.onAccent)
                             } else {
                                 Image(systemName: "bolt.fill")
                             }
@@ -123,8 +130,8 @@ struct StartView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(10)
-                        .background(gold.opacity(0.9))
-                        .foregroundColor(.black)
+                        .background(club.accent.opacity(0.9))
+                        .foregroundColor(club.onAccent)
                         .cornerRadius(6)
                     }
                     .disabled(isStartingRestreamer)
@@ -214,7 +221,7 @@ struct StartView: View {
                                         .font(.caption2)
                                         .foregroundColor(
                                             selectedQuality == quality
-                                                ? .black.opacity(0.7)
+                                                ? club.onAccent.opacity(0.7)
                                                 : .white.opacity(0.4)
                                         )
                                 }
@@ -222,11 +229,11 @@ struct StartView: View {
                                 .padding(.vertical, 10)
                                 .background(
                                     selectedQuality == quality
-                                        ? gold
+                                        ? club.accent
                                         : Color(white: 0.12)
                                 )
                                 .foregroundColor(
-                                    selectedQuality == quality ? .black : .white
+                                    selectedQuality == quality ? club.onAccent : .white
                                 )
                                 .cornerRadius(6)
                                 .opacity(isDisabled ? 0.4 : 1.0)
@@ -264,11 +271,11 @@ struct StartView: View {
                         .frame(maxWidth: .infinity)
                         .padding(12)
                         .background(showNotifyConfirmation ? Color.green.opacity(0.3) : Color(white: 0.15))
-                        .foregroundColor(showNotifyConfirmation ? .green : gold)
+                        .foregroundColor(showNotifyConfirmation ? .green : club.accent)
                         .cornerRadius(8)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(showNotifyConfirmation ? Color.green.opacity(0.3) : gold.opacity(0.3), lineWidth: 1)
+                                .stroke(showNotifyConfirmation ? Color.green.opacity(0.3) : club.accent.opacity(0.3), lineWidth: 1)
                         )
                     }
                     .disabled(isNotifying || showNotifyConfirmation)
@@ -280,15 +287,15 @@ struct StartView: View {
                     HStack(spacing: 8) {
                         if isLoading {
                             ProgressView()
-                                .tint(.black)
+                                .tint(club.onAccent)
                         }
                         Text(isLoading ? "Ansluter..." : "Starta sändning")
                             .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(14)
-                    .background(canStart ? gold : gold.opacity(0.4))
-                    .foregroundColor(.black)
+                    .background(canStart ? club.accent : club.accent.opacity(0.4))
+                    .foregroundColor(club.onAccent)
                     .cornerRadius(8)
                 }
                 .disabled(!canStart)
@@ -310,7 +317,7 @@ struct StartView: View {
                 Button(role: .destructive) {
                     showUnpairConfirmation = true
                 } label: {
-                    Label("Koppla bort från \(Pairing.shared.credentials?.clubName ?? "klubben")",
+                    Label("Koppla bort från \(club.name)",
                           systemImage: "link.badge.minus")
                 }
             } label: {
@@ -323,7 +330,7 @@ struct StartView: View {
             .accessibilityLabel("Inställningar")
         }
         .confirmationDialog(
-            "Koppla bort från \(Pairing.shared.credentials?.clubName ?? "klubben")?",
+            "Koppla bort från \(club.name)?",
             isPresented: $showUnpairConfirmation,
             titleVisibility: .visible
         ) {
@@ -361,22 +368,53 @@ struct StartView: View {
                     await checkRestreamerQuick()
                 }
             },
-            Task { await checkWebsite() }
+            Task {
+                // The manifest says where the viewers' page is, so it comes first.
+                await club.refresh()
+                adoptHomeTeam()
+                await checkWebsite()
+            }
         ]
     }
 
     @MainActor
     private func checkBackend() async {
-        let ok = await APIService.shared.checkBackendHealth()
+        let health = await APIService.shared.checkBackendHealth()
         guard !Task.isCancelled else { return }
-        backendStatus = ok ? .healthy : .unhealthy("Ej nåbar")
+        platformVersion = health?.version
+        if health == nil {
+            backendStatus = .unhealthy("Ej nåbar")
+        } else if !Club.supports(platformVersion: health?.version) {
+            backendStatus = .unhealthy("Behöver uppdateras")
+        } else {
+            backendStatus = .healthy
+        }
     }
 
     @MainActor
     private func checkWebsite() async {
-        let ok = await APIService.shared.checkWebsiteHealth()
+        let ok = await APIService.shared.checkWebsiteHealth(url: club.siteURL)
         guard !Task.isCancelled else { return }
         websiteStatus = ok ? .healthy : .unhealthy("Ej nåbar")
+    }
+
+    /// What to do about a red status row, when the row alone does not say.
+    private var statusHint: String? {
+        switch backendStatus {
+        case .unhealthy("Behöver uppdateras"):
+            let running = platformVersion.map { "v\($0)" } ?? "en äldre version"
+            return "Plattformen kör \(running) och appen behöver minst v\(Club.minimumPlatformVersion). Klubbens ägare uppdaterar den på courtside.apps.osaas.io."
+        case .unhealthy:
+            return "Når inte \(club.name). Har plattformen tagits bort kan du koppla bort appen under kugghjulet."
+        default:
+            return nil
+        }
+    }
+
+    /// Fill in the club's default home team, unless the user has one of their own.
+    private func adoptHomeTeam() {
+        guard UserDefaults.standard.string(forKey: "courtside_last_team") == nil else { return }
+        team = club.homeTeam
     }
 
     /// Quick status check only — used by the refresh button. Never auto-starts Restreamer.
@@ -573,5 +611,32 @@ private struct StatusRow: View {
         case .starting: return "Startar..."
         case .unhealthy(let msg): return msg
         }
+    }
+}
+
+/// The club's own logo, or a neutral mark until it has one.
+private struct ClubLogo: View {
+    let url: URL?
+    let accent: Color
+
+    var body: some View {
+        if let url {
+            AsyncImage(url: url) { phase in
+                if let image = phase.image {
+                    image.resizable().scaledToFit()
+                } else {
+                    placeholder
+                }
+            }
+        } else {
+            placeholder
+        }
+    }
+
+    private var placeholder: some View {
+        Image(systemName: "video.circle.fill")
+            .resizable()
+            .scaledToFit()
+            .foregroundColor(accent)
     }
 }

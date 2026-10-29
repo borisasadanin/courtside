@@ -81,6 +81,14 @@ final class PairingStore: @unchecked Sendable {
         cached = creds
     }
 
+    func setClubName(_ name: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let current = cached, current.clubName != name else { return }
+        UserDefaults.standard.set(name, forKey: clubKey)
+        cached = PairingCredentials(apiUrl: current.apiUrl, token: current.token, clubName: name)
+    }
+
     func clear() {
         lock.lock()
         defer { lock.unlock() }
@@ -145,6 +153,15 @@ final class Pairing: ObservableObject {
 
     @Published private(set) var credentials: PairingCredentials?
 
+    /// Why the camera is back at the pairing screen, when it did not choose to be.
+    @Published private(set) var lostMessage: String?
+
+    /// Set while a broadcast is running. Losing the pairing then waits until the
+    /// broadcast ends: the picture keeps flowing without the club's API, and
+    /// cutting a match off is worse than a camera staying paired a little longer.
+    private var broadcasting = false
+    private var lostWhileBroadcasting = false
+
     private init() {
         credentials = PairingStore.shared.credentials
     }
@@ -196,6 +213,8 @@ final class Pairing: ObservableObject {
         }
 
         let result = try JSONDecoder().decode(PairResponse.self, from: data)
+        Club.shared.forget()
+        lostMessage = nil
         let creds = PairingCredentials(apiUrl: apiUrl, token: result.token, clubName: result.club)
         PairingStore.shared.set(creds)
         credentials = creds
@@ -206,7 +225,44 @@ final class Pairing: ObservableObject {
     /// can still revoke it.
     func unpair() async {
         await APIService.shared.revokeOwnToken()
+        reset()
+    }
+
+    /// The club answered that it no longer knows this camera: the admin removed
+    /// it, or the platform was rebuilt. Back to the pairing screen, with a word
+    /// on why.
+    func lost() {
+        guard credentials != nil else { return }
+        if broadcasting {
+            lostWhileBroadcasting = true
+            return
+        }
+        let club = credentials?.clubName ?? "klubben"
+        reset()
+        lostMessage = "Kameran är inte längre kopplad till \(club). Be klubbens admin om en ny kod."
+    }
+
+    func broadcastStarted() {
+        broadcasting = true
+    }
+
+    func broadcastEnded() {
+        broadcasting = false
+        if lostWhileBroadcasting {
+            lostWhileBroadcasting = false
+            lost()
+        }
+    }
+
+    /// The club renamed itself in the admin view.
+    func updateClubName(_ name: String) {
+        PairingStore.shared.setClubName(name)
+        credentials = PairingStore.shared.credentials
+    }
+
+    private func reset() {
         PairingStore.shared.clear()
+        Club.shared.forget()
         for key in ["courtside_last_name", "courtside_last_opponent", "courtside_last_team"] {
             UserDefaults.standard.removeObject(forKey: key)
         }

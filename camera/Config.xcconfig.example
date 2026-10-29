@@ -6,7 +6,3 @@
 
 // Bundle identifier prefix, e.g. com.myclub
 COURTSIDE_BUNDLE_PREFIX = com.example
-
-// Optional: a public website shown in the app's health indicator. Leave empty
-// unless you are building for one specific club.
-COURTSIDE_SITE_URL =

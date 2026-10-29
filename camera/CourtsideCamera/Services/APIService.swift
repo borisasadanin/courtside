@@ -11,6 +11,7 @@ enum APIError: LocalizedError {
     case serverError(Int, String?)
     case restreamerNotReady(String)
     case decodingError
+    case notPaired
 
     var errorDescription: String? {
         switch self {
@@ -18,6 +19,7 @@ enum APIError: LocalizedError {
         case .serverError(let code, let message): return message ?? "Serverfel: \(code)"
         case .restreamerNotReady(let message): return message
         case .decodingError: return "Kunde inte tolka svaret"
+        case .notPaired: return "Kameran är inte längre kopplad till klubben."
         }
     }
 }
@@ -26,11 +28,11 @@ enum APIError: LocalizedError {
 enum PauseType: String {
     case period, timeout
 
-    /// Label for the badge while paused.
-    var badge: String {
+    /// What the club's sport calls this break.
+    func label(in sport: SportProfile) -> String {
         switch self {
-        case .period: return "PERIODPAUS"
-        case .timeout: return "TIMEOUT"
+        case .period: return sport.periodBreakLabel
+        case .timeout: return sport.timeoutLabel
         }
     }
 }
@@ -47,12 +49,6 @@ final class APIService {
 
     private var deviceToken: String { PairingStore.shared.credentials?.token ?? "" }
 
-    /// Public website for this installation. Optional — used only for the
-    /// health indicator, so an unset value simply disables that check.
-    private let websiteURL: String = {
-        (Bundle.main.infoDictionary?["SITE_URL"] as? String) ?? ""
-    }()
-
     private let deviceId: String = {
         let key = "courtside_device_id"
         if let existing = UserDefaults.standard.string(forKey: key) {
@@ -65,6 +61,24 @@ final class APIService {
 
     private init() {}
 
+    /// Performs a request and notices when the club no longer knows this camera.
+    ///
+    /// Only the backend's own "not_paired" answer counts. Any other 401 —
+    /// a viewer PIN, an old platform wanting the API key — says nothing about
+    /// the pairing, and unpairing on it would strand a working camera.
+    private func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        if http.statusCode == 401,
+           (try? JSONDecoder().decode(APIErrorResponse.self, from: data))?.error == "not_paired" {
+            await Pairing.shared.lost()
+            throw APIError.notPaired
+        }
+        return (data, http)
+    }
+
     func createStream(name: String, opponent: String = "", team: String = "") async throws -> StreamInfo {
         let url = URL(string: "\(baseURL)/api/streams")!
         var request = URLRequest(url: url)
@@ -76,11 +90,7 @@ final class APIService {
         if !team.isEmpty { body["team"] = team }
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, http) = try await send(request)
         guard (200...299).contains(http.statusCode) else {
             // Try to parse structured error from backend
             if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
@@ -104,11 +114,7 @@ final class APIService {
         request.httpMethod = "DELETE"
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, http) = try await send(request)
         guard (200...299).contains(http.statusCode) else {
             if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
                 throw APIError.serverError(http.statusCode, errorResponse.message)
@@ -134,11 +140,7 @@ final class APIService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(["type": type.rawValue])
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, http) = try await send(request)
         guard (200...299).contains(http.statusCode) else {
             if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
                 throw APIError.serverError(http.statusCode, errorResponse.message)
@@ -164,11 +166,7 @@ final class APIService {
         request.httpMethod = "PATCH"
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, http) = try await send(request)
         guard (200...299).contains(http.statusCode) else {
             if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
                 if errorResponse.error == "restreamer_not_ready" {
@@ -189,11 +187,7 @@ final class APIService {
         let url = URL(string: "\(baseURL)/api/streams/\(id)")!
         var request = URLRequest(url: url)
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, http) = try await send(request)
         guard (200...299).contains(http.statusCode) else {
             if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
                 throw APIError.serverError(http.statusCode, errorResponse.message)
@@ -235,11 +229,7 @@ final class APIService {
         if let label { body["label"] = label }
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, http) = try await send(request)
         guard (200...299).contains(http.statusCode) else {
             if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
                 throw APIError.serverError(http.statusCode, errorResponse.message)
@@ -271,11 +261,7 @@ final class APIService {
         if let message { body["message"] = message }
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, http) = try await send(request)
         guard (200...299).contains(http.statusCode) else {
             if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
                 throw APIError.serverError(http.statusCode, errorResponse.message)
@@ -291,12 +277,29 @@ final class APIService {
 
     // MARK: - System Health Checks
 
-    func checkBackendHealth() async -> Bool {
-        guard let url = URL(string: "\(baseURL)/health") else { return false }
+    struct Health: Decodable {
+        /// Missing before v0.2.0.
+        let version: String?
+    }
+
+    /// The installation's health, or nil when it cannot be reached.
+    func checkBackendHealth() async -> Health? {
+        guard let url = URL(string: "\(baseURL)/health") else { return nil }
         let request = URLRequest(url: url, timeoutInterval: 5)
-        guard let (_, response) = try? await URLSession.shared.data(for: request) else { return false }
-        guard let http = response as? HTTPURLResponse else { return false }
-        return http.statusCode == 200
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, http.statusCode == 200
+        else { return nil }
+        return (try? JSONDecoder().decode(Health.self, from: data)) ?? Health(version: nil)
+    }
+
+    /// The club's public manifest: name, colour, logo and sport terminology.
+    func fetchClub() async -> ClubManifest? {
+        guard let url = URL(string: "\(baseURL)/api/club") else { return nil }
+        let request = URLRequest(url: url, timeoutInterval: 5)
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, http.statusCode == 200
+        else { return nil }
+        return try? JSONDecoder().decode(ClubManifest.self, from: data)
     }
 
     struct RestreamerStatus: Decodable {
@@ -307,8 +310,7 @@ final class APIService {
         guard let url = URL(string: "\(baseURL)/api/restreamer/status") else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 5)
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
-        guard let (data, response) = try? await URLSession.shared.data(for: request) else { return nil }
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+        guard let (data, http) = try? await send(request), http.statusCode == 200 else { return nil }
         guard let status = try? JSONDecoder().decode(RestreamerStatus.self, from: data) else { return nil }
         return status.state
     }
@@ -325,8 +327,7 @@ final class APIService {
         var request = URLRequest(url: url, timeoutInterval: 10)
         request.httpMethod = "POST"
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+        guard let (data, http) = try? await send(request), http.statusCode == 200 else { return nil }
         return try? JSONDecoder().decode(RestreamerStartResponse.self, from: data)
     }
 
@@ -335,8 +336,7 @@ final class APIService {
         var request = URLRequest(url: url, timeoutInterval: 10)
         request.httpMethod = "DELETE"
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
-        guard let (_, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse else { return false }
+        guard let (_, http) = try? await send(request) else { return false }
         return (200...299).contains(http.statusCode)
     }
 
@@ -349,8 +349,9 @@ final class APIService {
         _ = try? await URLSession.shared.data(for: request)
     }
 
-    func checkWebsiteHealth() async -> Bool {
-        guard !websiteURL.isEmpty, let url = URL(string: websiteURL) else { return false }
+    /// Whether the viewers' page answers.
+    func checkWebsiteHealth(url: URL?) async -> Bool {
+        guard let url else { return false }
         var request = URLRequest(url: url, timeoutInterval: 5)
         request.httpMethod = "HEAD"
         guard let (_, response) = try? await URLSession.shared.data(for: request) else { return false }

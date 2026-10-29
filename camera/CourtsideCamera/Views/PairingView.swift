@@ -23,6 +23,17 @@ struct PairingView: View {
             VStack(spacing: 24) {
                 header
 
+                if let lost = pairing.lostMessage {
+                    Label(lost, systemImage: "link.badge.minus")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.leading)
+                        .padding(12)
+                        .background(Color(white: 0.1))
+                        .cornerRadius(8)
+                        .padding(.horizontal, 32)
+                }
+
                 if showManualEntry {
                     manualForm
                 } else {

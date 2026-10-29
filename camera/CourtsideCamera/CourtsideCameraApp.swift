@@ -16,6 +16,9 @@ struct CourtsideCameraApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                // Every screen is drawn on black; in light mode the system's
+                // secondary text turns dark grey and all but disappears.
+                .preferredColorScheme(.dark)
         }
     }
 }

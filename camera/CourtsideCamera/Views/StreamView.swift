@@ -69,6 +69,7 @@ struct StreamView: View {
     @State private var timerStartedOnce = false
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var club = Club.shared
 
     private var isCompact: Bool { verticalSizeClass == .compact }
 
@@ -85,7 +86,7 @@ struct StreamView: View {
                 // Top bar: LIVE badge + viewers + camera switch
                 HStack {
                     // LIVE badge
-                    Text(service.isPaused ? (service.pauseType?.badge ?? "PAUS") : "LIVE")
+                    Text(service.isPaused ? (service.pauseType?.label(in: club.sport).uppercased() ?? "PAUS") : "LIVE")
                         .font(.caption.bold())
                         .tracking(1)
                         .padding(.horizontal, 10)
@@ -154,7 +155,7 @@ struct StreamView: View {
                         } label: {
                             Image(systemName: isClipping ? "hourglass" : "star.fill")
                                 .font(.title2)
-                                .foregroundColor(clipCooldown ? .gray : Color(red: 0.78, green: 0.64, blue: 0.25))
+                                .foregroundColor(clipCooldown ? .gray : club.accent)
                                 .padding(10)
                                 .background(.ultraThinMaterial)
                                 .clipShape(Circle())
@@ -239,8 +240,8 @@ struct StreamView: View {
                         .font(.headline)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(Color(red: 0.78, green: 0.64, blue: 0.25).opacity(0.9))
-                        .foregroundColor(.black)
+                        .background(club.accent.opacity(0.9))
+                        .foregroundColor(club.onAccent)
                         .cornerRadius(8)
                 }
 
@@ -285,8 +286,8 @@ struct StreamView: View {
                             }
                             .disabled(isResuming || isStopping)
                         } else {
-                            pauseButton(.period, icon: "pause.fill", title: "Periodpaus")
-                            pauseButton(.timeout, icon: "hand.raised.fill", title: "Timeout")
+                            pauseButton(.period, icon: "pause.fill", title: PauseType.period.label(in: club.sport))
+                            pauseButton(.timeout, icon: "hand.raised.fill", title: PauseType.timeout.label(in: club.sport))
                         }
                     }
 
@@ -316,6 +317,7 @@ struct StreamView: View {
             }
         }
         .onAppear {
+            Pairing.shared.broadcastStarted()
             elapsedTime = 0
             UIApplication.shared.isIdleTimerDisabled = true
             OrientationManager.shared.lockLandscape()
@@ -328,6 +330,7 @@ struct StreamView: View {
             UIApplication.shared.isIdleTimerDisabled = false
             OrientationManager.shared.lockPortrait()
             Task { await service.cleanup() }
+            Pairing.shared.broadcastEnded()
         }
         .confirmationDialog("Avsluta sändning?", isPresented: $showStopConfirmation) {
             Button("Stoppa sändning", role: .destructive) {
