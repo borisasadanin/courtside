@@ -18,7 +18,7 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
-## Ej släppt
+## v0.3.0 — 2026-10-29
 
 - En parad kamera får starta och stänga sändningsmotorn och meddela tittare. Tidigare krävde de anropen
   API-nyckeln, så kameraappen kunde aldrig starta en sändning
