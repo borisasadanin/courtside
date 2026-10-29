@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { newestRelease } from "./release.js";
+import { isNewer, newestRelease } from "./release.js";
 
 const sha = "0af247f0000000000000000000000000000000000";
 
@@ -25,5 +25,22 @@ describe("newestRelease", () => {
 
   it("finds nothing in a repository without releases", () => {
     expect(newestRelease(advertise(["refs/heads/master"]))).toBeUndefined();
+  });
+});
+
+describe("isNewer", () => {
+  it("compares releases by number", () => {
+    expect(isNewer("v0.10.0", "v0.9.3")).toBe(true);
+    expect(isNewer("v0.2.0", "v0.2.0")).toBe(false);
+    expect(isNewer("v0.1.0", "v0.2.0")).toBe(false);
+  });
+
+  it("puts an app on a branch or on no ref behind every release", () => {
+    expect(isNewer("v0.1.0", "master")).toBe(true);
+    expect(isNewer("v0.1.0", undefined)).toBe(true);
+  });
+
+  it("never offers a branch as an update", () => {
+    expect(isNewer("master", "v0.1.0")).toBe(false);
   });
 });

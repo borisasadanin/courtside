@@ -32,6 +32,8 @@ export interface App {
   gitUrl: string;
   buildStatus?: string;
   configService?: string;
+  /** The branch or tag the app is built from; undefined follows the default branch. */
+  sourceRef?: string;
 }
 
 export interface NewApp {
@@ -58,6 +60,8 @@ export interface Osc {
   getApp(id: string): Promise<App | undefined>;
   /** rebuild recreates the app from scratch, for a first build that failed. */
   restartApp(id: string, rebuild?: boolean): Promise<void>;
+  /** Rebuilds the app from another branch or tag, in the background. */
+  setSourceRef(id: string, ref: string): Promise<void>;
   removeApp(id: string): Promise<void>;
   /** Whether a platform address (club.apps.osaas.io) is free in every tenant. */
   domainAvailable(domain: string): Promise<boolean>;
@@ -159,6 +163,7 @@ export function oscFor(token: string, environment = "prod"): Osc {
       gitUrl: String(a.gitUrl || a.gitHubUrl || "").split("#")[0],
       buildStatus: a.buildStatus as string | undefined,
       configService: a.configService === "undefined" ? undefined : (a.configService as string | undefined),
+      sourceRef: (a.sourceRef as string | undefined) || String(a.gitUrl || a.gitHubUrl || "").split("#")[1] || undefined,
     };
   }
 
@@ -263,6 +268,10 @@ export function oscFor(token: string, environment = "prod"): Osc {
 
     async restartApp(id, rebuild) {
       await deploy("PUT", `/myapps/${encodeURIComponent(id)}${rebuild ? "?rebuild=true" : ""}`);
+    },
+
+    async setSourceRef(id, ref) {
+      await deploy("PATCH", `/myapps/${encodeURIComponent(id)}/source-ref`, { sourceRef: ref });
     },
 
     async removeApp(id) {

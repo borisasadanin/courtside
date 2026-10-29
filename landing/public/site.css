@@ -327,6 +327,8 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
 .inst-item .row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
 .inst-item .name { color: var(--text-strong); font-weight: 600; }
 .inst-item .url { font-size: 14px; word-break: break-all; }
+.inst-version { font-size: 13px; color: var(--text-muted); }
+.inst-upgrade { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; font-size: 14px; }
 .inst-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .inst-actions button, .inst-actions a { font-size: 14px; }
 .status { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-muted); }

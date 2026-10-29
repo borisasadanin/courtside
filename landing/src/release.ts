@@ -29,6 +29,18 @@ function newer(a: number[], b: number[]): boolean {
   return false;
 }
 
+/**
+ * Whether release a is newer than what an app runs.  An app on a branch, or
+ * on no ref at all, is behind every release.
+ */
+export function isNewer(a: string, current: string | undefined): boolean {
+  const parse = (v: string | undefined) => v?.match(/^v(\d+)\.(\d+)\.(\d+)$/)?.slice(1).map(Number);
+  const x = parse(a);
+  if (!x) return false;
+  const y = parse(current);
+  return !y || newer(x, y);
+}
+
 const CACHE_MS = 5 * 60_000;
 let cached: { gitUrl: string; at: number; ref: string | undefined } | undefined;
 

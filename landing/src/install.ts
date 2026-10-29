@@ -373,6 +373,42 @@ export async function resetAdmin(osc: Osc, club: string): Promise<string> {
   return code;
 }
 
+/** Something the owner can fix by waiting, as opposed to a failure. */
+export class NotNow extends Error {}
+
+/**
+ * Moves a club's installation to another release.  The app is rebuilt from
+ * that tag, which takes it offline for a few minutes, so it is refused while
+ * a match is being broadcast.  Recordings and settings live in the club's
+ * storage and parameter store and are not touched.
+ */
+export async function upgrade(
+  osc: Osc,
+  club: string,
+  ref: string,
+  live: (url: string) => Promise<boolean> = broadcasting
+): Promise<void> {
+  const app = (await osc.listApps()).find((a) => a.name === names(club).app);
+  if (!app) throw new Error(`Hittar ingen Courtside som heter ${club}.`);
+  if (app.sourceRef === ref) return;
+  if (app.buildStatus === "building") throw new NotNow("Plattformen byggs redan. Vänta tills den är igång och försök igen.");
+  const url = app.url && (app.url.startsWith("http") ? app.url : `https://${app.url}`).replace(/\/$/, "");
+  if (url && (await live(url))) throw new NotNow("Det pågår en sändning just nu. Uppdatera när matchen är slut.");
+  await osc.setSourceRef(app.id, ref);
+}
+
+/** Whether the installation is broadcasting, by its own /health.  Unknown counts as no. */
+async function broadcasting(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return false;
+    const health = (await res.json()) as { activeStreams?: number };
+    return (health.activeStreams ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function sameRepo(a: string, b: string): boolean {
   const norm = (u: string) => u.toLowerCase().replace(/\.git$/, "").replace(/\/$/, "");
   return norm(a) === norm(b);

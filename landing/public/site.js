@@ -20,6 +20,11 @@ var T = ({
     resetNote: function (c) { return "Ny uppsättningskod: " + c + ". Öppna er sida om en minut och välj en ny admin-kod."; },
     open: "Öppna", remove: "Ta bort", removing: "Tar bort…",
     removeConfirm: function (c) { return "Det här tar bort " + c + " och ALLA inspelningar. Det går inte att ångra.\n\nSkriv " + c + " för att bekräfta."; },
+    version: function (v) { return v ? "Version " + v : "Utan fast version"; },
+    upgradeNote: function (v) { return "Version " + v + " finns."; }, whatsNew: "Vad är nytt",
+    upgrade: function (v) { return "Uppdatera till " + v; }, upgrading: "Startar…",
+    upgradeConfirm: function (v) { return "Courtside uppdateras till " + v + ". Sidan är nere några minuter medan den byggs om, så gör det inte under en match. Inspelningar, koder och inställningar finns kvar."; },
+    upgradeStarted: function (v) { return "Uppdateringen till " + v + " är igång. Sidan är tillbaka om några minuter."; },
     auth: {
       denied: "Du tackade nej till att ge Courtside åtkomst, så inget har skapats på ditt Open Source Cloud-konto. Courtside behöver åtkomsten för att kunna starta tjänsterna åt er. Ändrar du dig går det bra att försöka igen.",
       failed: "Inloggningen hos Open Source Cloud blev inte klar, kanske för att den tog för lång tid. Försök igen.",
@@ -78,6 +83,11 @@ var T = ({
     resetNote: function (c) { return "New setup code: " + c + ". Open your site in a minute and choose a new admin code."; },
     open: "Open", remove: "Remove", removing: "Removing…",
     removeConfirm: function (c) { return "This removes " + c + " and ALL recordings. It cannot be undone.\n\nType " + c + " to confirm."; },
+    version: function (v) { return v ? "Version " + v : "No fixed version"; },
+    upgradeNote: function (v) { return "Version " + v + " is out."; }, whatsNew: "What's new",
+    upgrade: function (v) { return "Update to " + v; }, upgrading: "Starting…",
+    upgradeConfirm: function (v) { return "Courtside is updated to " + v + ". The site is down for a few minutes while it is rebuilt, so don't do it during a match. Recordings, codes and settings stay."; },
+    upgradeStarted: function (v) { return "The update to " + v + " has started. The site is back in a few minutes."; },
     auth: {
       denied: "You declined to give Courtside access, so nothing was created in your Open Source Cloud account. Courtside needs that access to start the services for you. If you change your mind, just try again.",
       failed: "Signing in with Open Source Cloud didn't finish, perhaps because it took too long. Please try again.",
@@ -309,6 +319,7 @@ var T = ({
     }
 
     var STATUS = T.status;
+    var CHANGELOG = "https://github.com/borisasadanin/courtside/blob/master/CHANGELOG.md";
 
     function loadList() {
       return api("GET", "/api/installations").then(function (d) {
@@ -322,6 +333,7 @@ var T = ({
           var st = STATUS[i.status] || [i.status || T.unknown, ""];
           row.appendChild(el("span", { "class": "status " + st[1] }, st[0]));
           li.appendChild(row);
+          if (i.status !== "installing") li.appendChild(el("span", { "class": "inst-version" }, T.version(i.version)));
           if (i.url && i.own) {
             li.appendChild(el("span", { "class": "url-label" }, T.shareLabel));
             li.appendChild(el("a", { "class": "url", href: i.url, target: "_blank", rel: "noopener" }, i.url.replace(/^https:\/\//, "")));
@@ -342,6 +354,22 @@ var T = ({
               });
               li.appendChild(own);
             }
+          }
+          if (i.upgradeTo && i.status === "running") {
+            var up = el("div", { "class": "inst-upgrade" });
+            up.appendChild(el("span", null, T.upgradeNote(i.upgradeTo)));
+            up.appendChild(el("a", { href: CHANGELOG, target: "_blank", rel: "noopener" }, T.whatsNew));
+            var upBtn = el("button", { type: "button", "class": "btn btn-primary btn-sm" }, T.upgrade(i.upgradeTo));
+            upBtn.addEventListener("click", function () {
+              if (!confirm(T.upgradeConfirm(i.upgradeTo))) return;
+              upBtn.disabled = true; upBtn.textContent = T.upgrading;
+              api("POST", "/api/installations/" + i.club + "/upgrade").then(function (d) {
+                alert(T.upgradeStarted(d.version));
+                loadList();
+              }).catch(function (e) { alert(e.message); upBtn.disabled = false; upBtn.textContent = T.upgrade(i.upgradeTo); });
+            });
+            up.appendChild(upBtn);
+            li.appendChild(up);
           }
           if (i.status !== "installing") {
             var actions = el("div", { "class": "inst-actions" });

@@ -2,7 +2,9 @@
 
 Clubs run a released version, never the latest push. New platforms created on
 courtside.apps.osaas.io get the newest release tag; an existing platform keeps
-its version until its owner changes it.
+its version until its owner updates it: signed in on courtside.apps.osaas.io, a
+platform with a newer release gets an **Uppdatera** button. It is refused while a
+match is being broadcast, since the site is down for a few minutes during the rebuild.
 
 **If a release goes wrong:** point the club's app back to the previous tag
 (`api_git_ref` with Terraform, or the app's source ref in OSC) and it is rebuilt

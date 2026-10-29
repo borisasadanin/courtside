@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { install, invalidClub, Job, renewToken, resetAdmin, setupCode, uninstall } from "./install.js";
+import { install, invalidClub, Job, NotNow, renewToken, resetAdmin, setupCode, uninstall, upgrade } from "./install.js";
 import { App, CONFIG_SERVICE, NewApp, Osc, Parameter, RESTREAMER_SERVICE, STORAGE_SERVICE } from "./osc.js";
 
 /** An OSC tenant in memory. */
@@ -69,7 +69,7 @@ function fakeTenant(opts: { failAt?: string; buildStatus?: string; takenDomain?:
     },
     async createApp(body) {
       fail("createApp");
-      const app = { id: body.name, name: body.name, url: "", gitUrl: body.gitUrl, buildStatus: "building", body };
+      const app = { id: body.name, name: body.name, url: "", gitUrl: body.gitUrl, sourceRef: body.sourceRef, buildStatus: "building", body };
       apps.set(app.id, app);
       return app;
     },
@@ -81,6 +81,10 @@ function fakeTenant(opts: { failAt?: string; buildStatus?: string; takenDomain?:
     async restartApp(id, rebuild) {
       calls.push(rebuild ? `rebuild ${id}` : `restart ${id}`);
       if (rebuild && opts.buildStatus === "failed" && opts.fixedByRebuild) opts.buildStatus = "running";
+    },
+    async setSourceRef(id, ref) {
+      calls.push(`ref ${id} ${ref}`);
+      apps.get(id)!.sourceRef = ref;
     },
     async removeApp(id) {
       calls.push(`remove app ${id}`);
@@ -316,6 +320,53 @@ describe("resetAdmin", () => {
 
   it("refuses a club that is not installed", async () => {
     await expect(resetAdmin(fakeTenant().osc, "nobody")).rejects.toThrow(/Hittar ingen/);
+  });
+});
+
+describe("upgrade", () => {
+  async function installed(app: { url?: string; buildStatus?: string } = {}) {
+    const t = fakeTenant();
+    await install(t.osc, req, { ...source, ref: "v0.2.0" }, newJob(), fast, async () => true);
+    Object.assign(t.apps.get("altaapi")!, { url: "abc123.apps.osaas.io", buildStatus: "running", ...app });
+    return t;
+  }
+  const idle = async () => false;
+
+  it("installs pinned to the release it was given", async () => {
+    const t = await installed();
+    expect(t.apps.get("altaapi")!.body.sourceRef).toBe("v0.2.0");
+  });
+
+  it("rebuilds the app from the new release, leaving settings alone", async () => {
+    const t = await installed();
+    const before = new Map(t.stores.get("altaconfig"));
+    await upgrade(t.osc, "alta", "v0.3.0", idle);
+    expect(t.calls).toContain("ref altaapi v0.3.0");
+    expect(t.stores.get("altaconfig")).toEqual(before);
+  });
+
+  it("waits while a match is being broadcast", async () => {
+    const t = await installed();
+    let asked = "";
+    const live = async (url: string) => ((asked = url), true);
+    await expect(upgrade(t.osc, "alta", "v0.3.0", live)).rejects.toBeInstanceOf(NotNow);
+    expect(asked).toBe("https://abc123.apps.osaas.io");
+    expect(t.calls.some((c) => c.startsWith("ref "))).toBe(false);
+  });
+
+  it("waits while the app is building", async () => {
+    const t = await installed({ buildStatus: "building" });
+    await expect(upgrade(t.osc, "alta", "v0.3.0", idle)).rejects.toBeInstanceOf(NotNow);
+  });
+
+  it("does nothing when the app already runs that release", async () => {
+    const t = await installed();
+    await upgrade(t.osc, "alta", "v0.2.0", idle);
+    expect(t.calls.some((c) => c.startsWith("ref "))).toBe(false);
+  });
+
+  it("refuses a club that is not installed", async () => {
+    await expect(upgrade(fakeTenant().osc, "nobody", "v0.3.0", idle)).rejects.toThrow(/Hittar ingen/);
   });
 });
 

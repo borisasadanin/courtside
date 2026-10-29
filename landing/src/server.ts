@@ -24,8 +24,8 @@ import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import * as oauth from "./oauth.js";
 import { oscFor } from "./osc.js";
-import { latestRelease } from "./release.js";
-import { install, invalidClub, Job, names, renewToken, resetAdmin, sameRepo, siteDomain, Source, uninstall } from "./install.js";
+import { isNewer, latestRelease } from "./release.js";
+import { install, invalidClub, Job, names, NotNow, renewToken, resetAdmin, sameRepo, siteDomain, Source, uninstall, upgrade } from "./install.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const PUBLIC_URL = process.env.PUBLIC_URL?.replace(/\/$/, "");
@@ -225,6 +225,8 @@ app.get("/api/installations", async (req, reply) => {
   if (!who) return;
   let apps;
   let domains = new Map<string, string[]>();
+  // Without it the list still shows, only without an offer to update.
+  const latest = releaseToOffer().catch(() => undefined);
   try {
     [apps, domains] = await Promise.all([who.osc.listApps(), who.osc.listDomains().catch(() => domains)]);
   } catch (err) {
@@ -238,8 +240,10 @@ app.get("/api/installations", async (req, reply) => {
       // The club's own address when it has one, else the platform's.
       const own = domains.get(a.name)?.find((d) => d === siteDomain(club, who.osc.environment));
       const url = own ? `https://${own}` : a.url ? (a.url.startsWith("http") ? a.url : `https://${a.url}`) : undefined;
-      return { club, url, own: !!own, address: siteDomain(club, who.osc.environment), status: a.buildStatus };
+      return { club, url, own: !!own, address: siteDomain(club, who.osc.environment), status: a.buildStatus, version: a.sourceRef };
     });
+  const offer = await latest;
+  for (const i of installed) Object.assign(i, { upgradeTo: offer && i.version !== offer && isNewer(offer, i.version) ? offer : undefined });
   const running = [...jobs.values()]
     .filter((j) => j.tenant === who.tenant && j.state === "running" && !installed.some((i) => i.club === j.club))
     .map((j) => ({ club: j.club, status: "installing" }));
@@ -269,6 +273,37 @@ app.post("/api/installations/:club/address", async (req, reply) => {
     return reply.code(502).send({ error: "Det gick inte att ge plattformen en egen adress just nu. Försök igen om en stund." });
   }
 });
+
+// Moves an installation to the newest release.  Only ever forward: going
+// back is for when a release goes wrong, and is done in OSC by hand.
+app.post("/api/installations/:club/upgrade", async (req, reply) => {
+  const who = await signedIn(req, reply);
+  if (!who) return;
+  const { club } = req.params as { club: string };
+  if (invalidClub(club)) return reply.code(400).send({ error: "Okänt namn." });
+  let to: string | undefined;
+  try {
+    to = await releaseToOffer();
+  } catch (err) {
+    req.log.error(err, "reading releases failed");
+    return reply.code(503).send({ error: "Kunde inte läsa vilken version av Courtside som är senast. Försök igen om en stund." });
+  }
+  if (!to) return reply.code(409).send({ error: "Det finns ingen version att uppdatera till." });
+  try {
+    await upgrade(who.osc, club, to);
+    req.log.info({ club, tenant: who.tenant, to }, "upgrade started");
+    return reply.code(202).send({ version: to });
+  } catch (err) {
+    if (err instanceof NotNow) return reply.code(409).send({ error: err.message });
+    req.log.error(err, "upgrade failed");
+    return reply.code(502).send({ error: "Uppdateringen kunde inte startas. Försök igen om en stund." });
+  }
+});
+
+/** The version a new or updated installation gets. */
+async function releaseToOffer(): Promise<string | undefined> {
+  return SOURCE.ref ?? (await latestRelease(SOURCE.gitUrl, SOURCE.token));
+}
 
 // Whether a short name is free, as the club types it: both the address,
 // shared by every OSC account, and the names in this account.
@@ -307,9 +342,9 @@ app.post("/api/installations", async (req, reply) => {
   }
 
   // A new club gets the newest release, not the latest push.
-  let ref = SOURCE.ref;
+  let ref: string | undefined;
   try {
-    ref ??= await latestRelease(SOURCE.gitUrl, SOURCE.token);
+    ref = await releaseToOffer();
   } catch (err) {
     req.log.error(err, "reading releases failed");
     return reply.code(503).send({ error: "Kunde inte läsa vilken version av Courtside som är senast. Försök igen om en stund." });
