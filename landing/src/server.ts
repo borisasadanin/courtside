@@ -159,16 +159,36 @@ app.get("/auth/signin", async (req, reply) => {
   return reply.redirect(await oauth.authorizationUrl(s.client, redirectUri, challenge, state));
 });
 
-app.get("/auth/callback", async (req, reply) => {
-  const s = session(req, reply);
-  const { code, state, error } = req.query as Record<string, string | undefined>;
+// OSC sends the user back here with a GET when they approve, but posts the
+// form when they press Deny. A cross-site POST carries no session cookie
+// (SameSite=Lax), so the sign-in is found by its state rather than the cookie.
+app.addContentTypeParser(
+  "application/x-www-form-urlencoded",
+  { parseAs: "string" },
+  (_req, body, done) => done(null, Object.fromEntries(new URLSearchParams(body as string))),
+);
+
+function pendingSignIn(state: string | undefined): Session | undefined {
+  if (!state) return undefined;
+  for (const s of sessions.values()) if (s.state === state) return s;
+  return undefined;
+}
+
+async function callback(req: FastifyRequest, reply: FastifyReply) {
+  const params = {
+    ...(req.query as Record<string, string | undefined>),
+    ...((req.body as Record<string, string | undefined> | undefined) ?? {}),
+  };
+  const { code, state, error } = params;
+  const s = pendingSignIn(state) ?? session(req, reply);
   const returnTo = s.returnTo ?? "/";
   const valid = !!code && !!state && state === s.state && !!s.client && !!s.verifier && !!s.redirectUri;
+  // 303 so a POST is followed by a GET of the page, not a re-post.
   if (!valid) {
     // The user pressed Deny on OSC's consent page (error=access_denied), or
     // the session expired on the way. Back to the page, which explains it.
     s.verifier = s.state = s.returnTo = undefined;
-    return reply.redirect(backTo(returnTo, error === "access_denied" ? "denied" : "failed"));
+    return reply.redirect(backTo(returnTo, error === "access_denied" ? "denied" : "failed"), 303);
   }
   try {
     store(s, await oauth.exchangeCode(s.client!, code!, s.verifier!, s.redirectUri!));
@@ -176,11 +196,14 @@ app.get("/auth/callback", async (req, reply) => {
   } catch (err) {
     req.log.error(err, "OAuth code exchange failed");
     s.verifier = s.state = s.returnTo = undefined;
-    return reply.redirect(backTo(returnTo, "failed"));
+    return reply.redirect(backTo(returnTo, "failed"), 303);
   }
   s.verifier = s.state = s.returnTo = undefined;
-  return reply.redirect(returnTo);
-});
+  return reply.redirect(returnTo, 303);
+}
+
+app.get("/auth/callback", callback);
+app.post("/auth/callback", callback);
 
 app.get("/auth/status", async (req, reply) => {
   const t = await token(session(req, reply));
