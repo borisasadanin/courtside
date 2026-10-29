@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { install, invalidClub, Job, NotNow, renewToken, resetAdmin, setupCode, uninstall, upgrade } from "./install.js";
+import { install, invalidClub, Job, NotNow, renewToken, repair, resetAdmin, setupCode, uninstall, upgrade } from "./install.js";
 import { App, CONFIG_SERVICE, NewApp, Osc, Parameter, RESTREAMER_SERVICE, STORAGE_SERVICE } from "./osc.js";
 
 /** An OSC tenant in memory. */
 function fakeTenant(opts: { failAt?: string; buildStatus?: string; takenDomain?: string; fixedByRebuild?: boolean } = {}) {
   const instances = new Set<string>();
+  const passwords = new Map<string, string>();
   const stores = new Map<string, Map<string, Parameter>>();
   const apps = new Map<string, App & { body: NewApp }>();
   const tokens = new Map<string, boolean>();
@@ -20,10 +21,15 @@ function fakeTenant(opts: { failAt?: string; buildStatus?: string; takenDomain?:
     async instanceExists(service, name) {
       return instances.has(`${service}/${name}`);
     },
-    async createStorage(name) {
+    async createStorage(name, password) {
       fail("createStorage");
       instances.add(`${STORAGE_SERVICE}/${name}`);
+      passwords.set(name, password);
       return `https://tenant-${name}.minio-minio.auto.prod.osaas.io`;
+    },
+    async storageAccess(name) {
+      if (!instances.has(`${STORAGE_SERVICE}/${name}`)) return undefined;
+      return { url: `https://tenant-${name}.minio-minio.auto.prod.osaas.io`, password: passwords.get(name)! };
     },
     async removeInstance(service, name) {
       calls.push(`remove ${service}/${name}`);
@@ -381,5 +387,50 @@ describe("names and codes", () => {
 
   it("makes setup codes without look-alike characters", () => {
     for (let i = 0; i < 200; i++) expect(setupCode()).toMatch(/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
+  });
+});
+
+describe("repair", () => {
+  it("writes back every setting an emptied store lost, with the storage it already had", async () => {
+    const t = fakeTenant();
+    await install(t.osc, req, source, newJob(), fast, async () => true);
+    const store = t.stores.get("altaconfig")!;
+    const before = new Map(store);
+    store.clear(); // what OSC did
+
+    const code = await repair(t.osc, "alta", "t1");
+
+    expect([...store.keys()].sort()).toEqual([...before.keys()].sort());
+    for (const key of ["MINIO_SECRET_KEY", "MINIO_ENDPOINT", "MINIO_ACCESS_KEY", "STORAGE_BUCKET", "OSC_TENANT", "OSC_INSTANCE_NAME", "PROCESS_PREFIX"]) {
+      expect(store.get(key)?.value, key).toBe(before.get(key)?.value);
+    }
+    expect(store.get("SETUP_CODE")!.value).toBe(code);
+    expect(t.calls).toContain("restart altaapi");
+  });
+
+  it("leaves the storage, and with it every recording, alone", async () => {
+    const t = fakeTenant();
+    await install(t.osc, req, source, newJob(), fast, async () => true);
+    t.stores.get("altaconfig")!.clear();
+    await repair(t.osc, "alta", "t1");
+    expect(t.instances.has(`${STORAGE_SERVICE}/altastorage`)).toBe(true);
+    expect(t.calls.filter((c) => c.startsWith("remove"))).toEqual([]);
+  });
+
+  it("keeps only the new OSC token", async () => {
+    const t = fakeTenant();
+    await install(t.osc, req, source, newJob(), fast, async () => true);
+    await repair(t.osc, "alta", "t1");
+    expect([...t.tokens.values()].filter(Boolean)).toHaveLength(1);
+  });
+
+  it("says so when the storage cannot be read, and writes nothing", async () => {
+    const t = fakeTenant();
+    await install(t.osc, req, source, newJob(), fast, async () => true);
+    t.instances.delete(`${STORAGE_SERVICE}/altastorage`);
+    const store = t.stores.get("altaconfig")!;
+    store.clear();
+    await expect(repair(t.osc, "alta", "t1")).rejects.toThrow(/Lagringen/);
+    expect(store.size).toBe(0);
   });
 });

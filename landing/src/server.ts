@@ -25,7 +25,7 @@ import fastifyStatic from "@fastify/static";
 import * as oauth from "./oauth.js";
 import { oscFor } from "./osc.js";
 import { isNewer, latestRelease } from "./release.js";
-import { install, invalidClub, Job, names, NotNow, renewToken, resetAdmin, sameRepo, siteDomain, Source, uninstall, upgrade } from "./install.js";
+import { install, invalidClub, Job, names, NotNow, renewToken, repair, resetAdmin, sameRepo, siteDomain, Source, uninstall, upgrade } from "./install.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const PUBLIC_URL = process.env.PUBLIC_URL?.replace(/\/$/, "");
@@ -415,6 +415,22 @@ app.post("/api/installations/:club/reset-admin", async (req, reply) => {
   } catch (err) {
     req.log.error(err, "admin reset failed");
     return reply.code(502).send({ error: err instanceof Error ? err.message : "Återställningen misslyckades." });
+  }
+});
+
+// Writes the settings back when a platform's parameter store has lost them.
+app.post("/api/installations/:club/repair", async (req, reply) => {
+  const who = await signedIn(req, reply);
+  if (!who) return;
+  const { club } = req.params as { club: string };
+  if (invalidClub(club)) return reply.code(400).send({ error: "Okänt namn." });
+  try {
+    const setupCode = await repair(who.osc, club, who.tenant);
+    req.log.info({ club, tenant: who.tenant }, "platform repaired");
+    return { setupCode };
+  } catch (err) {
+    req.log.error(err, "repair failed");
+    return reply.code(502).send({ error: err instanceof Error ? err.message : "Reparationen misslyckades." });
   }
 });
 

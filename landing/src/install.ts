@@ -180,21 +180,16 @@ export async function install(
 
     at("config");
     const code = setupCode();
-    const params: Parameter[] = [
-      { key: "API_KEY", value: secret(48), secret: true },
-      { key: "SETUP_CODE", value: code, secret: true },
-      { key: "OSC_ACCESS_TOKEN", value: oscToken, secret: true },
-      { key: "MINIO_SECRET_KEY", value: storagePassword, secret: true },
-      { key: "OSC_TENANT", value: req.tenant },
-      { key: "OSC_REGION", value: osc.environment },
-      { key: "OSC_INSTANCE_NAME", value: n.restreamer },
-      { key: "PROCESS_PREFIX", value: `${req.club}-` },
-      { key: "MINIO_ENDPOINT", value: storageEndpoint },
-      { key: "MINIO_ACCESS_KEY", value: "root" },
-      { key: "STORAGE_BUCKET", value: "recordings" },
-      { key: "CLUB_NAME", value: req.displayName },
-    ];
-    await osc.writeParameters(n.store, apiKey, params);
+    await osc.writeParameters(n.store, apiKey, platformParams({
+      club: req.club,
+      displayName: req.displayName,
+      tenant: req.tenant,
+      environment: osc.environment,
+      setupCode: code,
+      oscToken,
+      storageUrl: storageEndpoint,
+      storagePassword,
+    }));
 
     at("app");
     undo.push(() => osc.removeApp(n.app));
@@ -335,6 +330,70 @@ export async function uninstall(osc: Osc, club: string): Promise<void> {
   await attempt("storage", () => osc.removeInstance(STORAGE_SERVICE, n.storage));
   await attempt("token", () => osc.revokeTokens(n.tokenPrefix));
   if (errors.length) throw new Error(`Allt kunde inte tas bort: ${errors.join("; ")}`);
+}
+
+/** Every setting the backend reads at start. */
+function platformParams(p: {
+  club: string;
+  displayName: string;
+  tenant: string;
+  environment: string;
+  setupCode: string;
+  oscToken: string;
+  storageUrl: string;
+  storagePassword: string;
+}): Parameter[] {
+  return [
+    { key: "API_KEY", value: secret(48), secret: true },
+    { key: "SETUP_CODE", value: p.setupCode, secret: true },
+    { key: "OSC_ACCESS_TOKEN", value: p.oscToken, secret: true },
+    { key: "MINIO_SECRET_KEY", value: p.storagePassword, secret: true },
+    { key: "OSC_TENANT", value: p.tenant },
+    { key: "OSC_REGION", value: p.environment },
+    { key: "OSC_INSTANCE_NAME", value: names(p.club).restreamer },
+    { key: "PROCESS_PREFIX", value: `${p.club}-` },
+    { key: "MINIO_ENDPOINT", value: p.storageUrl },
+    { key: "MINIO_ACCESS_KEY", value: "root" },
+    { key: "STORAGE_BUCKET", value: "recordings" },
+    { key: "CLUB_NAME", value: p.displayName },
+  ];
+}
+
+/**
+ * Writes every setting back into a club's parameter store and restarts the
+ * platform. For when the store has lost its values and the backend no longer
+ * starts. Everything that matters lives in the club's storage and is kept:
+ * recordings, viewer code, paired cameras and the look chosen in the admin
+ * view. What only lived in the store is made anew: the API key, an OSC token,
+ * and a setup code, with which the owner chooses a new admin code.
+ */
+export async function repair(osc: Osc, club: string, tenant: string): Promise<string> {
+  const n = names(club);
+  const app = (await osc.listApps()).find((a) => a.name === n.app);
+  if (!app) throw new Error(`Hittar ingen Courtside som heter ${club}.`);
+  const apiKey = await osc.parameterStoreKey(n.store);
+  if (!apiKey) throw new Error(`Parameter storen ${n.store} saknas, så plattformen kan inte repareras härifrån.`);
+  const storage = await osc.storageAccess(n.storage);
+  if (!storage) throw new Error(`Lagringen ${n.storage} gick inte att läsa. Inspelningarna finns där; försök igen om en stund.`);
+
+  const tokenName = `${n.tokenPrefix}${Date.now().toString(36)}`;
+  const oscToken = await osc.mintToken(tokenName, `Courtside ${club}: starts and stops Restreamer`);
+  const code = setupCode();
+  await osc.writeParameters(n.store, apiKey, platformParams({
+    club,
+    // The name chosen at install is not kept anywhere else. The club can set
+    // it again in the admin view, which keeps it in storage.
+    displayName: club,
+    tenant,
+    environment: osc.environment,
+    setupCode: code,
+    oscToken,
+    storageUrl: storage.url,
+    storagePassword: storage.password,
+  }));
+  await osc.restartApp(app.id);
+  await osc.revokeTokens(n.tokenPrefix, tokenName);
+  return code;
 }
 
 /**

@@ -51,6 +51,8 @@ export interface Osc {
   instanceExists(service: string, name: string): Promise<boolean>;
   createStorage(name: string, password: string): Promise<string>;
   removeInstance(service: string, name: string): Promise<void>;
+  /** Address and root password of a club's storage, read back from the instance. */
+  storageAccess(name: string): Promise<{ url: string; password: string } | undefined>;
   createParameterStore(name: string): Promise<string>;
   parameterStoreKey(name: string): Promise<string | undefined>;
   removeParameterStore(name: string): Promise<void>;
@@ -182,6 +184,14 @@ export function oscFor(token: string, environment = "prod"): Osc {
       const url = created?.url;
       if (typeof url !== "string" || !url) throw new OscError(`Storage ${name} has no address`);
       return url;
+    },
+
+    async storageAccess(name) {
+      const found = await instance(STORAGE_SERVICE, name);
+      const url = found?.url;
+      const password = found?.RootPassword;
+      if (typeof url !== "string" || !url || typeof password !== "string" || !password) return undefined;
+      return { url, password };
     },
 
     async removeInstance(service, name) {

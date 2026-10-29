@@ -18,6 +18,10 @@ var T = ({
     resetConfirm: "Du får en ny uppsättningskod och väljer en ny admin-kod. Tittarkoden och alla inspelningar finns kvar. Sidan är nere någon minut medan den startar om.",
     resetting: "Återställer…", resetDone: "Återställd",
     resetNote: function (c) { return "Ny uppsättningskod: " + c + ". Öppna er sida om en minut och välj en ny admin-kod."; },
+    repair: "Reparera", repairTitle: "Om sidan inte startar för att dess inställningar har försvunnit. Inspelningarna finns kvar.",
+    repairConfirm: "Skriver tillbaka plattformens inställningar och startar om den. Inspelningar, tittarkod, kameror och utseende finns kvar. Du får en ny uppsättningskod och väljer en ny admin-kod. Sidan är nere några minuter.",
+    repairing: "Reparerar…", repairDone: "Reparerad",
+    repairNote: function (c) { return "Ny uppsättningskod: " + c + ". Öppna er sida om några minuter och välj en ny admin-kod. Namnet kan du ändra under Utseende i adminvyn."; },
     open: "Öppna", remove: "Ta bort", removing: "Tar bort…",
     removeConfirm: function (c) { return "Det här tar bort " + c + " och ALLA inspelningar. Det går inte att ångra.\n\nSkriv " + c + " för att bekräfta."; },
     version: function (v) { return v ? "Version " + v : "Utan fast version"; },
@@ -81,6 +85,10 @@ var T = ({
     resetConfirm: "You get a new setup code and choose a new admin code. The viewer code and all recordings stay. The site is down for a minute while it restarts.",
     resetting: "Resetting…", resetDone: "Reset",
     resetNote: function (c) { return "New setup code: " + c + ". Open your site in a minute and choose a new admin code."; },
+    repair: "Repair", repairTitle: "For when the site no longer starts because its settings are gone. Recordings stay.",
+    repairConfirm: "Writes the platform's settings back and restarts it. Recordings, viewer code, cameras and look stay. You get a new setup code and choose a new admin code. The site is down for a few minutes.",
+    repairing: "Repairing…", repairDone: "Repaired",
+    repairNote: function (c) { return "New setup code: " + c + ". Open your site in a few minutes and choose a new admin code. You can change the name under Appearance in the admin view."; },
     open: "Open", remove: "Remove", removing: "Removing…",
     removeConfirm: function (c) { return "This removes " + c + " and ALL recordings. It cannot be undone.\n\nType " + c + " to confirm."; },
     version: function (v) { return v ? "Version " + v : "No fixed version"; },
@@ -396,6 +404,21 @@ var T = ({
                 li.appendChild(note);
               }).catch(function (e) { alert(e.message); reset.disabled = false; reset.textContent = T.reset; });
             });
+            var fix = el("button", { type: "button", "class": "btn btn-secondary btn-sm" }, T.repair);
+            fix.title = T.repairTitle;
+            fix.addEventListener("click", function () {
+              if (!confirm(T.repairConfirm)) return;
+              fix.disabled = true; fix.textContent = T.repairing;
+              api("POST", "/api/installations/" + i.club + "/repair").then(function (d) {
+                fix.textContent = T.repairDone;
+                var note = el("p", { "class": "inst-reset" }, T.repairNote(d.setupCode));
+                if (i.url) {
+                  note.appendChild(document.createTextNode(" "));
+                  note.appendChild(el("a", { href: i.url + "/#setup=" + encodeURIComponent(d.setupCode), target: "_blank", rel: "noopener" }, T.open));
+                }
+                li.appendChild(note);
+              }).catch(function (e) { alert(e.message); fix.disabled = false; fix.textContent = T.repair; });
+            });
             var del = el("button", { type: "button", "class": "btn btn-secondary btn-sm" }, T.remove);
             del.addEventListener("click", function () {
               var answer = prompt(T.removeConfirm(i.club));
@@ -406,6 +429,7 @@ var T = ({
             });
             actions.appendChild(renew);
             actions.appendChild(reset);
+            actions.appendChild(fix);
             actions.appendChild(del);
             li.appendChild(actions);
           }
