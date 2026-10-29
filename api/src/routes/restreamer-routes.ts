@@ -1,21 +1,24 @@
 /**
  * Restreamer admin routes: status, start, stop.
+ *
+ * A paired camera starts and stops the engine itself, so these take the same
+ * permission as broadcasting: a device token or the API key.
  */
 import type { FastifyInstance } from "fastify";
-import { requireApiKey } from "../auth.js";
+import { requireBroadcasterAuth } from "../auth.js";
 import { restreamer, oscManager } from "../state.js";
 
 export default async function restreamerRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/restreamer/status — Return cached state instantly (background polling keeps it fresh)
   app.get("/api/restreamer/status", async (request, reply) => {
-    if (!requireApiKey(request, reply)) return;
+    if (!(await requireBroadcasterAuth(request, reply))) return;
     const { state, info } = oscManager.getCachedState();
     return reply.send({ state, info });
   });
 
   // POST /api/restreamer/start — Trigger Restreamer instance start (non-blocking, with crash recovery)
   app.post("/api/restreamer/start", async (request, reply) => {
-    if (!requireApiKey(request, reply)) return;
+    if (!(await requireBroadcasterAuth(request, reply))) return;
     const currentState = oscManager.getState();
 
     if (currentState === "running") {
@@ -57,7 +60,7 @@ export default async function restreamerRoutes(app: FastifyInstance): Promise<vo
 
   // DELETE /api/restreamer/stop — Force-stop Restreamer instance
   app.delete("/api/restreamer/stop", async (request, reply) => {
-    if (!requireApiKey(request, reply)) return;
+    if (!(await requireBroadcasterAuth(request, reply))) return;
     try {
       await oscManager.forceStop();
       return reply.code(204).send();

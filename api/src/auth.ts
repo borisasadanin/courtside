@@ -106,6 +106,19 @@ export async function requireBroadcasterAuth(
   return false;
 }
 
+/**
+ * Viewer access, or a paired camera. The camera shows its own viewer count, and
+ * it should not need the viewer PIN for that.
+ */
+export async function requireViewerOrBroadcasterAuth(
+  request: RequestLike,
+  reply: ReplyLike
+): Promise<boolean> {
+  const header = request.headers["x-device-token"];
+  if (typeof header === "string" && header && (await devices.verify(header))) return true;
+  return requireViewerAuth(request, reply);
+}
+
 /** Check API key OR valid viewer token. Returns true if authorized. */
 export function requireViewerAuth(request: RequestLike, reply: ReplyLike): boolean {
   // No PIN configured -> open access

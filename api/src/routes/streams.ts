@@ -4,7 +4,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
-import { requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
+import { requireBroadcasterAuth, requireViewerAuth, requireViewerOrBroadcasterAuth } from "../auth.js";
 import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream, PAUSE_TYPES } from "../state.js";
 import type { PauseType, StreamMeta } from "../state.js";
 import { SegmentCollector } from "../segment-collector.js";
@@ -475,7 +475,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
   app.get<{ Params: { id: string } }>(
     "/api/streams/:id",
     async (request, reply) => {
-      if (!requireViewerAuth(request, reply)) return;
+      if (!(await requireViewerOrBroadcasterAuth(request, reply))) return;
 
       const { id } = request.params;
       const meta = streamMeta.get(id);
