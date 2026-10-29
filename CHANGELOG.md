@@ -18,6 +18,14 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.3.1 — 2026-10-30
+
+- Inloggningen överlever en omstart eller uppdatering. Tidigare loggades admin och tittare ut i det tysta,
+  och i adminvyn misslyckades sedan allt som sparades, till exempel byte av logotyp
+- Byte av logotyp visar resultatet, eller felet, direkt bredvid knappen
+- Har admin-inloggningen gått ut säger sidan det och ber om koden igen
+- Adminvyn visar vilken Courtside-version plattformen kör
+
 ## v0.3.0 — 2026-10-29
 
 - En parad kamera får starta och stänga sändningsmotorn och meddela tittare. Tidigare krävde de anropen
