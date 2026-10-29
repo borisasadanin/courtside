@@ -2066,6 +2066,7 @@ footer {
 .branding-contrast { color: var(--red); font-size: 0.8rem; }
 .branding-save-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .branding-status { font-size: 0.85rem; color: var(--text-muted); }
+.admin-version { margin-top: 24px; text-align: center; font-size: 0.8rem; color: var(--text-muted); }
 .branding-status.error { color: var(--red); }
 
 .pin-help { margin-top: 24px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }

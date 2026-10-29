@@ -56,6 +56,18 @@ function renderShare() {
   copy.onclick = () => navigator.clipboard.writeText(location.origin).then(() => { copy.textContent = "Kopierad"; });
 }
 
+/** Which Courtside release this platform runs, so the club can see it here. */
+async function renderVersion() {
+  const el = document.getElementById("adminVersion");
+  if (!el) return;
+  try {
+    const { version } = await fetch(`${CONFIG.API_URL}/health`).then((r) => r.json());
+    el.textContent = version && version !== "unknown" ? `Courtside ${version}` : "";
+  } catch {
+    el.textContent = "";
+  }
+}
+
 export async function loadAdminStorage() {
   dom.adminStorageSummary.innerHTML = '<div class="spinner"></div>';
   dom.adminVodList.innerHTML = "";
@@ -65,6 +77,7 @@ export async function loadAdminStorage() {
   renderBranding();
   renderTeardown();
   renderShare();
+  renderVersion();
 
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/admin/storage`, {

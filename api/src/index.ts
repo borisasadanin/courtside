@@ -6,7 +6,6 @@ import rateLimit from "@fastify/rate-limit";
 
 import { config, validateConfig } from "./config.js";
 import { clubManifest } from "./club-config.js";
-import { startTokenCleanup } from "./auth.js";
 import { initServices, streamMeta, collectors } from "./state.js";
 import { restoreStreamMeta } from "./stream-meta-store.js";
 import { SegmentCollector } from "./segment-collector.js";
@@ -142,7 +141,6 @@ app.get("/health", async () => {
 });
 
 // --- Token cleanup timer ---
-startTokenCleanup();
 
 // --- Startup ---
 

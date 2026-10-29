@@ -1,35 +1,25 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   createViewerToken,
   createAdminToken,
   isValidViewerToken,
   isValidAdminToken,
-  viewerTokens,
-  adminTokens,
 } from "../auth.js";
+import { mutableConfig } from "../config.js";
 
 describe("auth token management", () => {
   beforeEach(() => {
-    viewerTokens.clear();
-    adminTokens.clear();
+    mutableConfig.ADMIN_PIN = "1234";
+    mutableConfig.VIEWER_PIN = "5678";
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("createViewerToken / isValidViewerToken", () => {
-    it("creates a valid UUID-format token", () => {
-      const token = createViewerToken();
-      expect(token).toBeTruthy();
-      expect(typeof token).toBe("string");
-      expect(token.length).toBeGreaterThan(0);
-    });
-
-    it("stores the token in the viewerTokens map", () => {
-      const token = createViewerToken();
-      expect(viewerTokens.has(token)).toBe(true);
-    });
-
     it("validates a freshly created token", () => {
-      const token = createViewerToken();
-      expect(isValidViewerToken(token)).toBe(true);
+      expect(isValidViewerToken(createViewerToken())).toBe(true);
     });
 
     it("rejects an unknown token", () => {
@@ -38,24 +28,26 @@ describe("auth token management", () => {
 
     it("rejects an expired token", () => {
       const token = createViewerToken();
-      // Force-expire by setting timestamp in the past
-      viewerTokens.set(token, Date.now() - 1000);
+      vi.useFakeTimers();
+      vi.setSystemTime(Date.now() + 8 * 24 * 60 * 60 * 1000);
       expect(isValidViewerToken(token)).toBe(false);
-      // Token should be cleaned up after failed validation
-      expect(viewerTokens.has(token)).toBe(false);
+    });
+
+    it("rejects a token with a stretched expiry", () => {
+      const [role, exp, nonce, sig] = createViewerToken().split(".");
+      expect(isValidViewerToken(`${role}.${Number(exp) + 1}.${nonce}.${sig}`)).toBe(false);
+    });
+
+    it("stops working when the viewer PIN changes", () => {
+      const token = createViewerToken();
+      mutableConfig.VIEWER_PIN = "8765";
+      expect(isValidViewerToken(token)).toBe(false);
     });
   });
 
   describe("createAdminToken / isValidAdminToken", () => {
-    it("creates a valid token", () => {
-      const token = createAdminToken();
-      expect(token).toBeTruthy();
-      expect(typeof token).toBe("string");
-    });
-
     it("validates a freshly created token", () => {
-      const token = createAdminToken();
-      expect(isValidAdminToken(token)).toBe(true);
+      expect(isValidAdminToken(createAdminToken())).toBe(true);
     });
 
     it("rejects an unknown token", () => {
@@ -64,9 +56,28 @@ describe("auth token management", () => {
 
     it("rejects an expired token", () => {
       const token = createAdminToken();
-      adminTokens.set(token, Date.now() - 1000);
+      vi.useFakeTimers();
+      vi.setSystemTime(Date.now() + 25 * 60 * 60 * 1000);
       expect(isValidAdminToken(token)).toBe(false);
-      expect(adminTokens.has(token)).toBe(false);
+    });
+
+    it("does not accept a viewer token as admin", () => {
+      expect(isValidAdminToken(createViewerToken())).toBe(false);
+    });
+
+    it("stops working when the admin PIN changes", () => {
+      const token = createAdminToken();
+      mutableConfig.ADMIN_PIN = "4321";
+      expect(isValidAdminToken(token)).toBe(false);
+    });
+  });
+
+  describe("restart", () => {
+    it("keeps a session valid across a restart", async () => {
+      const token = createAdminToken();
+      vi.resetModules();
+      const fresh = await import("../auth.js");
+      expect(fresh.isValidAdminToken(token)).toBe(true);
     });
   });
 

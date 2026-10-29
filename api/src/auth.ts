@@ -1,62 +1,54 @@
 /**
  * Token stores, token creation/validation, and auth middleware.
  */
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { config, mutableConfig } from "./config.js";
 import { devices } from "./state.js";
 
-// --- Token stores ---
+// --- Session tokens ---
+//
+// Signed rather than remembered, so a session outlives a restart: an update
+// or a redeploy must not quietly log out every viewer and the admin, leaving
+// an admin view whose saves all fail. The PIN is part of the signing key, so
+// changing a PIN still ends every session made with the old one.
 
-export const viewerTokens = new Map<string, number>(); // token -> expiresAt timestamp
-export const adminTokens = new Map<string, number>(); // token -> expiresAt timestamp
+type Role = "viewer" | "admin";
 
-// --- Token creation ---
+function sign(payload: string, role: Role): string {
+  const pin = role === "admin" ? mutableConfig.ADMIN_PIN : mutableConfig.VIEWER_PIN;
+  return createHmac("sha256", `${config.API_KEY}\0${pin}`).update(payload).digest("base64url");
+}
+
+/** role.expiresAt.nonce.signature */
+function createToken(role: Role, ttlMs: number): string {
+  const payload = `${role}.${Date.now() + ttlMs}.${randomBytes(9).toString("base64url")}`;
+  return `${payload}.${sign(payload, role)}`;
+}
+
+function isValidToken(token: string, role: Role): boolean {
+  const [r, expText, nonce, sig, ...rest] = token.split(".");
+  if (r !== role || !nonce || !sig || rest.length) return false;
+  const exp = Number(expText);
+  if (!Number.isSafeInteger(exp) || Date.now() > exp) return false;
+  const expected = Buffer.from(sign(`${r}.${expText}.${nonce}`, role));
+  const given = Buffer.from(sig);
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
 
 export function createViewerToken(): string {
-  const token = crypto.randomUUID();
-  viewerTokens.set(token, Date.now() + config.VIEWER_TOKEN_TTL_MS);
-  return token;
+  return createToken("viewer", config.VIEWER_TOKEN_TTL_MS);
 }
 
 export function createAdminToken(): string {
-  const token = crypto.randomUUID();
-  adminTokens.set(token, Date.now() + config.ADMIN_TOKEN_TTL_MS);
-  return token;
+  return createToken("admin", config.ADMIN_TOKEN_TTL_MS);
 }
 
-// --- Token validation ---
-
 export function isValidViewerToken(token: string): boolean {
-  const exp = viewerTokens.get(token);
-  if (!exp) return false;
-  if (Date.now() > exp) {
-    viewerTokens.delete(token);
-    return false;
-  }
-  return true;
+  return isValidToken(token, "viewer");
 }
 
 export function isValidAdminToken(token: string): boolean {
-  const exp = adminTokens.get(token);
-  if (!exp) return false;
-  if (Date.now() > exp) {
-    adminTokens.delete(token);
-    return false;
-  }
-  return true;
-}
-
-// --- Periodic cleanup (call once from index.ts) ---
-
-export function startTokenCleanup(): ReturnType<typeof setInterval> {
-  return setInterval(() => {
-    const now = Date.now();
-    for (const [token, exp] of viewerTokens) {
-      if (now > exp) viewerTokens.delete(token);
-    }
-    for (const [token, exp] of adminTokens) {
-      if (now > exp) adminTokens.delete(token);
-    }
-  }, 60 * 60 * 1000);
+  return isValidToken(token, "admin");
 }
 
 // --- Auth middleware ---

@@ -7,7 +7,6 @@ import {
   requireApiKey,
   createViewerToken,
   createAdminToken,
-  viewerTokens,
 } from "../auth.js";
 
 export default async function authRoutes(app: FastifyInstance): Promise<void> {
@@ -66,8 +65,8 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     mutableConfig.VIEWER_PIN = pin;
-    // Invalidate all existing viewer tokens so everyone must re-enter the new PIN
-    viewerTokens.clear();
+    // Viewer tokens are signed with the PIN, so every existing one is now
+    // invalid and everyone must enter the new PIN.
 
     app.log.info(`Viewer PIN updated (${pin.length} digits)`);
     return reply.send({ ok: true, pinLength: pin.length });

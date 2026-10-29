@@ -2,7 +2,7 @@
  * First-run setup endpoints — see setup.ts.
  */
 import type { FastifyInstance } from "fastify";
-import { createAdminToken, createViewerToken, viewerTokens, adminTokens } from "../auth.js";
+import { createAdminToken, createViewerToken } from "../auth.js";
 import type { Setup } from "../setup.js";
 
 export default async function setupRoutes(
@@ -30,9 +30,8 @@ export default async function setupRoutes(
         return reply.code(status).send({ error });
       }
 
-      // Nobody holds a token from before setup that should outlive it.
-      viewerTokens.clear();
-      adminTokens.clear();
+      // Tokens are signed with the PINs just chosen, so none from before setup
+      // is still valid.
       app.log.info("First-run setup completed");
 
       return reply.send({

@@ -8,6 +8,7 @@ import { CONFIG } from "./config.js";
 import { state } from "./state.js";
 import { club, applyTheme } from "./club.js";
 import { escapeHtml } from "./utils.js";
+import { deactivateAdmin } from "./admin.js";
 
 /** Logos are scaled down to this before upload — plenty for a header and an icon. */
 const LOGO_MAX_PX = 512;
@@ -27,6 +28,7 @@ export function renderBranding() {
         <button type="button" class="admin-pair-btn branding-upload" id="brandingLogoPick">Byt logotyp</button>
         <input type="file" id="brandingLogoInput" accept="image/*" class="visually-hidden-file">
         ${club.logoUrl.startsWith("/api/club/logo") ? '<button class="branding-link" id="brandingLogoRemove">Ta bort logotyp</button>' : ""}
+        <span class="branding-status" id="brandingLogoStatus" role="status"></span>
       </div>
     </div>
     <label class="branding-field">Namn
@@ -69,8 +71,10 @@ function currentLogo() {
   return club.logoUrl || document.querySelector("[data-club-logo]")?.getAttribute("src") || "";
 }
 
-function setStatus(text, isError = false) {
-  const el = document.getElementById("brandingStatus");
+// The logo has its own status line beside the button: one far below, by
+// "Spara", is out of sight and a failed upload looks like nothing happened.
+function setStatus(text, isError = false, id = "brandingStatus") {
+  const el = document.getElementById(id);
   if (!el) return;
   el.textContent = text;
   el.classList.toggle("error", isError);
@@ -83,6 +87,13 @@ async function send(method, path, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    // The admin session has ended (expired, or the admin code was changed).
+    // Say so and log out, rather than leave a view where every save fails.
+    alert("Du har loggats ut från admin. Logga in igen med admin-koden.");
+    deactivateAdmin();
+    throw new Error(data.error || "Admin-åtkomst krävs");
+  }
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   Object.assign(club, data);
   applyTheme();
@@ -103,13 +114,13 @@ async function save() {
 }
 
 async function uploadLogo(file) {
-  setStatus("Laddar upp…");
+  setStatus("Laddar upp…", false, "brandingLogoStatus");
   try {
     await send("PUT", "/api/admin/club/logo", { dataUrl: await resize(file) });
     renderBranding();
-    setStatus("Logotypen är bytt.");
+    setStatus("Logotypen är bytt.", false, "brandingLogoStatus");
   } catch (err) {
-    setStatus(err.message, true);
+    setStatus(err.message, true, "brandingLogoStatus");
   }
 }
 
@@ -119,7 +130,7 @@ async function removeLogo() {
     // The shipped placeholder is only known after a reload.
     location.reload();
   } catch (err) {
-    setStatus(err.message, true);
+    setStatus(err.message, true, "brandingLogoStatus");
   }
 }
 
