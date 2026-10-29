@@ -113,17 +113,27 @@ export class MinioClient {
     }
   }
 
+  /**
+   * Read one of the JSON indexes. Only a missing file counts as empty: any
+   * other failure (storage still starting, a network error, a half-read file)
+   * throws. Every index is changed by read, modify, write, so an error taken
+   * for "empty" would write the empty list back over every recording.
+   */
+  private async readIndex<T>(key: string, empty: T): Promise<T> {
+    try {
+      const res = await this.s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+      const body = await res.Body?.transformToString();
+      return body ? (JSON.parse(body) as T) : empty;
+    } catch (err) {
+      const name = (err as { name?: string }).name;
+      if (name === "NoSuchKey" || name === "NotFound") return empty;
+      throw err;
+    }
+  }
+
   /** Read the VOD index from MinIO. Returns [] if not found. */
   async readVodIndex(): Promise<VodEntry[]> {
-    try {
-      const res = await this.s3.send(
-        new GetObjectCommand({ Bucket: BUCKET, Key: VOD_INDEX_KEY })
-      );
-      const body = await res.Body?.transformToString();
-      return body ? JSON.parse(body) : [];
-    } catch {
-      return [];
-    }
+    return this.readIndex<VodEntry[]>(VOD_INDEX_KEY, []);
   }
 
   /** Write the VOD index to MinIO. */
@@ -179,15 +189,7 @@ export class MinioClient {
 
   /** Read the clips index from MinIO. Returns [] if not found. */
   async readClipsIndex(): Promise<HighlightClip[]> {
-    try {
-      const res = await this.s3.send(
-        new GetObjectCommand({ Bucket: BUCKET, Key: CLIPS_INDEX_KEY })
-      );
-      const body = await res.Body?.transformToString();
-      return body ? JSON.parse(body) : [];
-    } catch {
-      return [];
-    }
+    return this.readIndex<HighlightClip[]>(CLIPS_INDEX_KEY, []);
   }
 
   /** Write the clips index to MinIO. */
@@ -223,15 +225,7 @@ export class MinioClient {
    * restart on their own; without this, nothing knows how to stitch them.
    */
   async readStreamMetaIndex(): Promise<Record<string, unknown>> {
-    try {
-      const res = await this.s3.send(
-        new GetObjectCommand({ Bucket: BUCKET, Key: STREAM_META_KEY })
-      );
-      const body = await res.Body?.transformToString();
-      return body ? JSON.parse(body) : {};
-    } catch {
-      return {};
-    }
+    return this.readIndex<Record<string, unknown>>(STREAM_META_KEY, {});
   }
 
   async writeStreamMetaIndex(index: Record<string, unknown>): Promise<void> {
@@ -253,15 +247,7 @@ export class MinioClient {
 
   /** Read the paired-camera registry. Returns [] when nothing is paired yet. */
   async readDeviceIndex(): Promise<Device[]> {
-    try {
-      const res = await this.s3.send(
-        new GetObjectCommand({ Bucket: BUCKET, Key: DEVICE_INDEX_KEY })
-      );
-      const body = await res.Body?.transformToString();
-      return body ? JSON.parse(body) : [];
-    } catch {
-      return [];
-    }
+    return this.readIndex<Device[]>(DEVICE_INDEX_KEY, []);
   }
 
   /** Persist the paired-camera registry (mutex-protected, like the other indexes). */

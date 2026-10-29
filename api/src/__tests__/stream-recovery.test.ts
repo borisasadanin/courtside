@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { streamMeta } from "../state.js";
-import { saveStreamMeta, restoreStreamMeta } from "../stream-meta-store.js";
+import { saveStreamMeta, restoreStreamMeta, resetStreamMetaRestore } from "../stream-meta-store.js";
 import { SegmentCollector } from "../segment-collector.js";
 
 function storageStub() {
@@ -34,6 +34,7 @@ const logger = { info: vi.fn(), warn: vi.fn() };
 
 beforeEach(() => {
   streamMeta.clear();
+  resetStreamMetaRestore();
   vi.clearAllMocks();
 });
 
@@ -200,5 +201,33 @@ describe("segment timeline", () => {
     await restoreStreamMeta(storage as never, logger);
 
     expect(streamMeta.get("legacy")?.periodNumber).toBe(3);
+  });
+});
+
+describe("storage that is slow after a restart", () => {
+  it("keeps an interrupted match when storage could not be read at startup", async () => {
+    const storage = storageStub();
+    const interrupted = { name: "K", createdAt: "2026-10-01T18:00:00.000Z", partNumber: 2, periodNumber: 1, completedParts: [1] };
+    await storage.writeStreamMetaIndex({ interrupted });
+
+    // Startup: storage not answering yet.
+    storage.readStreamMetaIndex.mockRejectedValueOnce(new Error("starting"));
+    await restoreStreamMeta(storage as never, logger);
+
+    // A new match starts and is saved.
+    streamMeta.set("new", { name: "K", createdAt: "2026-10-02T18:00:00.000Z", partNumber: 1, periodNumber: 1, completedParts: [] });
+    await saveStreamMeta(storage as never, logger);
+
+    expect(Object.keys(await storage.readStreamMetaIndex()).sort()).toEqual(["interrupted", "new"]);
+  });
+
+  it("writes nothing while what is stored cannot be read", async () => {
+    const storage = {
+      readStreamMetaIndex: vi.fn().mockRejectedValue(new Error("unreachable")),
+      writeStreamMetaIndex: vi.fn(),
+    };
+    streamMeta.set("new", { name: "K", createdAt: "2026-10-02T18:00:00.000Z", partNumber: 1, periodNumber: 1, completedParts: [] });
+    await saveStreamMeta(storage as never, logger);
+    expect(storage.writeStreamMetaIndex).not.toHaveBeenCalled();
   });
 });
