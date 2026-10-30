@@ -2,13 +2,14 @@
  * Highlight clip routes: create and list clips from live streams.
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { requireApiKey, requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
+import { requireAdminAuth, requireApiKey, requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
 import { streamMeta, collectors, clipsByStream, minio } from "../state.js";
 import { createClip } from "../clip-service.js";
 import { convertSegmentsToMp4, extractThumbnail } from "../mp4-converter.js";
 import { clubManifest, absoluteLogoUrl } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { keysReferencedBy } from "./media.js";
+import { deleteClip } from "../erasure.js";
 
 /** Track last clip time per stream to prevent spam */
 const lastClipTime = new Map<string, number>();
@@ -251,6 +252,30 @@ ${redirectTag}
       } catch (err) {
         request.log.error(err, "Failed to read clip");
         return reply.code(500).send({ error: "read_failed", message: "Kunde inte läsa klipp" });
+      }
+    },
+  );
+
+  // DELETE /api/clips/:id — Delete one clip (admin). Its shared link stops working at once.
+  app.delete<{ Params: { id: string } }>(
+    "/api/clips/:id",
+    async (request, reply) => {
+      if (!requireAdminAuth(request, reply)) return;
+
+      const { id } = request.params;
+      if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+        return reply.code(400).send({ error: "invalid_id" });
+      }
+      try {
+        const erased = await deleteClip(minio, id);
+        if (!erased.found) {
+          return reply.code(404).send({ error: "clip_not_found", message: "Klippet hittades inte" });
+        }
+        request.log.info(`Deleted clip ${id}: ${erased.files} files`);
+        return reply.code(204).send();
+      } catch (err) {
+        request.log.error(err, "Failed to delete clip");
+        return reply.code(500).send({ error: "delete_failed", message: "Kunde inte ta bort klippet" });
       }
     },
   );

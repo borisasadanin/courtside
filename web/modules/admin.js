@@ -105,7 +105,8 @@ export async function loadAdminStorage() {
     `;
 
     // Render VOD list
-    if (data.vods.length === 0) {
+    const orphans = data.orphanClips || [];
+    if (data.vods.length === 0 && orphans.length === 0) {
       dom.adminVodList.innerHTML =
         '<p style="color: var(--text-muted); text-align: center; padding: 20px;">Inga repriser</p>';
       return;
@@ -129,16 +130,32 @@ export async function loadAdminStorage() {
             ${date ? `<span>${escapeHtml(date)}</span>` : ""}
             ${duration ? `<span>${escapeHtml(duration)}</span>` : ""}
           </div>
+          ${renderClipList(v.clips || [], `${(v.clips || []).length} klipp`)}
         </div>
         <div class="admin-vod-size">${escapeHtml(size)}</div>
         <button class="admin-vod-delete" data-id="${escapeHtml(v.id)}" data-title="${escapeHtml(v.matchTitle || "")}">Ta bort</button>
       </div>`;
       })
-      .join("");
+      .join("") +
+      (orphans.length
+        ? `
+      <div class="admin-vod-item">
+        <div class="admin-vod-info">
+          <div class="admin-vod-title">Klipp fr\u00e5n borttagna matcher</div>
+          <div class="admin-vod-meta"><span>Matchen \u00e4r borttagen men klippen g\u00e5r fortfarande att se via delade l\u00e4nkar.</span></div>
+          ${renderClipList(orphans, `${orphans.length} klipp`, true)}
+        </div>
+      </div>`
+        : "");
 
     // Bind delete buttons
-    dom.adminVodList.querySelectorAll(".admin-vod-delete").forEach((btn) => {
-      btn.addEventListener("click", () => handleDeleteVod(btn));
+    dom.adminVodList.querySelectorAll(".admin-vod-delete[data-id]").forEach((btn) => {
+      btn.addEventListener("click", () =>
+        handleDelete(btn, `/api/vod/${encodeURIComponent(btn.dataset.id)}`, btn.closest(".admin-vod-item")));
+    });
+    dom.adminVodList.querySelectorAll(".admin-clip-delete").forEach((btn) => {
+      btn.addEventListener("click", () =>
+        handleDelete(btn, `/api/clips/${encodeURIComponent(btn.dataset.clip)}`, btn.closest(".admin-clip-item")));
     });
   } catch {
     dom.adminStorageSummary.innerHTML =
@@ -146,8 +163,30 @@ export async function loadAdminStorage() {
   }
 }
 
-async function handleDeleteVod(btn) {
-  const vodId = btn.dataset.id;
+/** A match's clips, each removable on its own: removing one ends its shared link. */
+function renderClipList(clips, summary, open = false) {
+  if (clips.length === 0) return "";
+  const items = clips
+    .map((c) => {
+      const d = new Date(c.createdAt);
+      const time = isNaN(d) ? "" : d.toLocaleString("sv-SE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      return `
+        <li class="admin-clip-item">
+          <span class="admin-clip-label">${escapeHtml(c.label || "H\u00f6jdpunkt")}</span>
+          ${time ? `<span class="admin-clip-time">${escapeHtml(time)}</span>` : ""}
+          <button class="admin-vod-delete admin-clip-delete" data-clip="${escapeHtml(c.id)}">Ta bort</button>
+        </li>`;
+    })
+    .join("");
+  return `
+    <details class="admin-vod-clips"${open ? " open" : ""}>
+      <summary>${escapeHtml(summary)}</summary>
+      <ul>${items}</ul>
+    </details>`;
+}
+
+/** Two-click delete of whatever `path` names, then fade out `item`. */
+async function handleDelete(btn, path, item) {
 
   // Two-click confirm
   if (!btn.classList.contains("confirming")) {
@@ -166,7 +205,7 @@ async function handleDeleteVod(btn) {
   btn.textContent = "Tar bort...";
 
   try {
-    const res = await fetch(`${CONFIG.API_URL}/api/vod/${vodId}`, {
+    const res = await fetch(`${CONFIG.API_URL}${path}`, {
       method: "DELETE",
       headers: adminHeaders(),
     });
@@ -178,7 +217,6 @@ async function handleDeleteVod(btn) {
 
     if (res.ok || res.status === 204) {
       // Remove item from DOM with animation
-      const item = btn.closest(".admin-vod-item");
       item.style.opacity = "0";
       item.style.transform = "translateX(20px)";
       item.style.transition = "opacity 0.3s, transform 0.3s";

@@ -1723,6 +1723,49 @@ footer {
   background: var(--red);
 }
 
+.admin-vod-clips {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+.admin-vod-clips summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.admin-vod-clips ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-clip-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-clip-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-clip-time {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.admin-clip-item .admin-vod-delete {
+  padding: 4px 10px;
+  width: auto;
+}
+
 @media (max-width: 600px) {
   .admin-vod-item {
     flex-wrap: wrap;

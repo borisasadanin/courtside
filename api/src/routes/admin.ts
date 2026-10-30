@@ -4,7 +4,8 @@
 import type { FastifyInstance } from "fastify";
 import { requireAdminAuth } from "../auth.js";
 import { config } from "../config.js";
-import { minio, oscManager } from "../state.js";
+import { minio, oscManager, streamMeta } from "../state.js";
+import { orphanClips } from "../erasure.js";
 import { runPreflight, overallStatus } from "../preflight.js";
 import { plan, removeData, removeSelf } from "../teardown.js";
 import { NotNow, startUpdate, updateInfo } from "../update.js";
@@ -15,9 +16,10 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
     if (!requireAdminAuth(request, reply)) return;
 
     try {
-      const entries = await minio.readVodIndex();
+      const [entries, clips] = await Promise.all([minio.readVodIndex(), minio.readClipsIndex()]);
       const stoppedEntries = entries.filter((e) => e.stoppedAt);
       const storageInfo = await minio.getStorageInfo(stoppedEntries);
+      const clipSummary = (c: (typeof clips)[number]) => ({ id: c.id, label: c.label, createdAt: c.createdAt });
 
       // Merge VOD metadata with size info
       const vods = stoppedEntries
@@ -26,6 +28,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
           return {
             ...entry,
             sizeBytes: sizeInfo?.sizeBytes || 0,
+            clips: clips.filter((c) => c.streamId === entry.id).map(clipSummary),
           };
         })
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -37,6 +40,8 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         capacityBytes,
         vodCount: vods.length,
         vods,
+        // Clips left behind by a match deleted before clips went with it
+        orphanClips: orphanClips(clips, new Set(entries.map((e) => e.id)), new Set(streamMeta.keys())).map(clipSummary),
       });
     } catch (err) {
       request.log.error(err, "Failed to get storage info");
