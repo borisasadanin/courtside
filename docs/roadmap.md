@@ -49,8 +49,9 @@ Två säkerhetsposter gäller oavsett byggsats:
 
 ### En fördel med byggsatsvalet, värd att skriva ner
 
-Eftersom klubben driftar själv och äger sin egen lagring blir vi inte personuppgiftsbiträde för
-deras matchvideo. Ansvaret ligger hos klubben. Vårt ansvar är att leverera **säkra
+Eftersom klubben driftar själv och äger sin egen lagring är klubben personuppgiftsansvarig för
+sin matchvideo. Courtside-mjukvaran har ingen roll för den. Eyevinn är däremot personuppgiftsbiträde
+i egenskap av OSC-drift, enligt OSC:s biträdesavtal (se `docs/gdpr/osc.md`). Vårt ansvar är att leverera **säkra
 standardinställningar** — PIN påslagen, privat media, satt retention — och en kort text om vad
 klubben ansvarar för. Det är billigare och renare än en SaaS hade varit.
 
