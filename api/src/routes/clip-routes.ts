@@ -1,7 +1,7 @@
 /**
  * Highlight clip routes: create and list clips from live streams.
  */
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { requireApiKey, requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
 import { streamMeta, collectors, clipsByStream, minio } from "../state.js";
 import { createClip } from "../clip-service.js";
@@ -151,59 +151,62 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // GET /api/clips/:id/og — Open Graph HTML for WhatsApp/social media link previews
-  app.get<{ Params: { id: string } }>(
-    "/api/clips/:id/og",
-    async (request, reply) => {
-      const { id } = request.params;
+  // GET /api/clips/:id/og — Open Graph HTML for WhatsApp/social media link previews.
+  // Also at /c/:id, the link the share buttons hand out: the website is served
+  // from this origin, so there is no Cloudflare Worker in front to map it.
+  const ogPage = async (
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply,
+  ) => {
+    const { id } = request.params;
+    try {
+      const clips = await minio.readClipsIndex();
+      const clip = clips.find((c) => c.id === id);
+      if (!clip) {
+        return reply.code(404).type("text/html").send("<h1>Klippet hittades inte</h1>");
+      }
+
+      // Social crawlers need absolute URLs. Media paths are relative to this
+      // API, and the crawler reached us on this host, so build from the
+      // request rather than from configuration that might not be set.
+      const proto = (request.headers["x-forwarded-proto"] as string) || request.protocol;
+      const host = (request.headers["x-forwarded-host"] as string) || request.headers.host;
+      const absolute = (path?: string): string =>
+        !path ? "" : /^https?:\/\//.test(path) ? path : `${proto}://${host}${path}`;
+
+      const label = clip.label || "Höjdpunkt";
+      const siteUrl = clubManifest.siteUrl || `${proto}://${host}`;
+      const clipPageUrl = `${siteUrl}/clip.html#${encodeURIComponent(clip.id)}`;
+      const videoUrl = absolute(clip.mp4Url);
+
+      // Look up match info from VOD index
+      let matchTitle = "";
       try {
-        const clips = await minio.readClipsIndex();
-        const clip = clips.find((c) => c.id === id);
-        if (!clip) {
-          return reply.code(404).type("text/html").send("<h1>Klippet hittades inte</h1>");
-        }
+        const vods = await minio.readVodIndex();
+        const vod = vods.find((v) => v.id === clip.streamId);
+        if (vod) matchTitle = vod.matchTitle || "";
+      } catch { /* ignore — description will just be generic */ }
 
-        // Social crawlers need absolute URLs. Media paths are relative to this
-        // API, and the crawler reached us on this host, so build from the
-        // request rather than from configuration that might not be set.
-        const proto = (request.headers["x-forwarded-proto"] as string) || request.protocol;
-        const host = (request.headers["x-forwarded-host"] as string) || request.headers.host;
-        const absolute = (path?: string): string =>
-          !path ? "" : /^https?:\/\//.test(path) ? path : `${proto}://${host}${path}`;
+      const clubName = clubManifest.name;
+      const title = matchTitle
+        ? `${label} — ${matchTitle}`
+        : `${label} — ${clubName}`;
+      const description = matchTitle
+        ? `Höjdpunkt från ${matchTitle} — ${clubName}`
+        : `Höjdpunkt från matchen — ${clubName}`;
 
-        const label = clip.label || "Höjdpunkt";
-        const siteUrl = clubManifest.siteUrl || `${proto}://${host}`;
-        const clipPageUrl = `${siteUrl}/clip.html#${encodeURIComponent(clip.id)}`;
-        const videoUrl = absolute(clip.mp4Url);
+      // Detect bot crawlers (WhatsApp, Facebook, Telegram, etc.)
+      const ua = (request.headers["user-agent"] || "").toLowerCase();
+      const isBot = /whatsapp|facebookexternalhit|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|bot|crawler|spider/i.test(ua);
 
-        // Look up match info from VOD index
-        let matchTitle = "";
-        try {
-          const vods = await minio.readVodIndex();
-          const vod = vods.find((v) => v.id === clip.streamId);
-          if (vod) matchTitle = vod.matchTitle || "";
-        } catch { /* ignore — description will just be generic */ }
-
-        const clubName = clubManifest.name;
-        const title = matchTitle
-          ? `${label} — ${matchTitle}`
-          : `${label} — ${clubName}`;
-        const description = matchTitle
-          ? `Höjdpunkt från ${matchTitle} — ${clubName}`
-          : `Höjdpunkt från matchen — ${clubName}`;
-
-        // Detect bot crawlers (WhatsApp, Facebook, Telegram, etc.)
-        const ua = (request.headers["user-agent"] || "").toLowerCase();
-        const isBot = /whatsapp|facebookexternalhit|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|bot|crawler|spider/i.test(ua);
-
-        // For bots: serve OG tags only (no redirect, so crawler reads meta)
-        // For humans: redirect to clip page via JS (after a brief moment)
-        const redirectTag = isBot
-          ? ""
-          : `<meta http-equiv="refresh" content="1;url=${clipPageUrl}">
+      // For bots: serve OG tags only (no redirect, so crawler reads meta)
+      // For humans: redirect to clip page via JS (after a brief moment)
+      const redirectTag = isBot
+        ? ""
+        : `<meta http-equiv="refresh" content="1;url=${clipPageUrl}">
 <script>setTimeout(function(){window.location.href="${clipPageUrl}"},800)</script>`;
 
-        const html = `<!DOCTYPE html>
+      const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -222,13 +225,14 @@ ${redirectTag}
 <body><p>Omdirigerar...</p></body>
 </html>`;
 
-        return reply.type("text/html").send(html);
-      } catch (err) {
-        request.log.error(err, "Failed to serve OG page for clip");
-        return reply.code(500).type("text/html").send("<h1>Serverfel</h1>");
-      }
-    },
-  );
+      return reply.type("text/html").send(html);
+    } catch (err) {
+      request.log.error(err, "Failed to serve OG page for clip");
+      return reply.code(500).type("text/html").send("<h1>Serverfel</h1>");
+    }
+  };
+  app.get<{ Params: { id: string } }>("/api/clips/:id/og", ogPage);
+  app.get<{ Params: { id: string } }>("/c/:id", ogPage);
 
   // GET /api/clips/:id — Get a specific highlight clip by ID
   app.get<{ Params: { id: string } }>(
