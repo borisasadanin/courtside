@@ -37,6 +37,7 @@ var T = ({
     },
     free: function (d) { return "✓ " + d + " är ledig"; }, checking: "Kontrollerar adressen…",
     taken: function (d) { return d + " är redan tagen. Välj ett annat kortnamn."; },
+    tooLong: function (n) { return "Högst " + n + " tecken i ert konto, annars får ni ingen egen adress."; },
     shareLabel: "Adress att dela med tittarna", copied: "Kopierad",
     techLabel: "Teknisk adress, dela den inte med tittarna",
     techNote: function (d) { return "Plattformen har ingen egen adress ännu. Ge den " + d + ", så får tittarna en adress som är lätt att komma ihåg."; },
@@ -104,6 +105,7 @@ var T = ({
     },
     free: function (d) { return "✓ " + d + " is free"; }, checking: "Checking the address…",
     taken: function (d) { return d + " is already taken. Choose another short name."; },
+    tooLong: function (n) { return "At most " + n + " characters in your account, or you get no address of your own."; },
     shareLabel: "Address to share with viewers", copied: "Copied",
     techLabel: "Technical address, don't share it with viewers",
     techNote: function (d) { return "The platform has no address of its own yet. Give it " + d + ", so viewers get an address that is easy to remember."; },
@@ -295,7 +297,7 @@ var T = ({
           if (availFor !== $("f-club").value.trim()) return;
           availOk = a.available;
           if (a.available === true) { out.textContent = T.free(a.domain); out.className = "avail ok"; }
-          else if (a.available === false) { out.textContent = /redan en Courtside|already have/.test(a.reason || "") ? a.reason : T.taken(a.domain); out.className = "avail bad"; }
+          else if (a.available === false) { out.textContent = a.tooLong ? T.tooLong(a.tooLong) : /redan en Courtside|already have/.test(a.reason || "") ? a.reason : T.taken(a.domain); out.className = "avail bad"; }
           else out.textContent = "";
         }).catch(function () { out.textContent = ""; });
       }, 400);

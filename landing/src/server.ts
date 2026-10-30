@@ -25,7 +25,7 @@ import fastifyStatic from "@fastify/static";
 import * as oauth from "./oauth.js";
 import { oscFor } from "./osc.js";
 import { isNewer, latestRelease } from "./release.js";
-import { install, invalidClub, Job, names, NotNow, renewToken, repair, resetAdmin, sameRepo, siteDomain, Source, uninstall, upgrade } from "./install.js";
+import { install, invalidClub, Job, maxClubLength, names, NotNow, renewToken, repair, resetAdmin, sameRepo, siteDomain, Source, uninstall, upgrade } from "./install.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const PUBLIC_URL = process.env.PUBLIC_URL?.replace(/\/$/, "");
@@ -286,6 +286,9 @@ app.post("/api/installations/:club/address", async (req, reply) => {
     const app = (await who.osc.listApps()).find((a) => a.name === names(club).app && sameRepo(a.gitUrl, SOURCE.gitUrl));
     if (!app) return reply.code(404).send({ error: `Hittar ingen Courtside som heter ${club}.` });
     if ((await who.osc.listDomains()).get(app.name)?.includes(domain)) return { url: `https://${domain}` };
+    if (club.length > maxClubLength(who.tenant)) {
+      return reply.code(409).send({ error: `Kortnamnet ${club} är för långt för en egen adress i ert konto, där högst ${maxClubLength(who.tenant)} tecken får plats. Plattformen fungerar på sin nuvarande adress.` });
+    }
     if (!(await who.osc.domainAvailable(domain))) {
       return reply.code(409).send({ error: `Adressen ${domain} är redan tagen av någon annan. Plattformen fungerar på sin nuvarande adress.` });
     }
@@ -336,6 +339,8 @@ app.get("/api/available/:club", async (req, reply) => {
   const { club } = req.params as { club: string };
   const domain = siteDomain(club, who.osc.environment);
   if (invalidClub(club)) return { club, domain, available: false, reason: invalidClub(club) };
+  const max = maxClubLength(who.tenant);
+  if (club.length > max) return { club, domain, available: false, tooLong: max, reason: `Kortnamnet får vara högst ${max} tecken i ert konto.` };
   try {
     const [free, apps] = await Promise.all([who.osc.domainAvailable(domain), who.osc.listApps()]);
     if (apps.some((a) => a.name === names(club).app)) return { club, domain, available: false, reason: `Ni har redan en Courtside som heter ${club}.` };

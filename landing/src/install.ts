@@ -6,7 +6,7 @@
  */
 
 import crypto from "node:crypto";
-import { CONFIG_SERVICE, Osc, OscError, Parameter, RESTREAMER_SERVICE, STORAGE_SERVICE, sleep } from "./osc.js";
+import { APP_RUNNER, CONFIG_SERVICE, Osc, OscError, Parameter, RESTREAMER_SERVICE, STORAGE_SERVICE, sleep } from "./osc.js";
 
 export interface Source {
   gitUrl: string;
@@ -73,6 +73,16 @@ export function names(club: string) {
  */
 export function siteDomain(club: string, environment = "prod"): string {
   return environment === "prod" ? `${club}.apps.osaas.io` : `${club}.apps.${environment}.osaas.io`;
+}
+
+/**
+ * The longest short name that still gets its own address in this tenant.  OSC
+ * names the proxy behind an address proxy-<tenant>-<app>-<runner>-<9 chars>,
+ * and that name may be at most 63 characters, so a long tenant name leaves
+ * less room for the club's.
+ */
+export function maxClubLength(tenant: string): number {
+  return 63 - `proxy-${tenant}-${names("").app}-${APP_RUNNER}-123456789`.length;
 }
 
 const CLUB = /^[a-z][a-z0-9]{2,20}$/;
@@ -154,6 +164,9 @@ export async function install(
     }
     if (await osc.instanceExists(CONFIG_SERVICE, n.store)) {
       throw new InstallError(`Det finns redan en parameter store som heter ${n.store}. Välj ett annat namn.`, "taken");
+    }
+    if (req.club.length > maxClubLength(req.tenant)) {
+      throw new InstallError(`Kortnamnet får vara högst ${maxClubLength(req.tenant)} tecken i ert konto, annars får plattformen ingen egen adress.`, "taken");
     }
     const domain = siteDomain(req.club, osc.environment);
     // Unknown is not a no: if the check itself fails, the address is tried
@@ -243,7 +256,8 @@ async function ownAddress(
 ): Promise<string | undefined> {
   try {
     await osc.addDomain(app, domain);
-  } catch {
+  } catch (err) {
+    console.log(JSON.stringify({ msg: "own address failed", app, domain, error: err instanceof Error ? err.message : String(err) }));
     return undefined;
   }
   undo.push(() => osc.removeDomain(app, domain));

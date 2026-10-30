@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { install, invalidClub, Job, NotNow, renewToken, repair, resetAdmin, setupCode, uninstall, upgrade } from "./install.js";
+import { install, invalidClub, maxClubLength, Job, NotNow, renewToken, repair, resetAdmin, setupCode, uninstall, upgrade } from "./install.js";
 import { App, CONFIG_SERVICE, NewApp, Osc, Parameter, RESTREAMER_SERVICE, STORAGE_SERVICE } from "./osc.js";
 
 /** An OSC tenant in memory. */
@@ -216,6 +216,16 @@ describe("install", () => {
     expect(t.calls).not.toContain("createStorage");
   });
 
+  it("refuses a short name too long for an address of its own in this tenant, before creating anything", async () => {
+    const t = fakeTenant();
+    const job = newJob();
+    await install(t.osc, { ...req, club: "dorisbaskettest", tenant: "borisswork" }, source, job, fast, async () => true);
+    expect(job.state).toBe("failed");
+    expect(job.reason).toBe("taken");
+    expect(job.error).toMatch(/högst 14 tecken/);
+    expect(t.calls).not.toContain("createStorage");
+  });
+
   it("falls back to the platform's address if the own one cannot be mapped", async () => {
     const t = fakeTenant({ failAt: "addDomain" });
     const job = newJob();
@@ -383,6 +393,12 @@ describe("names and codes", () => {
     for (const bad of ["al", "Alta", "älta", "2alta", "alta-if", "a".repeat(22), ""]) {
       expect(invalidClub(bad)).toBeDefined();
     }
+  });
+
+  it("leaves room for the proxy OSC puts in front of an own address", () => {
+    // OSC refused proxy-borisswork-dorisbaskettestapi-eyevinn-web-runner-df46cf634 (64).
+    expect(maxClubLength("borisswork")).toBe(14);
+    expect("dorisbaskettest".length).toBeGreaterThan(maxClubLength("borisswork"));
   });
 
   it("makes setup codes without look-alike characters", () => {
