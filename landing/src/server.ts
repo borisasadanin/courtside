@@ -206,7 +206,10 @@ app.get("/auth/callback", callback);
 app.post("/auth/callback", callback);
 
 app.get("/auth/status", async (req, reply) => {
-  const t = await token(session(req, reply));
+  // Every page asks this on load. A visitor who has not signed in gets no
+  // cookie just for looking: only a session that already exists is read.
+  const id = req.cookies[COOKIE];
+  const t = id && sessions.has(id) ? await token(session(req, reply)) : undefined;
   return { authenticated: !!t, tenant: t ? oauth.tenantOf(t) : undefined };
 });
 

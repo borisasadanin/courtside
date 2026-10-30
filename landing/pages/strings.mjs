@@ -17,6 +17,7 @@ export const sv = {
     expired: "Du har loggats ut, eftersom sidan inte använts på en stund eller inloggningen har gått ut. Inget nytt har skapats. Logga in igen, så finns det du skrev kvar.", expiredBtn: "Logga in igen",
     club: "Kortnamn", clubHint: "Små bokstäver och siffror. Blir er adress, kortnamn.apps.osaas.io, och namnet på tjänsterna i ert konto.",
     create: "Skapa", takes: "Tar oftast 4–6 minuter och sker helt automatiskt. Allt skapas i ert eget OSC-konto och drar tokens därifrån.",
+    dpa: 'Föreningen ansvarar för det som spelas in. Filmerna lagras hos Open Source Cloud i Stockholm, och Eyevinn behandlar dem åt er enligt <a href="https://www.osaas.io/dpa" target="_blank" rel="noopener">OSC:s biträdesavtal</a>. Godkänn det för ert konto i OSC-konsolen. <a href="/gdpr/">Mer om GDPR</a>',
     calmH: "Allt sker automatiskt.", calm: "Ni behöver inte göra något medan plattformen sätts upp. Det mesta av tiden går åt till att bygga er webbplats, och det är normalt att ett steg står still i flera minuter. Ni kan stänga sidan, installationen fortsätter ändå och syns under Era plattformar när den är klar. Går något fel säger vi till här, och tar då bort det som hann skapas.",
     failH: "Plattformen kunde inte skapas", cleaned: "Det som hann skapas i ert konto har tagits bort, så inget ligger kvar och drar tokens.",
     creating: "Skapar", steps: ["Kontrollerar namnet", "Lagring för inspelningar", "Åtkomst för sändningsmotorn", "Inställningar", "Webbplats och backend", "Bygger (flera minuter)", "Startar"],
@@ -88,7 +89,7 @@ export const sv = {
 
   own: {
     eyebrow: "Er film, era regler", h2: "Föreningen äger sina matcher",
-    sub: "Courtside körs i föreningens eget konto på Open Source Cloud. Ingen annan plattform sitter på era filmer, visar reklam runt era barn eller bestämmer vad som händer med materialet. Inte heller vi: Eyevinn har ingen åtkomst.",
+    sub: "Courtside körs i föreningens eget konto på Open Source Cloud. Ingen annan plattform sitter på era filmer, visar reklam runt era barn eller bestämmer vad som händer med materialet. Inte heller vi: Eyevinn tittar inte på och använder inte era filmer.",
     cards: [
       ["Er lagring, ert beslut", "Inspelningarna ligger i föreningens egen lagring. Ni bestämmer hur länge de sparas och raderar en match när en förälder ber om det."],
       ["Ingen reklam, ingen algoritm", "Sidan visar er match och era highlights. Inget annat."],
@@ -130,7 +131,7 @@ export const sv = {
       ["Lagring för inspelningarna", "i föreningens eget konto"],
       ["Automatisk installation", "alla nycklar och kopplingar ställs in åt er"],
       ["Aldrig utelåst", "glömd admin-kod återställs med ert OSC-konto"],
-      ["Ingen reklam", "och ingen annan, inte heller Eyevinn, har åtkomst till era filmer"],
+      ["Ingen reklam", "och ingen annan, inte heller Eyevinn, använder era filmer"],
     ],
     incFoot: "Priset är Open Source Clouds Personal-plan, 15 € i månaden exkl. moms. Courtside körs i ert eget OSC-konto.",
     plans: {
@@ -181,7 +182,7 @@ export const sv = {
       ["Vad är tokens?", "Tokens är valutan på Open Source Cloud. Planen fyller på med ett fast antal varje dag. Courtside använder lite hela tiden och mer bara när ni sänder. Räknaren ovan visar vad ert upplägg kräver."],
       ["Vad händer om tokens tar slut mitt i en match?", "Planens tokens fylls på varje dag och det ni inte använder sparas. Ligger ni nära gränsen inför en cup kan ni köpa ett tokenpaket i förväg. Det går aldrig ut."],
       ["Kan vem som helst se våra matcher?", "Bara de som har länken, och med PIN-kod påslagen bara de som också har koden. Vi rekommenderar alltid PIN-kod när barn och ungdomar spelar."],
-      ["Hur hanterar vi GDPR och samtycke?", "Courtside körs i föreningens eget konto, så det är föreningen som bestämmer över filmerna. Eyevinn har ingen åtkomst. Berätta för föräldrarna att matcherna sänds och spelas in, bestäm hur länge de sparas och radera en match i adminvyn om någon ber om det."],
+      ["Hur hanterar vi GDPR och samtycke?", "Föreningen är personuppgiftsansvarig och bestämmer över filmerna. Open Source Cloud lagrar dem åt er i Stockholm, enligt OSC:s biträdesavtal. Berätta för föräldrarna och motståndarlaget att matcherna sänds och spelas in, fyll i Om inspelningarna i adminvyn och ta bort klipp eller matcher om någon ber om det. Mallar finns på courtside.apps.osaas.io/gdpr."],
       ["Vad händer om vi glömmer admin-koden?", "Ägaren loggar in här på sidan med sitt OSC-konto och väljer <em>Glömt admin-koden?</em>. Tittarkoden och alla inspelningar finns kvar."],
       ["Sparas filmerna säkert?", "Filmerna ligger i föreningens egen lagring och finns kvar tills ni tar bort dem eller avslutar OSC-kontot. Det finns ingen automatisk säkerhetskopia av filmerna, så ladda ner de klipp ni vill spara för alltid. <a href=\"/data/\">Läs mer om era filmer</a>."],
       ["Behöver vi någon som kan IT?", "Nej. Den som sätter upp Courtside loggar in, väljer ett namn och klickar på Skapa. Alla nycklar och kopplingar ordnas automatiskt. Sedan är det en knapp i mobilen."],
@@ -197,7 +198,7 @@ export const sv = {
 
   foot: {
     runs: "Courtside körs på", oss: "Öppen källkod (Apache-2.0)",
-    links: [["/data/", "Era filmer"], ["/integritet/", "Integritet"], ["/support/", "Support"]],
+    links: [["/data/", "Era filmer"], ["/gdpr/", "GDPR"], ["/integritet/", "Integritet"], ["/support/", "Support"]],
     more: "Fler tjänster:",
   },
 
@@ -237,6 +238,7 @@ export const en = {
     expired: "You have been signed out, because the page was idle for a while or the sign-in ran out. Nothing new was created. Sign in again and what you typed will still be there.", expiredBtn: "Sign in again",
     club: "Short name", clubHint: "Lowercase letters and digits. Becomes your address, shortname.apps.osaas.io, and names the services in your account.",
     create: "Create", takes: "Usually takes 4–6 minutes and runs on its own. Everything is created in your own OSC account and uses tokens from it.",
+    dpa: 'Your club is responsible for what it records. The videos are stored by Open Source Cloud in Stockholm, and Eyevinn processes them for you under <a href="https://www.osaas.io/dpa" target="_blank" rel="noopener">OSC\'s data processing agreement</a>. Accept it for your account in the OSC console. <a href="/en/gdpr/">More on GDPR</a>',
     calmH: "Everything happens automatically.", calm: "You don't need to do anything while the platform is set up. Most of the time goes into building your website, and it is normal for a step to sit still for several minutes. You can close this page, the installation carries on and shows under Your platforms when it is done. If something goes wrong we say so here, and remove whatever had been created.",
     failH: "The platform could not be created", cleaned: "Whatever had been created in your account has been removed, so nothing is left behind using tokens.",
     creating: "Creating", steps: ["Checking the name", "Storage for recordings", "Access for the streaming engine", "Settings", "Website and backend", "Building (several minutes)", "Starting"],
@@ -308,7 +310,7 @@ export const en = {
 
   own: {
     eyebrow: "Your videos, your rules", h2: "Your club owns its games",
-    sub: "Courtside runs in your club's own Open Source Cloud account. No other platform holds your videos, shows ads around your kids or decides what happens to the footage. Not even us: Eyevinn has no access.",
+    sub: "Courtside runs in your club's own Open Source Cloud account. No other platform holds your videos, shows ads around your kids or decides what happens to the footage. Not even us: Eyevinn does not watch or use your videos.",
     cards: [
       ["Your storage, your call", "Recordings live in your club's own storage. You decide how long to keep them, and you delete a game when a parent asks."],
       ["No ads, no algorithm", "The page shows your game and your highlights. Nothing else."],
@@ -350,7 +352,7 @@ export const en = {
       ["Storage for your recordings", "in your club's own account"],
       ["Automatic setup", "all keys and connections configured for you"],
       ["Never locked out", "reset a forgotten admin code with your OSC account"],
-      ["No ads", "and no one else, not even Eyevinn, can access your videos"],
+      ["No ads", "and no one else, not even Eyevinn, uses your videos"],
     ],
     incFoot: "The price is Open Source Cloud's Personal plan, €15 a month excl. VAT. Courtside runs in your own OSC account.",
     plans: {
@@ -401,7 +403,7 @@ export const en = {
       ["What are tokens?", "Tokens are Open Source Cloud's currency. Your plan tops up with a fixed amount every day. Courtside uses a little all the time and more only while you stream. The calculator above shows what your setup needs."],
       ["What if we run out of tokens mid-game?", "Your plan tops up every day and unused tokens are saved. If you're close to the limit before a tournament, buy a token pack in advance. It never expires."],
       ["Can anyone watch our games?", "Only people with the link, and with a PIN switched on, only people who also have the code. We always recommend a PIN when kids and teenagers are playing."],
-      ["How do we handle GDPR and consent?", "Courtside runs in your club's own account, so your club controls the videos. Eyevinn has no access. Tell parents that games are streamed and recorded, decide how long to keep them, and delete a game in the admin view if someone asks."],
+      ["How do we handle GDPR and consent?", "Your club is the controller and decides about the videos. Open Source Cloud stores them for you in Stockholm, under OSC's data processing agreement. Tell parents and the visiting team that games are streamed and recorded, fill in About the recordings in the admin view, and delete clips or games if someone asks. Templates are at courtside.apps.osaas.io/en/gdpr."],
       ["What if we forget the admin code?", "The owner signs in here with their OSC account and picks <em>Forgot the admin code?</em>. The viewer code and all recordings stay as they are."],
       ["Are the videos stored safely?", "Videos are kept in your club's own storage until you delete them or close the OSC account. There's no automatic backup of the videos, so download the clips you want to keep forever. <a href=\"/en/data/\">Read more about your videos</a>."],
       ["Do we need someone who knows IT?", "No. Whoever sets up Courtside signs in, chooses a name and clicks Create. All keys and connections are handled automatically. After that it's one button on the phone."],
@@ -417,7 +419,7 @@ export const en = {
 
   foot: {
     runs: "Courtside runs on", oss: "Open source (Apache-2.0)",
-    links: [["/en/data/", "Your videos"], ["/en/privacy/", "Privacy"], ["/en/support/", "Support"]],
+    links: [["/en/data/", "Your videos"], ["/en/gdpr/", "GDPR"], ["/en/privacy/", "Privacy"], ["/en/support/", "Support"]],
     more: "More services:",
   },
 

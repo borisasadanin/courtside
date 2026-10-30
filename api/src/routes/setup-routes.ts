@@ -22,7 +22,7 @@ export default async function setupRoutes(
   });
 
   // POST /api/setup — choose the PINs, and come out of it logged in as admin
-  app.post<{ Body: { code?: string; adminPin?: string; viewerPin?: string } }>(
+  app.post<{ Body: { code?: string; adminPin?: string; viewerPin?: string; openAccess?: boolean } }>(
     "/api/setup",
     { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
     async (request, reply) => {
@@ -57,8 +57,8 @@ export default async function setupRoutes(
   });
 
   // PUT /api/admin/pins — New viewer and/or admin PIN.  An empty viewer PIN
-  // opens watching to anyone with the link.
-  app.put<{ Body: { currentAdminPin?: string; adminPin?: string; viewerPin?: string } }>(
+  // with openAccess opens watching to anyone with the link.
+  app.put<{ Body: { currentAdminPin?: string; adminPin?: string; viewerPin?: string; openAccess?: boolean } }>(
     "/api/admin/pins",
     { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
     async (request, reply) => {

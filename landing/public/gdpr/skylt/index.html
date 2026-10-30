@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skylt till hallen — Courtside</title>
+  <link rel="stylesheet" href="/fonts/inter.css">
+  <link rel="stylesheet" href="/page.css">
+  <link rel="stylesheet" href="/gdpr/gdpr.css">
+  <link rel="icon" href="/courtside.png" type="image/png">
+</head>
+<body>
+<main>
+  <div class="no-print">
+    <a class="back" href="/gdpr/">← GDPR</a> · <a class="back" href="/en/gdpr/sign/" hreflang="en">🇬🇧 English</a>
+    <h1>Skylt till hallen</h1>
+    <p>Fyll i, och skriv ut. Inget av det du skriver skickas någonstans.</p>
+    <div class="fields">
+      <label>Föreningen <input id="f-club" placeholder="Hornets Basket"></label>
+      <label>E-post för frågor <input id="f-mail" type="email" placeholder="styrelsen@hornets.se"></label>
+      <label>Er adress <input id="f-site" placeholder="hornets.apps.osaas.io"></label>
+    </div>
+    <button class="copy" onclick="print()">Skriv ut</button>
+  </div>
+
+  <div class="sign">
+    <p class="big">Den här matchen sänds och spelas in</p>
+    <p class="who">av <span id="s-club">[föreningen]</span>, för lagens familjer</p>
+    <p class="small">Vill du inte synas, eller vill ha något borttaget?<br>Kontakta <span id="s-mail">[e-post]</span></p>
+    <p class="small">Mer information: <span id="s-site">[er adress]</span>, under "Om inspelningarna"</p>
+  </div>
+</main>
+<script>
+  [["f-club", "s-club"], ["f-mail", "s-mail"], ["f-site", "s-site"]].forEach(function (p) {
+    var input = document.getElementById(p[0]), out = document.getElementById(p[1]), blank = out.textContent;
+    input.addEventListener("input", function () { out.textContent = input.value.trim() || blank; });
+  });
+</script>
+</body>
+</html>

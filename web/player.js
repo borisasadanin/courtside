@@ -3,6 +3,7 @@
 
 import { state, dom, initDom } from "./modules/state.js";
 import { loadClub } from "./modules/club.js";
+import { initPrivacy } from "./modules/privacy.js";
 import { initAuth, checkAuthAndStart } from "./modules/auth.js";
 import {
   initPlayer,
@@ -145,6 +146,7 @@ async function init() {
   // 1b. Load club identity and theme the page before anything is shown —
   //     the PIN screen is branded too, so this cannot wait until after auth.
   await loadClub();
+  initPrivacy();
 
   // 2. Initialise each module with cross-module callbacks
   initAuth({

@@ -131,4 +131,37 @@ describe("club branding from the admin view", () => {
     expect(res.headers["content-type"]).toBe("image/png");
     await app.close();
   });
+
+  it("says who answers for the recordings, set by the admin and kept", async () => {
+    const { default: clubRoutes } = await import("../routes/club-routes.js");
+    const { Branding } = await import("../club-branding.js");
+    const { clubManifest } = await import("../club-config.js");
+    const storage = memoryStorage();
+    const branding = new Branding(storage);
+    await branding.load();
+    const app = Fastify();
+    await app.register(clubRoutes, { branding });
+
+    expect((await app.inject({ url: "/api/club" })).json().privacy).toEqual({ controller: "", contact: "", policyUrl: "" });
+
+    const privacy = { controller: "Hammarby IF Basket", contact: "styrelsen@hammarby.se", policyUrl: "https://hammarby.se/integritet" };
+    const denied = await app.inject({ method: "PUT", url: "/api/admin/club/privacy", payload: privacy });
+    expect(denied.statusCode).toBe(401);
+    expect(await branding.updatePrivacy(privacy)).toBeNull();
+    expect((await app.inject({ url: "/api/club" })).json().privacy).toEqual(privacy);
+
+    clubManifest.privacy = { controller: "", contact: "", policyUrl: "" };
+    await new Branding(storage).load();
+    expect(clubManifest.privacy).toEqual(privacy);
+    await app.close();
+  });
+
+  it("refuses a contact that is not an e-mail address, and a link that is not https", async () => {
+    const { Branding } = await import("../club-branding.js");
+    const branding = new Branding(memoryStorage());
+    await branding.load();
+    expect(await branding.updatePrivacy({ contact: "ring Anna" })).toMatch(/e-post/);
+    expect(await branding.updatePrivacy({ policyUrl: "javascript:alert(1)" })).toMatch(/https/);
+    expect(await branding.updatePrivacy({ controller: "", contact: "", policyUrl: "" })).toBeNull();
+  });
 });

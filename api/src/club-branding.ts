@@ -1,11 +1,12 @@
 /**
- * Club branding chosen in the admin view — name, tagline, colour and logo.
+ * Club branding chosen in the admin view — name, tagline, colour and logo,
+ * and who answers for the recordings.
  *
  * The environment (club-config.ts) gives the starting values; what the club
  * sets in the admin view is kept in its own storage and wins over them, so a
  * club changes its look without touching the OSC configuration or restarting.
  */
-import { clubManifest } from "./club-config.js";
+import { clubManifest, type ClubPrivacy } from "./club-config.js";
 
 export const BRANDING_KEY = "config/club.json";
 export const LOGO_KEY = "config/logo";
@@ -20,6 +21,7 @@ export interface BrandingRecord {
   accentColor?: string;
   /** Content type of the uploaded logo, or absent when there is none. */
   logoType?: string;
+  privacy?: ClubPrivacy;
   updatedAt: string;
 }
 
@@ -32,6 +34,7 @@ interface BrandingStorage {
 
 /** Only a six-digit hex colour: it is also used to compute contrast. */
 const COLOUR = /^#[0-9a-fA-F]{6}$/;
+const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 
 export class Branding {
   private record: BrandingRecord | null = null;
@@ -62,6 +65,22 @@ export class Branding {
     if (!COLOUR.test(accentColor)) return "Färgen ska anges som #RRGGBB.";
 
     await this.save({ ...this.record, name, tagline, accentColor });
+    return null;
+  }
+
+  /** Validate and store who answers for the recordings. Returns an error message, or null. */
+  async updatePrivacy(input: Partial<ClubPrivacy>): Promise<string | null> {
+    const controller = (input.controller ?? "").trim();
+    const contact = (input.contact ?? "").trim();
+    const policyUrl = (input.policyUrl ?? "").trim();
+
+    if (controller.length > 100) return "Föreningens namn får vara högst 100 tecken.";
+    if (contact && (contact.length > 120 || !EMAIL.test(contact))) return "Kontakten ska vara en e-postadress.";
+    if (policyUrl && (policyUrl.length > 300 || !/^https:\/\/[^\s"<>]+$/.test(policyUrl))) {
+      return "Länken ska börja med https://.";
+    }
+
+    await this.save({ ...this.record, privacy: { controller, contact, policyUrl } });
     return null;
   }
 
@@ -105,6 +124,7 @@ export class Branding {
     clubManifest.name = r?.name || this.defaults.name;
     clubManifest.tagline = r?.tagline || this.defaults.tagline;
     clubManifest.accentColor = r?.accentColor || this.defaults.accentColor;
+    clubManifest.privacy = { controller: "", contact: "", policyUrl: "", ...r?.privacy };
     // The version in the URL makes browsers fetch a replaced logo at once.
     clubManifest.logoUrl = r?.logoType
       ? `/api/club/logo?v=${encodeURIComponent(r.updatedAt)}`

@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { requireApiKey, requireViewerAuth, requireAdminAuth } from "../auth.js";
 import { minio } from "../state.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
+import { deleteMatch, logDeletion } from "../erasure.js";
 import type { VodEntry } from "../types.js";
 
 export default async function vodRoutes(app: FastifyInstance): Promise<void> {
@@ -106,21 +107,27 @@ export default async function vodRoutes(app: FastifyInstance): Promise<void> {
     }
   );
 
-  // DELETE /api/vod/:id — Delete a VOD entry and its files (admin)
-  app.delete<{ Params: { id: string } }>("/api/vod/:id", async (request, reply) => {
+  // DELETE /api/vod/:id — Delete a match, its files and its clips (admin).
+  // ?onRequest=1 notes in the deletion log that someone asked for it.
+  app.delete<{ Params: { id: string }; Querystring: { onRequest?: string } }>("/api/vod/:id", async (request, reply) => {
     if (!requireAdminAuth(request, reply)) return;
 
     const { id } = request.params;
     try {
-      // Delete actual HLS files from MinIO
-      const deletedCount = await minio.deleteVodFiles(id);
-      request.log.info(`Deleted ${deletedCount} files for VOD ${id}`);
-
-      // Remove from index (mutex-protected)
-      const removed = await minio.removeVodEntry(id);
-      if (!removed) {
+      const title = (await minio.readVodIndex()).find((v) => v.id === id)?.matchTitle;
+      const erased = await deleteMatch(minio, id);
+      request.log.info(`Deleted VOD ${id}: ${erased.files} files, ${erased.clips.length} clips`);
+      if (!erased.found) {
         return reply.code(404).send({ error: "Recording not found" });
       }
+      await logDeletion(minio, {
+        what: "match",
+        id,
+        match: title,
+        onRequest: request.query.onRequest === "1",
+        files: erased.files,
+        clips: erased.clips.length,
+      }).catch((err) => request.log.error(err, "Could not write the deletion log"));
       return reply.code(204).send();
     } catch (err) {
       request.log.error(err, "Failed to delete VOD entry");

@@ -9,6 +9,7 @@ import { state } from "./state.js";
 import { club, applyTheme, applyAccent } from "./club.js";
 import { escapeHtml } from "./utils.js";
 import { deactivateAdmin } from "./admin.js";
+import { initPrivacy } from "./privacy.js";
 
 /** Logos are scaled down to this before upload — plenty for a header and an icon. */
 const LOGO_MAX_PX = 512;
@@ -65,6 +66,42 @@ export function renderBranding() {
     if (file) uploadLogo(file);
   });
   document.getElementById("brandingLogoRemove")?.addEventListener("click", removeLogo);
+}
+
+/** Who answers for the recordings, shown to viewers under "Om inspelningarna". */
+export function renderPrivacyAdmin() {
+  const el = document.getElementById("adminPrivacy");
+  if (!el) return;
+  const p = club.privacy || {};
+  el.innerHTML = `
+    <p class="privacy-admin-intro">Föreningen ansvarar för det som spelas in. Tittarna ser de här uppgifterna under <a href="#" data-privacy-open>Om inspelningarna</a>, längst ner på sidan och vid tittarkoden. Texter till föräldrar och motståndarlag, och en skylt till hallen, finns på <a href="https://courtside.apps.osaas.io/gdpr/" target="_blank" rel="noopener">courtside.apps.osaas.io/gdpr</a>.</p>
+    <label class="branding-field">Ansvarig förening
+      <input type="text" id="privacyController" maxlength="100" placeholder="${escapeHtml(club.shortName || club.name)}" value="${escapeHtml(p.controller || "")}">
+    </label>
+    <label class="branding-field">E-post för frågor om inspelningarna
+      <input type="email" id="privacyContact" maxlength="120" placeholder="t.ex. styrelsen@forening.se" value="${escapeHtml(p.contact || "")}">
+    </label>
+    <label class="branding-field">Länk till föreningens integritetspolicy (valfri)
+      <input type="url" id="privacyPolicy" maxlength="300" placeholder="https://" value="${escapeHtml(p.policyUrl || "")}">
+    </label>
+    <div class="branding-save-row">
+      <button class="admin-pair-btn" id="privacySave">Spara</button>
+      <span class="branding-status" id="privacyStatus" role="status"></span>
+    </div>`;
+  initPrivacy();
+  document.getElementById("privacySave").addEventListener("click", async () => {
+    setStatus("Sparar…", false, "privacyStatus");
+    try {
+      await send("PUT", "/api/admin/club/privacy", {
+        controller: document.getElementById("privacyController").value,
+        contact: document.getElementById("privacyContact").value,
+        policyUrl: document.getElementById("privacyPolicy").value,
+      });
+      setStatus("Sparat.", false, "privacyStatus");
+    } catch (err) {
+      setStatus(err.message, true, "privacyStatus");
+    }
+  });
 }
 
 function currentLogo() {

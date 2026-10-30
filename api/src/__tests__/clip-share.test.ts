@@ -13,7 +13,8 @@ const CLIP = {
   id: "75d86aa9afa2fd7a",
   streamId: "stream01",
   label: "Trepoängare",
-  mp4Url: "/api/clips/75d86aa9afa2fd7a/media/clip.mp4",
+  mp4Url: "/api/clips/75d86aa9afa2fd7a/media/75d86aa9afa2fd7a.mp4",
+  thumbnailUrl: "/api/clips/75d86aa9afa2fd7a/media/75d86aa9afa2fd7a.jpg",
   durationSeconds: 8,
   createdAt: new Date().toISOString(),
 };
@@ -39,7 +40,10 @@ describe("GET /c/:id", () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("text/html");
     expect(res.body).toContain('og:title" content="Trepoängare');
-    expect(res.body).toContain(`https://club.apps.osaas.io${CLIP.mp4Url}`);
+    expect(res.body).toContain(`og:image" content="https://club.apps.osaas.io${CLIP.thumbnailUrl}`);
+    // A preview, not a download: the MP4 is for viewers on the site.
+    expect(res.body).not.toContain("og:video");
+    expect(res.body).not.toContain(".mp4");
     expect(res.body).not.toContain("http-equiv=\"refresh\"");
   });
 
@@ -64,5 +68,14 @@ describe("GET /c/:id", () => {
     const res = await app.inject({ url: "/c/doesnotexist" });
     expect(res.statusCode).toBe(404);
     expect(res.headers["content-type"]).toContain("text/html");
+  });
+});
+
+describe("GET /api/clips/:id/public", () => {
+  it("describes the clip without its download", async () => {
+    const res = await app.inject({ url: `/api/clips/${CLIP.id}/public` });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().label).toBe("Trepoängare");
+    expect(res.json()).not.toHaveProperty("mp4Url");
   });
 });

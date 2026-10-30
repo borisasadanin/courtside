@@ -213,6 +213,16 @@ export class MinioClient {
     });
   }
 
+  /** Remove the clips that match and persist (mutex-protected). Returns those removed. */
+  async removeClipEntries(match: (clip: HighlightClip) => boolean): Promise<HighlightClip[]> {
+    return this.withLock(async () => {
+      const entries = await this.readClipsIndex();
+      const removed = entries.filter(match);
+      if (removed.length > 0) await this.writeClipsIndex(entries.filter((c) => !match(c)));
+      return removed;
+    });
+  }
+
   // ============================
   // Live stream metadata
   // ============================
@@ -411,6 +421,11 @@ export class MinioClient {
 
   /** Delete all objects under a prefix (streamId/) */
   async deleteVodFiles(streamId: string): Promise<number> {
+    return this.deletePrefix(`${streamId}/`);
+  }
+
+  /** Delete every object whose key starts with prefix. Returns how many. */
+  async deletePrefix(prefix: string): Promise<number> {
     let deleted = 0;
     let continuationToken: string | undefined;
 
@@ -418,7 +433,7 @@ export class MinioClient {
       const listRes = await this.s3.send(
         new ListObjectsV2Command({
           Bucket: BUCKET,
-          Prefix: `${streamId}/`,
+          Prefix: prefix,
           ContinuationToken: continuationToken,
         })
       );

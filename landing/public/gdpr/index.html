@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GDPR — Courtside</title>
+  <link rel="stylesheet" href="/fonts/inter.css">
+  <link rel="stylesheet" href="/page.css">
+  <link rel="stylesheet" href="/gdpr/gdpr.css">
+  <link rel="icon" href="/courtside.png" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+<main>
+  <a class="back" href="/">← Courtside</a> · <a class="back" href="/en/gdpr/" hreflang="en">🇬🇧 English</a>
+  <h1>GDPR för er Courtside</h1>
+  <p>Det är oftast barn på filmen. Här är vem som ansvarar för vad, och färdiga texter att skicka till föräldrar och motståndarlag.</p>
+
+  <h2>Vem ansvarar för vad</h2>
+  <p><strong>Föreningen</strong> är personuppgiftsansvarig för det som sänds och spelas in. Föreningen bestämmer vem som får titta, hur länge filmerna sparas och tar bort det som någon ber om.</p>
+  <p><strong>Open Source Cloud</strong> lagrar filmerna åt föreningen, i Stockholm, och Eyevinn är då personuppgiftsbiträde enligt <a href="https://www.osaas.io/dpa">OSC:s biträdesavtal</a>. Godkänn det för ert konto i OSC-konsolen.</p>
+  <p><strong>Courtside</strong> är mjukvaran. Eyevinn tittar inte på och använder inte era filmer.</p>
+
+  <h2>Det här gör ni en gång</h2>
+  <ol>
+    <li>Välj en tittarkod och dela den bara med lagets familjer.</li>
+    <li>Fyll i <em>Om inspelningarna</em> i adminvyn: ansvarig förening och en e-postadress för frågor. Tittarna ser det längst ner på sidan och vid tittarkoden.</li>
+    <li>Skicka informationen till föräldrarna nedan.</li>
+    <li>Bestäm hur länge ni sparar matcherna, och ta bort dem när tiden har gått.</li>
+  </ol>
+
+  <h2>Till föräldrarna</h2>
+  <p class="muted">Kort nog för lagets chatt. Byt ut det som står inom hakparentes.</p>
+  <div class="template" id="t-parents">Hej! Vi sänder och spelar in [lagets] matcher med Courtside, så att familjer som inte kan vara på plats kan följa dem.
+
+• Det är [föreningen] som ansvarar för filmerna.
+• Bara den som har vår tittarkod kan titta. Koden delar vi här. Sprid den inte vidare.
+• Under matchen sparas korta höjdpunkter. Ett klipp kan delas med en länk, men det går inte att ladda ner därifrån.
+• Vi sparar matcherna i [ett år] och tar sedan bort dem.
+• Vill du att ett klipp eller en match tas bort, eller vill du inte att ditt barn filmas? Säg till [namn eller e-post], så löser vi det.
+
+Mer information finns under "Om inspelningarna" på [er adress].</div>
+  <button class="copy" data-copy="t-parents">Kopiera texten</button>
+
+  <h2>Till motståndarlaget</h2>
+  <p class="muted">Lägg det i kallelsen eller matchinbjudan. Motståndarnas spelare filmas också, och de har ingen annan väg att få veta det.</p>
+  <div class="template" id="t-visitors">Matchen sänds och spelas in av [föreningen] med Courtside. Bara de som har föreningens tittarkod kan titta, och inspelningen sparas i [ett år]. Vill någon i ert lag inte synas, eller vill ha ett klipp borttaget, kontakta [e-post] före eller efter matchen. Mer information: [er adress], under "Om inspelningarna".</div>
+  <button class="copy" data-copy="t-visitors">Kopiera texten</button>
+
+  <h2>Skylt till hallen</h2>
+  <p>Sätt upp en skylt vid entrén eller vid kameran, så att alla i hallen vet att matchen sänds. <a href="/gdpr/skylt/">Gör en skylt att skriva ut</a>.</p>
+
+  <h2>När någon inte vill vara med</h2>
+  <p>Det är föreningen som avgör hur ni löser det. Vanliga sätt är att rikta kameran bort från avbytarbänken, att inte sända just den matchen, eller att ta bort klipp efteråt. Ta bort klipp och matcher i adminvyn, och kryssa i att det är på begäran, så noteras det i raderingsloggen.</p>
+
+  <p class="muted" style="margin-top:32px">Det här är stöd, inte juridisk rådgivning. Föreningen avgör själv vilken rättslig grund den använder och om den behöver en konsekvensbedömning.</p>
+</main>
+<script>
+  document.querySelectorAll("[data-copy]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var text = document.getElementById(b.getAttribute("data-copy")).textContent;
+      navigator.clipboard.writeText(text).then(function () { b.textContent = "Kopierad"; });
+    });
+  });
+</script>
+</body>
+</html>
