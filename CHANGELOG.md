@@ -18,6 +18,11 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.3.4 — 2026-10-30
+
+- Delade höjdpunkter går att öppna. Länken från Dela-knappen (till exempel i WhatsApp) gav tidigare
+  "Route GET:/c/… not found"; nu visar den förhandsvisning i chatten och spelar klippet när man klickar
+
 ## v0.3.3 — 2026-10-30
 
 - Parningskoden kan skannas med telefonens vanliga kamera: den öppnar Courtside-appen och kopplar kameran
