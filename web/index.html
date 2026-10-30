@@ -28,15 +28,25 @@
           <p class="subtitle" id="headerStatus">Live</p>
         </div>
       </div>
+      <!-- Bottom bar on phones, inline in the header from tablet width -->
+      <nav class="tab-nav" id="tabNav" aria-label="Huvudmeny">
+        <button class="tab-btn active" data-tab="live">
+          <span class="tab-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 010 8.49M7.76 16.24a6 6 0 010-8.49M19.07 4.93a10 10 0 010 14.14M4.93 19.07a10 10 0 010-14.14"/></svg><span class="tab-live-dot"></span></span>
+          <span class="tab-label">Live</span>
+        </button>
+        <button class="tab-btn" data-tab="vod">
+          <span class="tab-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M10 9l5 3-5 3z"/></svg></span>
+          <span class="tab-label">Repriser</span>
+        </button>
+        <button class="tab-btn hidden" data-tab="admin" id="adminTab">
+          <span class="tab-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+          <span class="tab-label">Hantera</span>
+        </button>
+      </nav>
       <button class="header-logout-btn hidden" id="headerLogout" aria-label="Logga ut">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </div>
-    <nav class="tab-nav" id="tabNav">
-      <button class="tab-btn active" data-tab="live">Live</button>
-      <button class="tab-btn" data-tab="vod">Repriser</button>
-      <button class="tab-btn hidden" data-tab="admin" id="adminTab">Admin</button>
-    </nav>
   </header>
 
   <main>
@@ -209,57 +219,98 @@
     <!-- Admin view (hidden until admin login) -->
     <section id="adminView" class="hidden">
       <div class="admin-header">
-        <h2 class="admin-title">Admin</h2>
+        <h2 class="admin-title">Hantera</h2>
         <button class="admin-logout-btn" id="adminLogout">Logga ut</button>
       </div>
-      <div class="admin-storage-summary" id="adminStorageSummary">
-        <div class="spinner"></div>
-      </div>
-      <div class="admin-section admin-share">
-        <div class="admin-section-head">
-          <h3 class="admin-section-title">Dela med tittarna</h3>
+
+      <!-- Overview: what admins do most often first, every section one tap away -->
+      <div class="admin-page" data-admin-page="overview">
+        <div class="admin-card admin-share">
+          <p class="admin-eyebrow">Dela med tittarna</p>
+          <p class="admin-share-url"><a id="adminShareUrl"></a></p>
+          <p class="teardown-text">Dela adressen med föräldrar, spelare och supportrar, tillsammans med tittarkoden. Admin-koden behåller ni själva.</p>
+          <button class="admin-primary-btn" id="adminShareCopy" type="button">Kopiera adressen</button>
         </div>
-        <p class="admin-share-url"><a id="adminShareUrl"></a> <button class="branding-link" id="adminShareCopy" type="button">Kopiera</button></p>
-        <p class="teardown-text">Det här är adressen till er Courtside. Dela den med föräldrar, spelare och supportrar, tillsammans med tittarkoden. De öppnar den i webbläsaren och ser livesändningar, highlights och alla sparade matcher. Admin-koden behåller ni själva, den är för att hantera inspelningar och lägga till kameror.</p>
+
+        <div class="admin-storage-summary" id="adminStorageSummary">
+          <div class="spinner"></div>
+        </div>
+
+        <div class="admin-menu">
+          <button class="admin-row" type="button" data-admin-open="branding">
+            <svg class="admin-row-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+            <span class="admin-row-text"><span class="admin-row-title">Utseende</span><span class="admin-row-sub">Logotyp, namn och klubbfärg</span></span>
+            <svg class="admin-row-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="admin-row" type="button" data-admin-open="pins">
+            <svg class="admin-row-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            <span class="admin-row-text"><span class="admin-row-title">Koder</span><span class="admin-row-sub">Tittarkod och admin-kod</span></span>
+            <svg class="admin-row-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="admin-row" type="button" data-admin-open="cameras">
+            <svg class="admin-row-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            <span class="admin-row-text"><span class="admin-row-title">Kameror</span><span class="admin-row-sub" id="adminRowCameraSub">Lägg till eller ta bort kameror</span></span>
+            <svg class="admin-row-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="admin-row" type="button" data-admin-open="recordings">
+            <svg class="admin-row-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M10 9l5 3-5 3z"/></svg>
+            <span class="admin-row-text"><span class="admin-row-title">Inspelningar</span><span class="admin-row-sub" id="adminRowVodSub">Ta bort repriser</span></span>
+            <svg class="admin-row-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="admin-row" type="button" data-admin-open="version">
+            <svg class="admin-row-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+            <span class="admin-row-text"><span class="admin-row-title">Version</span><span class="admin-row-sub">Uppdateringar av plattformen</span></span>
+            <svg class="admin-row-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+
+        <button class="admin-row admin-row-danger" type="button" data-admin-open="teardown">
+          <svg class="admin-row-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+          <span class="admin-row-text"><span class="admin-row-title">Ta bort plattformen</span></span>
+          <svg class="admin-row-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
       </div>
 
-      <div class="admin-section">
-        <div class="admin-section-head">
-          <h3 class="admin-section-title">Koder</h3>
-        </div>
-        <div class="admin-branding" id="adminPins"></div>
-      </div>
-
-      <div class="admin-section">
-        <div class="admin-section-head">
-          <h3 class="admin-section-title">Utseende</h3>
-        </div>
+      <div class="admin-page hidden" data-admin-page="branding">
+        <button class="back-btn" type="button" data-admin-back><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Hantera</button>
+        <h2 class="admin-page-title">Utseende</h2>
         <div class="admin-branding" id="adminBranding"></div>
       </div>
 
-      <div class="admin-section">
+      <div class="admin-page hidden" data-admin-page="pins">
+        <button class="back-btn" type="button" data-admin-back><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Hantera</button>
+        <h2 class="admin-page-title">Koder</h2>
+        <div class="admin-branding" id="adminPins"></div>
+      </div>
+
+      <div class="admin-page hidden" data-admin-page="cameras">
+        <button class="back-btn" type="button" data-admin-back><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Hantera</button>
         <div class="admin-section-head">
-          <h3 class="admin-section-title">Kameror</h3>
+          <h2 class="admin-page-title">Kameror</h2>
           <button class="admin-pair-btn" id="adminPairBtn">Lägg till kamera</button>
         </div>
         <div class="admin-pair-panel hidden" id="adminPairPanel"></div>
         <div class="admin-device-list" id="adminDeviceList"></div>
       </div>
 
-      <div class="admin-vod-list" id="adminVodList"></div>
+      <div class="admin-page hidden" data-admin-page="recordings">
+        <button class="back-btn" type="button" data-admin-back><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Hantera</button>
+        <h2 class="admin-page-title">Inspelningar</h2>
+        <div class="admin-vod-list" id="adminVodList"></div>
+      </div>
 
-      <div class="admin-section">
-        <div class="admin-section-head">
-          <h3 class="admin-section-title">Version</h3>
-        </div>
+      <div class="admin-page hidden" data-admin-page="version">
+        <button class="back-btn" type="button" data-admin-back><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Hantera</button>
+        <h2 class="admin-page-title">Version</h2>
         <div id="adminUpdate"></div>
       </div>
 
-      <div class="admin-section admin-danger">
-        <div class="admin-section-head">
-          <h3 class="admin-section-title">Ta bort plattformen</h3>
+      <div class="admin-page hidden" data-admin-page="teardown">
+        <button class="back-btn" type="button" data-admin-back><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Hantera</button>
+        <h2 class="admin-page-title">Ta bort plattformen</h2>
+        <div class="admin-section admin-danger">
+          <div id="adminTeardown"></div>
         </div>
-        <div id="adminTeardown"></div>
       </div>
     </section>
 

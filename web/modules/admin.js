@@ -45,6 +45,20 @@ export function deactivateAdmin() {
 }
 
 // ============================
+// Pages: overview and one page per section
+// ============================
+
+/** Show the overview or one section of Hantera ("branding", "pins", …). */
+export function showAdminPage(name) {
+  dom.adminView.querySelectorAll("[data-admin-page]").forEach((page) => {
+    page.classList.toggle("hidden", page.dataset.adminPage !== name);
+  });
+  // The title and logout belong to the overview; sections have their own back button.
+  dom.adminView.querySelector(".admin-header").classList.toggle("hidden", name !== "overview");
+  window.scrollTo(0, 0);
+}
+
+// ============================
 // Storage & VOD list
 // ============================
 
@@ -55,7 +69,7 @@ function renderShare() {
   a.href = location.origin;
   a.textContent = location.host;
   const copy = document.getElementById("adminShareCopy");
-  copy.onclick = () => navigator.clipboard.writeText(location.origin).then(() => { copy.textContent = "Kopierad"; });
+  copy.onclick = () => navigator.clipboard.writeText(location.origin).then(() => { copy.textContent = "Adressen är kopierad"; });
 }
 
 export async function loadAdminStorage() {
@@ -103,6 +117,9 @@ export async function loadAdminStorage() {
         </div>
       </div>
     `;
+
+    const vodSub = document.getElementById("adminRowVodSub");
+    if (vodSub) vodSub.textContent = `${data.vodCount} st · ${totalFormatted}`;
 
     // Render VOD list
     if (data.vods.length === 0) {
@@ -232,6 +249,13 @@ export async function checkAdminSession() {
 
 function bindAdminEvents() {
   dom.adminLogout.addEventListener("click", logoutViewer);
+
+  dom.adminView.querySelectorAll("[data-admin-open]").forEach((btn) => {
+    btn.addEventListener("click", () => showAdminPage(btn.dataset.adminOpen));
+  });
+  dom.adminView.querySelectorAll("[data-admin-back]").forEach((btn) => {
+    btn.addEventListener("click", () => showAdminPage("overview"));
+  });
 }
 
 /**

@@ -34,6 +34,9 @@ function renderDevices(devices) {
   const list = document.getElementById("adminDeviceList");
   const active = devices.filter((d) => !d.revokedAt);
 
+  const sub = document.getElementById("adminRowCameraSub");
+  if (sub) sub.textContent = active.length === 0 ? "Ingen kamera parad ännu" : `${active.length} parad${active.length === 1 ? "" : "e"}`;
+
   if (active.length === 0) {
     list.innerHTML = `<p class="admin-empty">Ingen kamera är parad ännu.</p>`;
     return;

@@ -101,6 +101,7 @@ function renderStreamList(streams, broadcastState) {
     dom.streamGrid.classList.add("hidden");
     dom.emptyState.classList.remove("hidden");
     updateEmptyState(broadcastState);
+    document.body.classList.remove("is-live");
     if (!broadcastState || broadcastState.status === "idle") {
       dom.statusDot.className = "status-dot offline";
     }
@@ -112,6 +113,8 @@ function renderStreamList(streams, broadcastState) {
 
   const hasLive = streams.some((s) => s.status === "live" || s.status === "paused");
   dom.statusDot.className = hasLive ? "status-dot live" : "status-dot offline";
+  // Drives the LIVE label in the header and the dot on the Live tab
+  document.body.classList.toggle("is-live", hasLive);
 
   const badgeMap = {
     live: { cls: "live", text: "S\u00c4NDER LIVE" },

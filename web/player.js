@@ -23,6 +23,7 @@ import {
   deactivateAdmin,
   loadAdminStorage,
   checkAdminSession,
+  showAdminPage,
 } from "./modules/admin.js";
 
 // ============================
@@ -53,6 +54,7 @@ function switchTab(tab) {
     startVodPolling();
   } else if (tab === "admin") {
     dom.adminView.classList.remove("hidden");
+    showAdminPage("overview");
     loadAdminStorage();
   }
 }

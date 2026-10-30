@@ -6,7 +6,7 @@
 
 import { CONFIG } from "./config.js";
 import { state } from "./state.js";
-import { club, applyTheme } from "./club.js";
+import { club, applyTheme, applyAccent } from "./club.js";
 import { escapeHtml } from "./utils.js";
 import { deactivateAdmin } from "./admin.js";
 
@@ -48,7 +48,7 @@ export function renderBranding() {
 
   const colour = document.getElementById("brandingColour");
   colour.addEventListener("input", () => {
-    document.documentElement.style.setProperty("--accent", colour.value);
+    applyAccent(colour.value);
     showContrast(colour.value);
   });
   showContrast(colour.value);
@@ -178,5 +178,7 @@ function showContrast(hex) {
   if (!el || !/^#[0-9a-f]{6}$/i.test(hex)) return;
   const background = luminance("#0a0a0a");
   const ratio = (luminance(hex) + 0.05) / (background + 0.05);
-  el.textContent = ratio < 3 ? "För mörk mot bakgrunden — svår att se" : "";
+  el.textContent = ratio < 4.5
+    ? "Mörk mot bakgrunden. Text i klubbfärgen ljusas upp automatiskt så att den syns."
+    : "";
 }
