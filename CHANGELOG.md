@@ -18,6 +18,21 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.4.1 — 2026-10-30
+
+Nytt utseende. Allt fungerar som förut, men det är lättare att hitta.
+
+- På mobilen ligger menyn längst ner: Live, Repriser och Hantera, nåbara med tummen. På datorn sitter den
+  i sidhuvudet
+- Adminvyn heter nu Hantera. Överst finns adressen att dela, med en knapp som kopierar den. Varje del
+  (Utseende, Koder, Om inspelningarna, Kameror, Inspelningar, Version) har en egen sida ett tryck bort.
+  Kryssrutan "på begäran" och raderingsloggen ligger under Inspelningar
+- Livesändningar visas som stora kort med en tydlig Titta-knapp, och det röda LIVE syns i sidhuvudet bara
+  när någon sänder
+- Ny typografi, större knappar och kort för repriser och höjdpunkter. Höjdpunktsspelaren lägger sig ovanför
+  menyn på mobilen
+- Text i klubbfärgen ljusas upp automatiskt om färgen är för mörk för att synas mot bakgrunden
+
 ## v0.4.0 — 2026-10-30
 
 Dataskydd. Det är oftast barn på filmen, och föreningen ansvarar för det som spelas in.
