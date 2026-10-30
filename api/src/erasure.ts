@@ -8,6 +8,11 @@
  *
  * The index entry goes first: once it is gone, nothing serves the clip, even if
  * removing its files then fails.  Deleting again finishes the job.
+ *
+ * Every deletion is noted in a deletion log, so a club can show that a request
+ * to delete was carried out.  The log names the match, never the person who
+ * asked, and for a clip not even its label: a label like "Ella's three" is
+ * exactly what the request was about.
  */
 import { clipsByStream } from "./state.js";
 import type { MinioClient } from "./minio.js";
@@ -54,4 +59,42 @@ export async function deleteClip(minio: MinioClient, clipId: string): Promise<Er
  */
 export function orphanClips(clips: HighlightClip[], matchIds: Set<string>, live: Set<string>): HighlightClip[] {
   return clips.filter((c) => !matchIds.has(c.streamId) && !live.has(c.streamId));
+}
+
+// --- Deletion log ---
+
+export const DELETION_LOG_KEY = "config/deletion-log.json";
+
+export interface DeletionLogEntry {
+  at: string;
+  what: "match" | "clip";
+  id: string;
+  /** The match's title, for a clip the title of the match it came from. */
+  match?: string;
+  /** Asked for by someone in the recording, rather than the club's own tidying. */
+  onRequest: boolean;
+  /** Files removed from storage. */
+  files: number;
+  /** Clips removed with a match. */
+  clips?: number;
+}
+
+type LogStorage = Pick<MinioClient, "readFileIfExists" | "uploadBuffer">;
+
+let writing: Promise<unknown> = Promise.resolve();
+
+export async function readDeletionLog(storage: LogStorage): Promise<DeletionLogEntry[]> {
+  const raw = await storage.readFileIfExists(DELETION_LOG_KEY);
+  return raw ? (JSON.parse(raw) as DeletionLogEntry[]) : [];
+}
+
+/** Append one entry. Writes are serialised so two deletions cannot drop each other. */
+export function logDeletion(storage: LogStorage, entry: Omit<DeletionLogEntry, "at">): Promise<void> {
+  const next = writing.then(async () => {
+    const log = await readDeletionLog(storage);
+    log.push({ at: new Date().toISOString(), ...entry });
+    await storage.uploadBuffer(DELETION_LOG_KEY, JSON.stringify(log, null, 2), "application/json");
+  });
+  writing = next.catch(() => {});
+  return next;
 }

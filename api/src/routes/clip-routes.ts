@@ -9,7 +9,7 @@ import { convertSegmentsToMp4, extractThumbnail } from "../mp4-converter.js";
 import { clubManifest, absoluteLogoUrl } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { keysReferencedBy } from "./media.js";
-import { deleteClip } from "../erasure.js";
+import { deleteClip, logDeletion } from "../erasure.js";
 
 /** Track last clip time per stream to prevent spam */
 const lastClipTime = new Map<string, number>();
@@ -253,7 +253,8 @@ ${redirectTag}
   );
 
   // DELETE /api/clips/:id — Delete one clip (admin). Its shared link stops working at once.
-  app.delete<{ Params: { id: string } }>(
+  // ?onRequest=1 notes in the deletion log that someone asked for it.
+  app.delete<{ Params: { id: string }; Querystring: { onRequest?: string } }>(
     "/api/clips/:id",
     async (request, reply) => {
       if (!requireAdminAuth(request, reply)) return;
@@ -268,6 +269,15 @@ ${redirectTag}
           return reply.code(404).send({ error: "clip_not_found", message: "Klippet hittades inte" });
         }
         request.log.info(`Deleted clip ${id}: ${erased.files} files`);
+        const streamId = erased.clips[0].streamId;
+        const title = (await minio.readVodIndex().catch(() => [])).find((v) => v.id === streamId)?.matchTitle;
+        await logDeletion(minio, {
+          what: "clip",
+          id,
+          match: title,
+          onRequest: request.query.onRequest === "1",
+          files: erased.files,
+        }).catch((err) => request.log.error(err, "Could not write the deletion log"));
         return reply.code(204).send();
       } catch (err) {
         request.log.error(err, "Failed to delete clip");

@@ -79,6 +79,8 @@ function fakeMinio() {
     deletePrefix,
     deleteVodFiles: (streamId: string) => deletePrefix(`${streamId}/`),
     readFile: async (key: string) => objects.get(key) ?? null,
+    readFileIfExists: async (key: string) => objects.get(key) ?? null,
+    uploadBuffer: async (key: string, body: string) => { objects.set(key, String(body)); },
     presignGet: async (key: string) => `https://storage.example.com/${key}?sig=x`,
     clipManifestKey: (s: string, c: string) => `clips/${s}/${c}.m3u8`,
     clipMp4Key: (s: string, c: string) => `clips/${s}/${c}.mp4`,
@@ -175,5 +177,37 @@ describe("the admin's storage view", () => {
     const body = res.json();
     expect(body.vods[0].clips.map((c: { id: string }) => c.id)).toEqual(["bbbb000000000001"]);
     expect(body.orphanClips.map((c: { id: string }) => c.id)).toEqual(["aaaa000000000001", "aaaa000000000002"]);
+  });
+});
+
+describe("the deletion log", () => {
+  async function log() {
+    return (await app.inject({ url: "/api/admin/deletions", headers: ADMIN })).json();
+  }
+
+  it("notes a deletion made on request, with the match but no clip label", async () => {
+    minio.clips[0].label = "Ellas trepoängare";
+    await app.inject({ method: "DELETE", url: "/api/clips/aaaa000000000001?onRequest=1", headers: ADMIN });
+    const [entry] = await log();
+    expect(entry).toMatchObject({ what: "clip", id: "aaaa000000000001", match: "Hemma vs Borta", onRequest: true, files: 3 });
+    expect(JSON.stringify(entry)).not.toContain("Ella");
+  });
+
+  it("notes a match with how many clips went with it, newest first", async () => {
+    await app.inject({ method: "DELETE", url: "/api/clips/bbbb000000000001", headers: ADMIN });
+    await app.inject({ method: "DELETE", url: "/api/vod/match1", headers: ADMIN });
+    const entries = await log();
+    expect(entries.map((e: { id: string }) => e.id)).toEqual(["match1", "bbbb000000000001"]);
+    expect(entries[0]).toMatchObject({ what: "match", clips: 2, onRequest: false });
+  });
+
+  it("is for the admin only", async () => {
+    expect((await app.inject({ url: "/api/admin/deletions" })).statusCode).toBe(401);
+  });
+
+  it("is never served as media", async () => {
+    await app.inject({ method: "DELETE", url: "/api/clips/bbbb000000000001", headers: ADMIN });
+    const res = await app.inject({ url: "/api/media/config/deletion-log.json", headers: ADMIN });
+    expect(res.statusCode).toBe(400);
   });
 });

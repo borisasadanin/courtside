@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { requireAdminAuth } from "../auth.js";
 import { config } from "../config.js";
 import { minio, oscManager, streamMeta } from "../state.js";
-import { orphanClips } from "../erasure.js";
+import { orphanClips, readDeletionLog } from "../erasure.js";
 import { runPreflight, overallStatus } from "../preflight.js";
 import { plan, removeData, removeSelf } from "../teardown.js";
 import { NotNow, startUpdate, updateInfo } from "../update.js";
@@ -46,6 +46,17 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
     } catch (err) {
       request.log.error(err, "Failed to get storage info");
       return reply.code(500).send({ error: "Failed to get storage info" });
+    }
+  });
+
+  // GET /api/admin/deletions — What has been deleted, newest first (admin)
+  app.get("/api/admin/deletions", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    try {
+      return reply.send((await readDeletionLog(minio)).reverse());
+    } catch (err) {
+      request.log.error(err, "Failed to read the deletion log");
+      return reply.code(500).send({ error: "Kunde inte läsa raderingsloggen" });
     }
   });
 

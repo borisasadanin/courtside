@@ -69,6 +69,7 @@ export async function loadAdminStorage() {
   renderShare();
   renderPins();
   renderUpdate();
+  renderDeletions();
 
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/admin/storage`, {
@@ -185,6 +186,45 @@ function renderClipList(clips, summary, open = false) {
     </details>`;
 }
 
+/**
+ * What has been deleted, so the club can show that a request was carried out.
+ * The log holds the match and the date, never who asked.
+ */
+async function renderDeletions() {
+  const el = document.getElementById("adminDeletions");
+  if (!el) return;
+  try {
+    const res = await fetch(`${CONFIG.API_URL}/api/admin/deletions`, { headers: adminHeaders() });
+    if (!res.ok) throw new Error(res.status);
+    const entries = await res.json();
+    if (entries.length === 0) {
+      el.innerHTML = '<p class="admin-deletions-empty">Inget har tagits bort \u00e4n.</p>';
+      return;
+    }
+    const rows = entries
+      .map((e) => {
+        const at = new Date(e.at).toLocaleString("sv-SE", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        const what = e.what === "match"
+          ? `Match${e.clips ? ` och ${e.clips} klipp` : ""}`
+          : "Klipp";
+        return `
+        <li>
+          <span class="admin-deletion-at">${escapeHtml(at)}</span>
+          <span>${escapeHtml(what)}${e.match ? ` \u00b7 ${escapeHtml(e.match)}` : ""}</span>
+          ${e.onRequest ? '<span class="admin-deletion-request">p\u00e5 beg\u00e4ran</span>' : ""}
+        </li>`;
+      })
+      .join("");
+    el.innerHTML = `
+      <details class="admin-deletions">
+        <summary>${entries.length} borttagningar</summary>
+        <ul>${rows}</ul>
+      </details>`;
+  } catch {
+    el.innerHTML = '<p class="admin-deletions-empty">Kunde inte l\u00e4sa raderingsloggen.</p>';
+  }
+}
+
 /** Two-click delete of whatever `path` names, then fade out `item`. */
 async function handleDelete(btn, path, item) {
 
@@ -205,7 +245,8 @@ async function handleDelete(btn, path, item) {
   btn.textContent = "Tar bort...";
 
   try {
-    const res = await fetch(`${CONFIG.API_URL}${path}`, {
+    const onRequest = document.getElementById("adminOnRequest")?.checked;
+    const res = await fetch(`${CONFIG.API_URL}${path}${onRequest ? "?onRequest=1" : ""}`, {
       method: "DELETE",
       headers: adminHeaders(),
     });
