@@ -19,6 +19,8 @@ struct CourtsideCameraApp: App {
                 // Every screen is drawn on black; in light mode the system's
                 // secondary text turns dark grey and all but disappears.
                 .preferredColorScheme(.dark)
+                // A pairing QR scanned with the phone's own camera.
+                .onOpenURL { Pairing.shared.open($0) }
         }
     }
 }

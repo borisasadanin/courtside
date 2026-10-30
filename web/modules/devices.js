@@ -112,7 +112,7 @@ export async function startPairing() {
     });
 
     panel.innerHTML = `
-      <p class="pair-instructions">Öppna Courtside-appen på telefonen och skanna koden.</p>
+      <p class="pair-instructions">Skanna koden med telefonens kamera, eller i Courtside-appen.</p>
       <div class="pair-qr">${svg}</div>
       <p class="pair-code-label">Eller skriv in manuellt:</p>
       <p class="pair-code">${escapeHtml(data.code)}</p>

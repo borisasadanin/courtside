@@ -15,6 +15,11 @@ import { requireAdminAuth } from "../auth.js";
 import { devices } from "../state.js";
 import { clubManifest } from "../club-config.js";
 
+/** The app's URL scheme, registered in camera/CourtsideCamera/Info.plist. */
+export function pairingLink(apiUrl: string, code: string): string {
+  return `courtside-camera://pair?url=${encodeURIComponent(apiUrl)}&code=${encodeURIComponent(code)}`;
+}
+
 export default async function deviceRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/devices/pairing-code — admin asks for a code to show on screen
   app.post("/api/devices/pairing-code", async (request, reply) => {
@@ -33,8 +38,11 @@ export default async function deviceRoutes(app: FastifyInstance): Promise<void> 
       expiresAt,
       apiUrl,
       club: clubManifest.name,
-      /** What the QR code should contain. */
-      payload: JSON.stringify({ v: 1, apiUrl, code }),
+      /**
+       * What the QR code should contain: a link the camera app is registered
+       * for, so the phone's own camera opens the app instead of the website.
+       */
+      payload: pairingLink(apiUrl, code),
     });
   });
 

@@ -11,7 +11,8 @@ struct PairingCredentials: Equatable {
     let clubName: String
 }
 
-/// What an admin's QR code contains.
+/// What an admin's QR code contains: a `courtside-camera://pair` link, or the
+/// JSON that platforms before v0.3.3 show.
 struct PairingPayload: Decodable {
     let v: Int
     let apiUrl: String
@@ -156,6 +157,13 @@ final class Pairing: ObservableObject {
     /// Why the camera is back at the pairing screen, when it did not choose to be.
     @Published private(set) var lostMessage: String?
 
+    /// A pairing link opened from outside the app — the phone's own camera —
+    /// waiting for the pairing screen to redeem it.
+    @Published var incoming: PairingPayload?
+
+    /// Why an opened pairing link was not used.
+    @Published var linkNotice: String?
+
     /// Set while a broadcast is running. Losing the pairing then waits until the
     /// broadcast ends: the picture keeps flowing without the club's API, and
     /// cutting a match off is worse than a camera staying paired a little longer.
@@ -168,8 +176,32 @@ final class Pairing: ObservableObject {
 
     var isPaired: Bool { credentials != nil }
 
+    /// The phone's camera, or another app, opened a pairing link.
+    ///
+    /// A paired camera does not switch club on a scan: that would cut it off
+    /// from its own club by mistake. Disconnecting first is a deliberate step.
+    func open(_ url: URL) {
+        guard let parsed = Self.parse(payload: url.absoluteString) else {
+            linkNotice = PairingError.malformedCode.errorDescription
+            return
+        }
+        if let club = credentials?.clubName {
+            linkNotice = "Kameran är redan kopplad till \(club). Koppla bort den under inställningar om den ska byta klubb, och skanna sedan koden igen."
+            return
+        }
+        incoming = parsed
+    }
+
     /// Parse a scanned QR payload, or a pasted one.
     static func parse(payload: String) -> PairingPayload? {
+        if let url = URL(string: payload), url.scheme == "courtside-camera" {
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            guard url.host == "pair",
+                  let apiUrl = items.first(where: { $0.name == "url" })?.value, !apiUrl.isEmpty,
+                  let code = items.first(where: { $0.name == "code" })?.value, !code.isEmpty
+            else { return nil }
+            return PairingPayload(v: 1, apiUrl: apiUrl, code: code)
+        }
         guard let data = payload.data(using: .utf8),
               let parsed = try? JSONDecoder().decode(PairingPayload.self, from: data),
               parsed.v == 1,

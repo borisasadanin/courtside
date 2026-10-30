@@ -64,6 +64,13 @@ struct PairingView: View {
                 ProgressView("Parar…").tint(.white).foregroundStyle(.white)
             }
         }
+        // A link from the phone's camera, whether it launched the app or
+        // arrived while this screen was already open.
+        .onReceive(pairing.$incoming) { link in
+            guard let link, !isPairing else { return }
+            pairing.incoming = nil
+            Task { await pair(url: link.apiUrl, code: link.code) }
+        }
     }
 
     private var header: some View {

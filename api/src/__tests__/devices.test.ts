@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { DeviceRegistry, hashToken, generatePairingCode, type Device } from "../devices.js";
+import { pairingLink } from "../routes/device-routes.js";
 
 function mockMinio() {
   let stored: Device[] = [];
@@ -117,5 +118,14 @@ describe("DeviceRegistry", () => {
     await registry.pair(registry.createPairingCode().code, "Kamera");
     expect(await registry.verify("")).toBeNull();
     expect(await registry.verify("f".repeat(64))).toBeNull();
+  });
+});
+
+describe("the pairing QR code", () => {
+  it("is a link the camera app opens, carrying the address and code intact", () => {
+    const link = new URL(pairingLink("https://club.apps.osaas.io:8443", "ABCD-2345"));
+    expect(link.protocol).toBe("courtside-camera:");
+    expect(link.searchParams.get("url")).toBe("https://club.apps.osaas.io:8443");
+    expect(link.searchParams.get("code")).toBe("ABCD-2345");
   });
 });
