@@ -60,7 +60,7 @@ struct StartView: View {
                 // Logo + Title
                 VStack(spacing: isCompact ? 2 : 4) {
                     ZStack(alignment: .bottom) {
-                        ClubLogo(url: club.logoURL, accent: club.accent)
+                        ClubLogo(url: club.logoURL)
                             .frame(width: logoSize, height: logoSize)
 
                         Text("LIVE")
@@ -614,10 +614,9 @@ private struct StatusRow: View {
     }
 }
 
-/// The club's own logo, or a neutral mark until it has one.
+/// The club's own logo, or Courtside's until it has one.
 private struct ClubLogo: View {
     let url: URL?
-    let accent: Color
 
     var body: some View {
         if let url {
@@ -634,9 +633,8 @@ private struct ClubLogo: View {
     }
 
     private var placeholder: some View {
-        Image(systemName: "video.circle.fill")
+        Image("logo")
             .resizable()
             .scaledToFit()
-            .foregroundColor(accent)
     }
 }

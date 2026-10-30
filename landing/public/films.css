@@ -95,7 +95,7 @@
   position: absolute; bottom: 14%; width: 20%; aspect-ratio: 1; border-radius: 50%;
   display: grid; place-items: center; color: #fff; font-size: clamp(8px, 1.1vw, 12px);
 }
-.phone .btn-star { right: 8%; background: rgba(124, 58, 237, 0.95); }
+.phone .btn-star { right: 8%; background: rgba(255, 95, 2, 0.95); }
 .phone .btn-pause { left: 8%; background: rgba(255, 255, 255, 0.2); }
 .phone .rec-label {
   position: absolute; left: 8%; top: 8%; background: var(--live); color: #fff; border-radius: 4px;
@@ -164,7 +164,7 @@
 .film-clip .b2.on .tap { animation: tap2 0.9s ease-out 0.6s forwards; }
 @keyframes tap2 { 0% { opacity: 0; transform: translate(50%, 50%) scale(1.6); } 40% { opacity: 1; transform: translate(50%, 50%) scale(1); } 100% { opacity: 0; transform: translate(50%, 50%) scale(1); } }
 .film-clip .b2 .flash { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%) scale(0.6); z-index: 3;
-  font-size: clamp(12px, 2vw, 20px); font-weight: 800; color: #fff; background: rgba(124,58,237,.92); padding: 8px 16px; border-radius: 99px; opacity: 0; }
+  font-size: clamp(12px, 2vw, 20px); font-weight: 800; color: var(--on-accent); background: rgba(255, 95, 2, .92); padding: 8px 16px; border-radius: 99px; opacity: 0; }
 .film-clip .b2.on .flash { animation: pop 1.4s ease 1s forwards; }
 @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); } 25%, 75% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; } }
 
@@ -173,7 +173,7 @@
   flex: 1; border-radius: 8px; background: #232327; color: #d4d4d8; font-size: clamp(9px, 1.15vw, 12px);
   padding: 8px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.film-clip .list .new { background: var(--accent); color: #fff; opacity: 0; transform: translateY(12px); }
+.film-clip .list .new { background: var(--accent); color: var(--on-accent); opacity: 0; transform: translateY(12px); }
 .film-clip .list .new small { display: block; font-weight: 400; opacity: 0.85; }
 .film-clip .b3.on .list .new { animation: rise 0.5s ease 0.6s forwards; }
 .film-clip .b3 .counter { left: 4%; top: 6%; }
@@ -203,7 +203,7 @@
 .film-setup .typed { display: inline-block; overflow: hidden; white-space: nowrap; width: 0; vertical-align: bottom; border-right: 2px solid var(--accent-soft); }
 .film-setup .c2.on .typed { animation: type 1.4s steps(14) 0.4s forwards; }
 @keyframes type { to { width: 9.5em; } }
-.film-setup .go { background: var(--accent); color: #fff; text-align: center; border-radius: 8px; padding: 3%; font-weight: 700; }
+.film-setup .go { background: var(--accent); color: var(--on-accent); text-align: center; border-radius: 8px; padding: 3%; font-weight: 700; }
 .film-setup .c1 .tap { left: 50%; top: 66%; }
 .film-setup .c1.on .tap, .film-setup .c2.on .tap { animation: tap 0.9s ease-out 1.6s forwards; }
 .film-setup .c2 .tap { left: 50%; top: 73%; }

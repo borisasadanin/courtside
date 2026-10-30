@@ -41,6 +41,7 @@ await esbuild.build({
 // 3. Copy static assets
 cpSync("style.css", "dist/assets/style.css");
 cpSync("icon.png", "dist/assets/icon.png");
+cpSync("courtside.png", "dist/assets/courtside.png");
 // Served as-is and never bundled, so a club can repoint the backend without
 // rebuilding. Deliberately unhashed.
 cpSync("runtime-config.js", "dist/runtime-config.js");
@@ -51,11 +52,13 @@ const bundleHash = hash("dist/assets/bundle.js");
 const clipHash = hash("dist/assets/clip-bundle.js");
 const cssHash = hash("dist/assets/style.css");
 const iconHash = hash("dist/assets/icon.png");
+const courtsideHash = hash("dist/assets/courtside.png");
 
 cpSync("dist/assets/bundle.js", `dist/assets/bundle-${bundleHash}.js`);
 cpSync("dist/assets/clip-bundle.js", `dist/assets/clip-${clipHash}.js`);
 cpSync("dist/assets/style.css", `dist/assets/style-${cssHash}.css`);
 cpSync("dist/assets/icon.png", `dist/assets/icon-${iconHash}.png`);
+cpSync("dist/assets/courtside.png", `dist/assets/courtside-${courtsideHash}.png`);
 try {
   const bgHash = hash("dist/assets/background.jpg");
   cpSync("dist/assets/background.jpg", `dist/assets/background-${bgHash}.jpg`);
@@ -69,6 +72,7 @@ function processHtml(src, dest, scriptFile) {
   html = html.replace(/(?:src|href)="icon\.png"/g, (m) =>
     m.replace("icon.png", `assets/icon-${iconHash}.png`)
   );
+  html = html.replace(/src="courtside\.png"/g, `src="assets/courtside-${courtsideHash}.png"`);
   // Point og:image at the hashed asset. The absolute URL is filled in at
   // runtime from the club manifest — the build cannot know which domain this
   // installation will be served from.

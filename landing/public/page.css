@@ -1,6 +1,6 @@
 :root {
   --bg: #0a0a0a; --text: #e1e4e8; --text-strong: #fff; --text-muted: #a1a1aa;
-  --accent-soft: #a78bfa; --card-border: rgba(255, 255, 255, 0.1);
+  --accent-soft: #ff9a5c; --card-border: rgba(255, 255, 255, 0.1);
   --font: "Inter", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; }

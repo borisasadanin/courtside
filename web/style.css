@@ -1432,6 +1432,25 @@ footer {
   border-top: 1px solid #1a1a1a;
 }
 
+/* Courtside's own mark — never replaced by the club's logo. */
+.powered-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.powered-by b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.powered-by:hover b {
+  color: var(--accent);
+}
+
 /* --- Fullscreen --- */
 
 .video-wrapper:fullscreen,

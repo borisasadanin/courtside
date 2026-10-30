@@ -4,7 +4,6 @@ import { readFileSync } from "node:fs";
 
 const here = (f) => new URL(f, import.meta.url);
 const chips = JSON.parse(readFileSync(here("chips.json"), "utf8"));
-const wordmark = readFileSync(here("wordmark.svg"), "utf8");
 const proofBadge = readFileSync(here("proof-badge.html"), "utf8");
 const livePanel = readFileSync(here("live-panel.html"), "utf8");
 const filmsSrc = readFileSync(here("films.html"), "utf8");
@@ -44,6 +43,9 @@ export function page(t) {
   <meta property="og:title" content="${t.title}">
   <meta property="og:description" content="${t.description}">
   <meta property="og:type" content="website">
+  <meta property="og:image" content="https://courtside.apps.osaas.io/courtside.png">
+  <link rel="icon" href="/courtside.png" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/">
   <link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58,7 +60,7 @@ export function page(t) {
 <header class="site-header">
   <div class="wrap header-inner">
     <a class="wordmark" href="#top" aria-label="${t.nav.top}">
-      ${wordmark}
+      <img src="/courtside.png" alt="" width="26" height="26">
       Courtside
     </a>
     <nav class="site-nav" aria-label="${t.nav.menu}">

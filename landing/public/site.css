@@ -8,10 +8,12 @@
   --text: #e1e4e8;
   --text-strong: #ffffff;
   --text-muted: #a1a1aa;
-  --accent: #7c3aed;
-  --accent-hover: #6d28d9;
-  --accent-soft: #a78bfa;
-  --accent-weak: rgba(124, 58, 237, 0.14);
+  /* Courtside orange, from the logo.  Text on it is dark: white only reaches 3:1. */
+  --accent: #ff5f02;
+  --accent-hover: #ff7a2e;
+  --accent-soft: #ff9a5c;
+  --accent-weak: rgba(255, 95, 2, 0.14);
+  --on-accent: #0a0a0a;
   --live: #ef4444;
   --ok: #22c55e;
   --wood: #3a2a1c;
@@ -63,7 +65,7 @@ main > section { padding: var(--section-y) 0; border-bottom: 1px solid var(--car
 }
 .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 64px; }
 .wordmark { display: flex; align-items: center; gap: 0.55rem; font-weight: 700; font-size: 18px; color: var(--text-strong); }
-.wordmark svg { width: 26px; height: 26px; }
+.wordmark img { width: 26px; height: 26px; }
 .site-nav { display: flex; gap: 1.6rem; }
 .site-nav a { color: var(--text-muted); font-size: 15px; font-weight: 500; }
 .site-nav a:hover { color: var(--text-strong); }
@@ -75,8 +77,8 @@ main > section { padding: var(--section-y) 0; border-bottom: 1px solid var(--car
   font: 600 16px/1.2 var(--font); cursor: pointer; border: 1px solid transparent;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
-.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 0 24px rgba(124, 58, 237, 0.35); }
-.btn-primary:hover { background: var(--accent-hover); color: #fff; transform: translateY(-1px); }
+.btn-primary { background: var(--accent); color: var(--on-accent); box-shadow: 0 0 24px rgba(255, 95, 2, 0.35); }
+.btn-primary:hover { background: var(--accent-hover); color: var(--on-accent); transform: translateY(-1px); }
 .btn-secondary { background: rgba(255, 255, 255, 0.05); color: var(--text); border-color: var(--card-border-strong); }
 .btn-secondary:hover { color: #fff; border-color: var(--text-muted); }
 .btn-sm { min-height: 38px; padding: 8px 16px; font-size: 15px; }
@@ -87,7 +89,7 @@ main > section { padding: var(--section-y) 0; border-bottom: 1px solid var(--car
 .hero::before {
   content: ""; position: absolute; top: -220px; left: 50%; transform: translateX(-60%);
   width: 1100px; height: 700px; pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(124, 58, 237, 0.28), transparent 62%);
+  background: radial-gradient(ellipse at center, rgba(255, 95, 2, 0.28), transparent 62%);
 }
 .hero-grid { position: relative; display: grid; grid-template-columns: 1fr 1.05fr; gap: 3.5rem; align-items: center; }
 .hero h1 {
@@ -125,9 +127,9 @@ main > section { padding: var(--section-y) 0; border-bottom: 1px solid var(--car
 .step { padding: 2rem; position: relative; }
 .step + .step { border-left: 1px solid var(--card-border); }
 .step-num {
-  width: 40px; height: 40px; border-radius: 999px; background: var(--accent); color: #fff;
+  width: 40px; height: 40px; border-radius: 999px; background: var(--accent); color: var(--on-accent);
   display: grid; place-items: center; font-weight: 700; margin-bottom: 1.1rem;
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.45);
+  box-shadow: 0 0 20px rgba(255, 95, 2, 0.45);
 }
 .step p { margin: 0; color: var(--text-muted); font-size: 16px; }
 .step .time { display: inline-block; margin-top: 1rem; font-size: 13px; font-weight: 600; color: var(--accent-soft); }
@@ -141,7 +143,7 @@ main > section { padding: var(--section-y) 0; border-bottom: 1px solid var(--car
   background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius);
   padding: 1.6rem; transition: border-color 0.2s, transform 0.2s;
 }
-.card:hover { border-color: rgba(124, 58, 237, 0.5); transform: translateY(-2px); }
+.card:hover { border-color: rgba(255, 95, 2, 0.5); transform: translateY(-2px); }
 .card p { margin: 0; color: var(--text-muted); font-size: 16px; }
 .chip {
   width: 44px; height: 44px; border-radius: 10px; background: var(--accent-weak);
@@ -172,7 +174,7 @@ main > section { padding: var(--section-y) 0; border-bottom: 1px solid var(--car
 .panel svg { display: block; width: 100%; height: auto; }
 
 /* ---- trust ---- */
-.trust { background: linear-gradient(180deg, var(--bg) 0%, #0f0b18 100%); }
+.trust { background: linear-gradient(180deg, var(--bg) 0%, #140d08 100%); }
 
 /* ---- compare ---- */
 .table-scroll { overflow-x: auto; border: 1px solid var(--card-border); border-radius: var(--radius); }
@@ -182,7 +184,7 @@ thead th { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; c
 thead th.us { color: var(--accent-soft); }
 tbody tr:last-child td { border-bottom: 0; }
 td:first-child { color: #fff; font-weight: 500; }
-td.us { background: rgba(124, 58, 237, 0.07); color: #fff; }
+td.us { background: rgba(255, 95, 2, 0.07); color: #fff; }
 td.dim { color: var(--text-muted); }
 
 /* ---- pricing ---- */
@@ -194,8 +196,8 @@ td.dim { color: var(--text-muted); }
 .cost-item p { margin: 0; color: var(--text-muted); font-size: 15px; }
 
 .calc {
-  border: 1px solid rgba(124, 58, 237, 0.4); border-radius: 16px;
-  background: radial-gradient(ellipse at top right, rgba(124, 58, 237, 0.16), transparent 60%), var(--bg-raise);
+  border: 1px solid rgba(255, 95, 2, 0.4); border-radius: 16px;
+  background: radial-gradient(ellipse at top right, rgba(255, 95, 2, 0.16), transparent 60%), var(--bg-raise);
   padding: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; margin-bottom: 3.5rem;
 }
 .calc h3 { font-size: 22px; margin-bottom: 0.25rem; }
@@ -239,13 +241,13 @@ input[type=range] { width: 100%; accent-color: var(--accent); height: 28px; }
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 .plan-card.featured, .plan-card.is-reco {
-  border-color: rgba(124, 58, 237, 0.6);
-  background: linear-gradient(180deg, rgba(124, 58, 237, 0.12), rgba(124, 58, 237, 0.03));
-  box-shadow: 0 0 40px rgba(124, 58, 237, 0.12);
+  border-color: rgba(255, 95, 2, 0.6);
+  background: linear-gradient(180deg, rgba(255, 95, 2, 0.12), rgba(255, 95, 2, 0.03));
+  box-shadow: 0 0 40px rgba(255, 95, 2, 0.12);
 }
 .plan-flag {
   position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-  background: var(--accent); color: #fff; font-size: 12px; font-weight: 600;
+  background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600;
   padding: 3px 12px; border-radius: 999px; white-space: nowrap;
 }
 .plan-card h3 { font-size: 20px; margin-bottom: 0.2rem; }
@@ -291,7 +293,7 @@ details p { margin: 0; padding: 0 1.4rem 1.2rem; color: var(--text-muted); font-
 .cta-band { text-align: center; position: relative; overflow: hidden; }
 .cta-band::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(ellipse at center bottom, rgba(124, 58, 237, 0.3), transparent 65%);
+  background: radial-gradient(ellipse at center bottom, rgba(255, 95, 2, 0.3), transparent 65%);
 }
 .cta-band .wrap { position: relative; }
 .cta-band h2 { font-size: clamp(30px, 5vw, 46px); }
@@ -411,7 +413,7 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
 .price-badge {
   display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; margin: 0 0 1.75rem;
   padding: 0.7rem 1.1rem; border-radius: 12px; color: var(--text);
-  background: var(--accent-weak); border: 1px solid rgba(167, 139, 250, 0.4); font-size: 15px;
+  background: var(--accent-weak); border: 1px solid rgba(255, 154, 92, 0.4); font-size: 15px;
 }
 .price-badge b { color: #fff; font-size: 19px; }
 .price-badge:hover { border-color: var(--accent-soft); color: #fff; }
@@ -436,12 +438,12 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
 .section-cta .muted { margin: 0.75rem 0 0; font-size: 14px; }
 .badge-now {
   display: inline-block; margin-bottom: 0.75rem; padding: 4px 12px; border-radius: 99px;
-  background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
+  background: var(--accent); color: var(--on-accent); font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
 }
 
 .included {
-  border: 1px solid rgba(167, 139, 250, 0.35); border-radius: 20px; padding: clamp(1.25rem, 3vw, 2.5rem);
-  background: linear-gradient(180deg, rgba(124, 58, 237, 0.12), rgba(124, 58, 237, 0.02)); margin-bottom: 2.5rem;
+  border: 1px solid rgba(255, 154, 92, 0.35); border-radius: 20px; padding: clamp(1.25rem, 3vw, 2.5rem);
+  background: linear-gradient(180deg, rgba(255, 95, 2, 0.12), rgba(255, 95, 2, 0.02)); margin-bottom: 2.5rem;
 }
 .included-head { text-align: center; margin-bottom: 1.75rem; }
 .included-head h3 { font-size: clamp(22px, 3vw, 30px); margin: 0 0 0.35rem; }
