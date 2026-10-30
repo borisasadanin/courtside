@@ -279,6 +279,22 @@ main {
   margin-bottom: 20px;
 }
 
+.setup-open {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: -8px 0 20px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.setup-open input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
 .setup-field span {
   display: block;
   font-weight: 600;
@@ -1723,6 +1739,100 @@ footer {
   background: var(--red);
 }
 
+.admin-on-request {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+  cursor: pointer;
+}
+
+.admin-on-request input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.admin-deletions summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.admin-deletions ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.admin-deletions li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.admin-deletion-at {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.admin-deletion-request {
+  color: var(--accent);
+}
+
+.admin-deletions-empty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.admin-vod-clips {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+.admin-vod-clips summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.admin-vod-clips ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-clip-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-clip-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-clip-time {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.admin-clip-item .admin-vod-delete {
+  padding: 4px 10px;
+  width: auto;
+}
+
 @media (max-width: 600px) {
   .admin-vod-item {
     flex-wrap: wrap;
@@ -2150,3 +2260,35 @@ footer {
 
 .admin-share-url { font-size: 1.15rem; font-weight: 600; margin: 0 0 8px; word-break: break-all; }
 .admin-share-url a { color: var(--accent); }
+
+/* ── About the recordings ──────────────────────────────────────────────── */
+
+footer a { color: var(--text-muted); }
+footer a:hover { color: var(--accent); }
+
+.pin-privacy { margin-top: 20px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+.pin-privacy a { color: var(--accent); }
+
+.privacy-dialog {
+  margin: auto; /* the global reset zeroes it, and a modal dialog centres by it */
+  max-width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 1px solid #2a2a2a;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.privacy-dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
+
+.privacy-body { padding: 24px; line-height: 1.55; font-size: 0.9rem; }
+.privacy-body h2 { margin: 0 0 12px; font-size: 1.2rem; }
+.privacy-body h3 { margin: 18px 0 4px; font-size: 0.95rem; }
+.privacy-body p { margin: 0 0 8px; }
+.privacy-body a { color: var(--accent); }
+.privacy-note { margin-top: 16px !important; font-size: 0.8rem; color: var(--text-muted); }
+.privacy-close { margin-top: 16px; width: 100%; }
+
+.privacy-admin-intro { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 12px; line-height: 1.5; }
+.privacy-admin-intro a { color: var(--accent); }

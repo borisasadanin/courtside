@@ -13,9 +13,7 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/">
   <link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/fonts/inter.css">
   <link rel="stylesheet" href="/site.css">
   <link rel="stylesheet" href="/films.css">
 </head>
@@ -83,6 +81,7 @@
                 <button type="submit" class="btn btn-primary btn-block" id="create-btn">Skapa</button>
               </form>
               <p class="muted" style="margin-top:1rem">Tar oftast 4–6 minuter och sker helt automatiskt. Allt skapas i ert eget OSC-konto och drar tokens därifrån.</p>
+              <p class="muted inst-dpa">Föreningen ansvarar för det som spelas in. Filmerna lagras hos Open Source Cloud i Stockholm, och Eyevinn behandlar dem åt er enligt <a href="https://www.osaas.io/dpa" target="_blank" rel="noopener">OSC:s biträdesavtal</a>. Godkänn det för ert konto i OSC-konsolen. <a href="/gdpr/">Mer om GDPR</a></p>
             </div>
             <div id="progress-view" hidden>
               <h3 id="progress-h">Skapar <span id="progress-club"></span></h3>
@@ -462,7 +461,7 @@
       <div class="section-head">
         <span class="eyebrow">Er film, era regler</span>
         <h2 id="trust-h2">Föreningen äger sina matcher</h2>
-        <p class="subline">Courtside körs i föreningens eget konto på Open Source Cloud. Ingen annan plattform sitter på era filmer, visar reklam runt era barn eller bestämmer vad som händer med materialet. Inte heller vi: Eyevinn har ingen åtkomst.</p>
+        <p class="subline">Courtside körs i föreningens eget konto på Open Source Cloud. Ingen annan plattform sitter på era filmer, visar reklam runt era barn eller bestämmer vad som händer med materialet. Inte heller vi: Eyevinn tittar inte på och använder inte era filmer.</p>
       </div>
       <div class="card-grid four">
         
@@ -544,7 +543,7 @@
           <li><strong>Lagring för inspelningarna</strong><span>i föreningens eget konto</span></li>
           <li><strong>Automatisk installation</strong><span>alla nycklar och kopplingar ställs in åt er</span></li>
           <li><strong>Aldrig utelåst</strong><span>glömd admin-kod återställs med ert OSC-konto</span></li>
-          <li><strong>Ingen reklam</strong><span>och ingen annan, inte heller Eyevinn, har åtkomst till era filmer</span></li>
+          <li><strong>Ingen reklam</strong><span>och ingen annan, inte heller Eyevinn, använder era filmer</span></li>
         </ul>
         <p class="note">Priset är Open Source Clouds Personal-plan, 15 € i månaden exkl. moms. Courtside körs i ert eget OSC-konto.</p>
       </div>
@@ -692,7 +691,7 @@
         </details>
         <details>
           <summary>Hur hanterar vi GDPR och samtycke?</summary>
-          <p>Courtside körs i föreningens eget konto, så det är föreningen som bestämmer över filmerna. Eyevinn har ingen åtkomst. Berätta för föräldrarna att matcherna sänds och spelas in, bestäm hur länge de sparas och radera en match i adminvyn om någon ber om det.</p>
+          <p>Föreningen är personuppgiftsansvarig och bestämmer över filmerna. Open Source Cloud lagrar dem åt er i Stockholm, enligt OSC:s biträdesavtal. Berätta för föräldrarna och motståndarlaget att matcherna sänds och spelas in, fyll i Om inspelningarna i adminvyn och ta bort klipp eller matcher om någon ber om det. Mallar finns på courtside.apps.osaas.io/gdpr.</p>
         </details>
         <details>
           <summary>Vad händer om vi glömmer admin-koden?</summary>
@@ -732,7 +731,7 @@
 <footer>
   <div class="wrap">
     <p>Courtside körs på <a href="https://www.osaas.io" rel="noopener">Eyevinn Open Source Cloud</a> · Öppen källkod (Apache-2.0)</p>
-    <p><a href="/data/">Era filmer</a> · <a href="/integritet/">Integritet</a> · <a href="/support/">Support</a> · <a href="/en/" hreflang="en">🇬🇧 English</a></p>
+    <p><a href="/data/">Era filmer</a> · <a href="/gdpr/">GDPR</a> · <a href="/integritet/">Integritet</a> · <a href="/support/">Support</a> · <a href="/en/" hreflang="en">🇬🇧 English</a></p>
     <p>Fler tjänster: <a href="https://openlive.apps.osaas.io/" rel="noopener">Open Live</a> · <a href="https://intercom.apps.osaas.io/" rel="noopener">Open Intercom</a></p>
   </div>
 </footer>

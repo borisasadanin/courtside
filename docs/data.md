@@ -1,7 +1,7 @@
 # Era videor och klipp — så tappar ni dem aldrig
 
 Courtside körs på ert eget konto hos Open Source Cloud (OSC). Matcherna och klippen ligger i er egen lagring,
-inte hos Eyevinn. Det betyder att ni äger dem och att ingen annan kommer åt dem. Det betyder också att ingen
+i ert konto. Det betyder att ni äger dem och att bara den ni ger en kod kan se dem. Det betyder också att ingen
 annan kan ta fram dem om de försvinner. Den här sidan säger vad som krävs för att det inte ska hända.
 
 ## Var ligger videon?
@@ -39,8 +39,12 @@ inspelningar finns kvar. Har ni glömt lösenordet till OSC-kontot återställer
 
 ## Vad Eyevinn kan och inte kan göra
 
-Eyevinn har ingen åtkomst till er Courtside, era koder eller er video. Vi kan inte se, återställa eller
-radera något åt er. Det är avsiktligt: det är era barns matcher.
+Eyevinn tittar inte på, använder eller delar era filmer. Open Source Cloud, som Eyevinn driver, lagrar dem åt er.
+Eyevinn är då personuppgiftsbiträde åt föreningen enligt [OSC:s biträdesavtal](https://www.osaas.io/dpa), se
+[gdpr/osc.md](gdpr/osc.md). Courtside agerar bara på ert konto när ni själva är inloggade på
+courtside.apps.osaas.io och ber om det: vid installation, uppdatering, reparation eller *Glömt admin-koden?*.
+
+Vi kan inte återställa något som raderats. Det finns ingen kopia hos oss.
 
 ## Ert ansvar för det som spelas in
 

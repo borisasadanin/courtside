@@ -13,9 +13,7 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/">
   <link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/fonts/inter.css">
   <link rel="stylesheet" href="/site.css">
   <link rel="stylesheet" href="/films.css">
 </head>
@@ -83,6 +81,7 @@
                 <button type="submit" class="btn btn-primary btn-block" id="create-btn">Create</button>
               </form>
               <p class="muted" style="margin-top:1rem">Usually takes 4–6 minutes and runs on its own. Everything is created in your own OSC account and uses tokens from it.</p>
+              <p class="muted inst-dpa">Your club is responsible for what it records. The videos are stored by Open Source Cloud in Stockholm, and Eyevinn processes them for you under <a href="https://www.osaas.io/dpa" target="_blank" rel="noopener">OSC's data processing agreement</a>. Accept it for your account in the OSC console. <a href="/en/gdpr/">More on GDPR</a></p>
             </div>
             <div id="progress-view" hidden>
               <h3 id="progress-h">Creating <span id="progress-club"></span></h3>
@@ -462,7 +461,7 @@
       <div class="section-head">
         <span class="eyebrow">Your videos, your rules</span>
         <h2 id="trust-h2">Your club owns its games</h2>
-        <p class="subline">Courtside runs in your club's own Open Source Cloud account. No other platform holds your videos, shows ads around your kids or decides what happens to the footage. Not even us: Eyevinn has no access.</p>
+        <p class="subline">Courtside runs in your club's own Open Source Cloud account. No other platform holds your videos, shows ads around your kids or decides what happens to the footage. Not even us: Eyevinn does not watch or use your videos.</p>
       </div>
       <div class="card-grid four">
         
@@ -544,7 +543,7 @@
           <li><strong>Storage for your recordings</strong><span>in your club's own account</span></li>
           <li><strong>Automatic setup</strong><span>all keys and connections configured for you</span></li>
           <li><strong>Never locked out</strong><span>reset a forgotten admin code with your OSC account</span></li>
-          <li><strong>No ads</strong><span>and no one else, not even Eyevinn, can access your videos</span></li>
+          <li><strong>No ads</strong><span>and no one else, not even Eyevinn, uses your videos</span></li>
         </ul>
         <p class="note">The price is Open Source Cloud's Personal plan, €15 a month excl. VAT. Courtside runs in your own OSC account.</p>
       </div>
@@ -692,7 +691,7 @@
         </details>
         <details>
           <summary>How do we handle GDPR and consent?</summary>
-          <p>Courtside runs in your club's own account, so your club controls the videos. Eyevinn has no access. Tell parents that games are streamed and recorded, decide how long to keep them, and delete a game in the admin view if someone asks.</p>
+          <p>Your club is the controller and decides about the videos. Open Source Cloud stores them for you in Stockholm, under OSC's data processing agreement. Tell parents and the visiting team that games are streamed and recorded, fill in About the recordings in the admin view, and delete clips or games if someone asks. Templates are at courtside.apps.osaas.io/en/gdpr.</p>
         </details>
         <details>
           <summary>What if we forget the admin code?</summary>
@@ -732,7 +731,7 @@
 <footer>
   <div class="wrap">
     <p>Courtside runs on <a href="https://www.osaas.io" rel="noopener">Eyevinn Open Source Cloud</a> · Open source (Apache-2.0)</p>
-    <p><a href="/en/data/">Your videos</a> · <a href="/en/privacy/">Privacy</a> · <a href="/en/support/">Support</a> · <a href="/" hreflang="sv">🇸🇪 Svenska</a></p>
+    <p><a href="/en/data/">Your videos</a> · <a href="/en/gdpr/">GDPR</a> · <a href="/en/privacy/">Privacy</a> · <a href="/en/support/">Support</a> · <a href="/" hreflang="sv">🇸🇪 Svenska</a></p>
     <p>More services: <a href="https://openlive.apps.osaas.io/" rel="noopener">Open Live</a> · <a href="https://intercom.apps.osaas.io/" rel="noopener">Open Intercom</a></p>
   </div>
 </footer>

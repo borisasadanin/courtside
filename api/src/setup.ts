@@ -15,6 +15,10 @@ import { mutableConfig } from "./config.js";
 
 export const SETUP_KEY = "config/setup.json";
 
+/** Refusal when a viewer PIN is left out without saying that is meant. */
+export const OPEN_ACCESS_UNCONFIRMED =
+  "Välj en tittarkod, eller bekräfta att alla som har adressen får titta.";
+
 export interface SetupRecord {
   /** SHA-256 of the SETUP_CODE that was used. A different code reopens setup. */
   codeHash: string;
@@ -105,11 +109,16 @@ export class Setup {
     this.required = true;
   }
 
-  /** Validate and store the club's choices. Returns an error message, or null. */
+  /**
+   * Validate and store the club's choices. Returns an error message, or null.
+   * Watching without a viewer PIN takes `openAccess`: it is usually children on
+   * the film, so leaving the field empty is not enough to open it to anyone.
+   */
   async complete(input: {
     code?: string;
     adminPin?: string;
     viewerPin?: string;
+    openAccess?: boolean;
   }): Promise<string | null> {
     if (!this.required) return "Installationen är redan uppsatt.";
     if (!codeMatches(input.code ?? "", this.setupCode)) return "Fel uppsättningskod.";
@@ -118,6 +127,7 @@ export class Setup {
     // After a reset an empty viewer PIN means "keep the one we have".
     const viewerPin = (input.viewerPin ?? "").trim() || this.previous?.viewerPin || "";
     if (!ADMIN_PIN_PATTERN.test(adminPin)) return "Admin-koden ska vara 6–8 siffror.";
+    if (!viewerPin && !input.openAccess) return OPEN_ACCESS_UNCONFIRMED;
     if (viewerPin && !VIEWER_PIN_PATTERN.test(viewerPin)) return "Tittarkoden ska vara 4–8 siffror.";
     if (viewerPin === adminPin) return "Tittarkoden och admin-koden måste vara olika.";
 
@@ -158,6 +168,7 @@ export class Setup {
     currentAdminPin?: string;
     adminPin?: string;
     viewerPin?: string;
+    openAccess?: boolean;
   }): Promise<string | null> {
     const locked = this.pinsLocked();
     if (locked) return locked;
@@ -169,6 +180,7 @@ export class Setup {
       if (!pinMatches(input.currentAdminPin ?? "", record.adminPin)) return "Fel nuvarande admin-kod.";
       if (!ADMIN_PIN_PATTERN.test(adminPin)) return "Admin-koden ska vara 6–8 siffror.";
     }
+    if (!viewerPin && record.viewerPin && !input.openAccess) return OPEN_ACCESS_UNCONFIRMED;
     if (viewerPin && !VIEWER_PIN_PATTERN.test(viewerPin)) return "Tittarkoden ska vara 4–8 siffror.";
     if (viewerPin === adminPin) return "Tittarkoden och admin-koden måste vara olika.";
 

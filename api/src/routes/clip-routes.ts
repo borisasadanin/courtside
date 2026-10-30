@@ -2,13 +2,14 @@
  * Highlight clip routes: create and list clips from live streams.
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { requireApiKey, requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
+import { requireAdminAuth, requireApiKey, requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
 import { streamMeta, collectors, clipsByStream, minio } from "../state.js";
 import { createClip } from "../clip-service.js";
 import { convertSegmentsToMp4, extractThumbnail } from "../mp4-converter.js";
 import { clubManifest, absoluteLogoUrl } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { keysReferencedBy } from "./media.js";
+import { deleteClip, logDeletion } from "../erasure.js";
 
 /** Track last clip time per stream to prevent spam */
 const lastClipTime = new Map<string, number>();
@@ -143,7 +144,9 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
         if (!clip) {
           return reply.code(404).send({ error: "clip_not_found", message: "Klippet hittades inte" });
         }
-        return reply.send(clip);
+        // No MP4: the shared page plays the clip, it does not hand out a download.
+        const { mp4Url: _download, ...shared } = clip;
+        return reply.send(shared);
       } catch (err) {
         request.log.error(err, "Failed to read clip");
         return reply.code(500).send({ error: "read_failed", message: "Kunde inte läsa klipp" });
@@ -177,7 +180,6 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
       const label = clip.label || "Höjdpunkt";
       const siteUrl = clubManifest.siteUrl || `${proto}://${host}`;
       const clipPageUrl = `${siteUrl}/clip.html#${encodeURIComponent(clip.id)}`;
-      const videoUrl = absolute(clip.mp4Url);
 
       // Look up match info from VOD index
       let matchTitle = "";
@@ -210,15 +212,10 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
 <html>
 <head>
 <meta charset="UTF-8">
-<meta property="og:type" content="video.other">
+<meta property="og:type" content="website">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${description}">
 <meta property="og:image" content="${absolute(clip.thumbnailUrl) || absoluteLogoUrl() || ""}">
-${videoUrl ? `<meta property="og:video" content="${videoUrl}">
-<meta property="og:video:secure_url" content="${videoUrl}">
-<meta property="og:video:type" content="video/mp4">
-<meta property="og:video:width" content="1280">
-<meta property="og:video:height" content="720">` : ""}
 ${redirectTag}
 <title>${title}</title>
 </head>
@@ -251,6 +248,40 @@ ${redirectTag}
       } catch (err) {
         request.log.error(err, "Failed to read clip");
         return reply.code(500).send({ error: "read_failed", message: "Kunde inte läsa klipp" });
+      }
+    },
+  );
+
+  // DELETE /api/clips/:id — Delete one clip (admin). Its shared link stops working at once.
+  // ?onRequest=1 notes in the deletion log that someone asked for it.
+  app.delete<{ Params: { id: string }; Querystring: { onRequest?: string } }>(
+    "/api/clips/:id",
+    async (request, reply) => {
+      if (!requireAdminAuth(request, reply)) return;
+
+      const { id } = request.params;
+      if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+        return reply.code(400).send({ error: "invalid_id" });
+      }
+      try {
+        const erased = await deleteClip(minio, id);
+        if (!erased.found) {
+          return reply.code(404).send({ error: "clip_not_found", message: "Klippet hittades inte" });
+        }
+        request.log.info(`Deleted clip ${id}: ${erased.files} files`);
+        const streamId = erased.clips[0].streamId;
+        const title = (await minio.readVodIndex().catch(() => [])).find((v) => v.id === streamId)?.matchTitle;
+        await logDeletion(minio, {
+          what: "clip",
+          id,
+          match: title,
+          onRequest: request.query.onRequest === "1",
+          files: erased.files,
+        }).catch((err) => request.log.error(err, "Could not write the deletion log"));
+        return reply.code(204).send();
+      } catch (err) {
+        request.log.error(err, "Failed to delete clip");
+        return reply.code(500).send({ error: "delete_failed", message: "Kunde inte ta bort klippet" });
       }
     },
   );

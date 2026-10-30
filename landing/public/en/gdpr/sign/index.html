@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A sign for the hall — Courtside</title>
+  <link rel="stylesheet" href="/fonts/inter.css">
+  <link rel="stylesheet" href="/page.css">
+  <link rel="stylesheet" href="/gdpr/gdpr.css">
+  <link rel="icon" href="/courtside.png" type="image/png">
+</head>
+<body>
+<main>
+  <div class="no-print">
+    <a class="back" href="/en/gdpr/">← GDPR</a> · <a class="back" href="/gdpr/skylt/" hreflang="sv">🇸🇪 Svenska</a>
+    <h1>A sign for the hall</h1>
+    <p>Fill in, and print. Nothing you type is sent anywhere.</p>
+    <div class="fields">
+      <label>The club <input id="f-club" placeholder="Hornets Basketball"></label>
+      <label>E-mail for questions <input id="f-mail" type="email" placeholder="board@hornets.org"></label>
+      <label>Your address <input id="f-site" placeholder="hornets.apps.osaas.io"></label>
+    </div>
+    <button class="copy" onclick="print()">Print</button>
+  </div>
+
+  <div class="sign">
+    <p class="big">This game is streamed and recorded</p>
+    <p class="who">by <span id="s-club">[the club]</span>, for the teams' families</p>
+    <p class="small">Don't want to be seen, or want something removed?<br>Contact <span id="s-mail">[e-mail]</span></p>
+    <p class="small">More information: <span id="s-site">[your address]</span>, under "Om inspelningarna"</p>
+  </div>
+</main>
+<script>
+  [["f-club", "s-club"], ["f-mail", "s-mail"], ["f-site", "s-site"]].forEach(function (p) {
+    var input = document.getElementById(p[0]), out = document.getElementById(p[1]), blank = out.textContent;
+    input.addEventListener("input", function () { out.textContent = input.value.trim() || blank; });
+  });
+</script>
+</body>
+</html>

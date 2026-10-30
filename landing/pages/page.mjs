@@ -48,9 +48,7 @@ export function page(t) {
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/">
   <link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/fonts/inter.css">
   <link rel="stylesheet" href="/site.css">
   <link rel="stylesheet" href="/films.css">
 </head>
@@ -118,6 +116,7 @@ export function page(t) {
                 <button type="submit" class="btn btn-primary btn-block" id="create-btn">${t.inst.create}</button>
               </form>
               <p class="muted" style="margin-top:1rem">${t.inst.takes}</p>
+              <p class="muted inst-dpa">${t.inst.dpa}</p>
             </div>
             <div id="progress-view" hidden>
               <h3 id="progress-h">${t.inst.creating} <span id="progress-club"></span></h3>

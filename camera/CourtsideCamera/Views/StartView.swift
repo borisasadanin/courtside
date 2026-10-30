@@ -163,14 +163,16 @@ struct StartView: View {
 
                 // Name + match fields
                 VStack(spacing: 12) {
-                    TextField("Ditt namn", text: $name)
+                    // Shown to every viewer as the camera's name, so it asks
+                    // for a place rather than a person.
+                    TextField("Kameranamn, t.ex. Läktaren", text: $name)
                         .textFieldStyle(.plain)
                         .padding(14)
                         .background(Color(white: 0.12))
                         .cornerRadius(8)
                         .foregroundColor(.white)
                         .autocorrectionDisabled()
-                        .textInputAutocapitalization(.words)
+                        .textInputAutocapitalization(.sentences)
 
                     TextField("Hemmalag", text: $team)
                         .textFieldStyle(.plain)
@@ -189,6 +191,11 @@ struct StartView: View {
                         .foregroundColor(.white)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.words)
+
+                    Text("Syns för alla tittare. Skriv inte ditt eget eller spelares fullständiga namn.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     if let errorMessage {
                         Text(errorMessage)
