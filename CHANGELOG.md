@@ -18,6 +18,16 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.3.5 — 2026-10-30
+
+- Plattformen kan uppdateras direkt från adminvyn: under Version syns vilken version ni kör, och finns en
+  nyare kommer en knapp för att uppdatera. Det går inte medan en match sänds. Plattformar på v0.3.4 eller
+  äldre behöver uppdateras från courtside.apps.osaas.io en sista gång för att få knappen
+- Admin kan se tittarkoden och sätta nya koder under Koder i adminvyn. En ny admin-kod kräver den nuvarande.
+  De gamla koderna slutar gälla direkt, och alla tittare behöver ange den nya
+- Har man glömt admin-koden och inte kommer in alls gäller fortfarande "Glömt admin-koden?" på
+  courtside.apps.osaas.io
+
 ## v0.3.4 — 2026-10-30
 
 - Delade höjdpunkter går att öppna. Länken från Dela-knappen (till exempel i WhatsApp) gav tidigare
