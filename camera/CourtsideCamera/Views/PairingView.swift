@@ -10,7 +10,10 @@ struct PairingView: View {
     @StateObject private var pairing = Pairing.shared
 
     @State private var showManualEntry = false
-    @State private var manualUrl = ""
+    @State private var manualUrl = PairingStore.shared.lastApiUrl ?? ""
+    /// A camera that has paired before already knows its club's address, so
+    /// the form asks only for the code until someone wants to change it.
+    @State private var editingUrl = PairingStore.shared.lastApiUrl == nil
     @State private var manualCode = ""
     @State private var isPairing = false
     @State private var error: String?
@@ -126,12 +129,24 @@ struct PairingView: View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Klubbens adress").font(.caption).foregroundStyle(.secondary)
-                TextField("https://...", text: $manualUrl)
-                    .textContentType(.URL)
-                    .keyboardType(.URL)
-                    .autocapitalization(.none)
-                    .disableAutocorrection(true)
-                    .textFieldStyle(.roundedBorder)
+                if editingUrl {
+                    TextField("klubb.apps.osaas.io", text: $manualUrl)
+                        .textContentType(.URL)
+                        .keyboardType(.URL)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .textFieldStyle(.roundedBorder)
+                } else {
+                    HStack {
+                        Text(manualUrl.replacingOccurrences(of: "^https?://", with: "", options: .regularExpression))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        Button("Ändra") { editingUrl = true }
+                            .font(.subheadline)
+                    }
+                }
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text("Parningskod").font(.caption).foregroundStyle(.secondary)

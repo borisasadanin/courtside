@@ -62,6 +62,8 @@ final class PairingStore: @unchecked Sendable {
     private let account = "pairing"
     private let urlKey = "courtside_api_url"
     private let clubKey = "courtside_club_name"
+    /// Survives disconnecting, so pairing again by hand needs only the code.
+    private let lastUrlKey = "courtside_last_api_url"
 
     private init() {
         cached = loadFromDisk()
@@ -73,10 +75,18 @@ final class PairingStore: @unchecked Sendable {
         return cached
     }
 
+    /// The address this camera last paired with, if any.
+    var lastApiUrl: String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return UserDefaults.standard.string(forKey: lastUrlKey) ?? cached?.apiUrl
+    }
+
     func set(_ creds: PairingCredentials) {
         lock.lock()
         defer { lock.unlock() }
         UserDefaults.standard.set(creds.apiUrl, forKey: urlKey)
+        UserDefaults.standard.set(creds.apiUrl, forKey: lastUrlKey)
         UserDefaults.standard.set(creds.clubName, forKey: clubKey)
         writeToken(creds.token)
         cached = creds
@@ -212,12 +222,16 @@ final class Pairing: ObservableObject {
 
     /// Redeem a code at the given installation and remember the result.
     func pair(apiUrl rawUrl: String, code rawCode: String, deviceName: String) async throws {
-        let apiUrl = rawUrl
+        var apiUrl = rawUrl
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "/+$", with: "", options: .regularExpression)
+        // Typed by hand it is often just "klubb.apps.osaas.io".
+        if !apiUrl.isEmpty, !apiUrl.contains("://") {
+            apiUrl = "https://\(apiUrl)"
+        }
         let code = rawCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 
-        guard !code.isEmpty, let url = URL(string: "\(apiUrl)/api/devices/pair") else {
+        guard !code.isEmpty, !apiUrl.isEmpty, let url = URL(string: "\(apiUrl)/api/devices/pair") else {
             throw PairingError.malformedCode
         }
 
