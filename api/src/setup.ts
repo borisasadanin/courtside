@@ -21,6 +21,8 @@ export interface SetupRecord {
   adminPin: string;
   viewerPin: string;
   completedAt: string;
+  /** When the admin last changed a PIN from the admin view. */
+  changedAt?: string;
 }
 
 interface SetupStorage {
@@ -41,6 +43,11 @@ export function codeMatches(given: string, expected: string): boolean {
   );
 }
 
+function pinMatches(given: string, expected: string): boolean {
+  if (!given || !expected) return false;
+  return crypto.timingSafeEqual(Buffer.from(sha256(given.trim())), Buffer.from(sha256(expected)));
+}
+
 export const ADMIN_PIN_PATTERN = /^\d{6,8}$/;
 export const VIEWER_PIN_PATTERN = /^\d{4,8}$/;
 
@@ -48,6 +55,8 @@ export class Setup {
   private required = false;
   /** The record from before a reset, whose viewer PIN carries over. */
   private previous: SetupRecord | null = null;
+  /** The record in force, rewritten when the admin changes a PIN. */
+  private current: SetupRecord | null = null;
 
   constructor(
     private readonly storage: SetupStorage,
@@ -81,6 +90,7 @@ export class Setup {
     if (record && record.codeHash === sha256(this.normalised())) {
       mutableConfig.ADMIN_PIN = record.adminPin;
       mutableConfig.VIEWER_PIN = record.viewerPin;
+      this.current = record;
       this.required = false;
       return;
     }
@@ -121,8 +131,53 @@ export class Setup {
 
     mutableConfig.ADMIN_PIN = adminPin;
     mutableConfig.VIEWER_PIN = viewerPin;
+    this.current = record;
     this.required = false;
     this.previous = null;
+    return null;
+  }
+
+  /**
+   * Why the admin view cannot change the PINs, or null if it can.  Without a
+   * setup code they come from the environment, and a change here would be
+   * lost at the next restart.
+   */
+  pinsLocked(): string | null {
+    if (!this.setupCode) return "Koderna är satta i serverns inställningar och ändras där.";
+    if (this.required || !this.current) return "Installationen är inte uppsatt än.";
+    return null;
+  }
+
+  /**
+   * New PINs from the admin view, kept in the same record as setup's so they
+   * survive a restart.  A PIN left out stays as it is.  A new admin PIN needs
+   * the current one: a session left open on a shared computer must not be
+   * enough to lock the club out.  Returns an error message, or null.
+   */
+  async changePins(input: {
+    currentAdminPin?: string;
+    adminPin?: string;
+    viewerPin?: string;
+  }): Promise<string | null> {
+    const locked = this.pinsLocked();
+    if (locked) return locked;
+    const record = this.current!;
+
+    const adminPin = input.adminPin?.trim() || record.adminPin;
+    const viewerPin = input.viewerPin === undefined ? record.viewerPin : input.viewerPin.trim();
+    if (adminPin !== record.adminPin) {
+      if (!pinMatches(input.currentAdminPin ?? "", record.adminPin)) return "Fel nuvarande admin-kod.";
+      if (!ADMIN_PIN_PATTERN.test(adminPin)) return "Admin-koden ska vara 6–8 siffror.";
+    }
+    if (viewerPin && !VIEWER_PIN_PATTERN.test(viewerPin)) return "Tittarkoden ska vara 4–8 siffror.";
+    if (viewerPin === adminPin) return "Tittarkoden och admin-koden måste vara olika.";
+
+    const next: SetupRecord = { ...record, adminPin, viewerPin, changedAt: new Date().toISOString() };
+    // Stored first: if storage fails, the PINs in force stay the ones on record.
+    await this.storage.uploadBuffer(SETUP_KEY, JSON.stringify(next, null, 2), "application/json");
+    this.current = next;
+    mutableConfig.ADMIN_PIN = adminPin;
+    mutableConfig.VIEWER_PIN = viewerPin;
     return null;
   }
 

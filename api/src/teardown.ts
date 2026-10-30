@@ -42,11 +42,12 @@ export function clubOf(prefix: string): string | undefined {
   return m?.[1];
 }
 
-function deployBase(): string {
+export function deployBase(): string {
   return `https://deploy.svc.${config.OSC_REGION}.osaas.io`;
 }
 
-async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
+/** A call to OSC's deploy API with this installation's own token. */
+export async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { "x-pat-jwt": `Bearer ${config.OSC_PAT}` };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -57,23 +58,34 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
-/** What would be removed, or the reason this installation cannot remove itself. */
-export async function plan(): Promise<Plan | string> {
+/**
+ * This installation's own app in OSC, as the deploy API describes it, or why
+ * it cannot be found: only one made from the Courtside page carries the names
+ * to look it up by.  `fix` ends the reason with where to do it by hand.
+ */
+export async function ownApp(fix: string): Promise<{ club: string; record: Record<string, unknown> } | string> {
   const club = clubOf(config.PROCESS_PREFIX);
-  if (!club) {
-    return "Den här installationen gjordes inte från Courtside-sidan och kan inte ta bort sig själv. Ta bort den i Open Source Cloud.";
-  }
+  if (!club) return `Den här installationen gjordes inte från Courtside-sidan. ${fix}`;
   const name = `${club}api`;
   const store = `${club}config`;
   const apps = await call<Record<string, unknown>[]>("GET", `${deployBase()}/myapps`);
-  const own = (apps ?? []).find((a) => a.name === name);
-  if (!own || own.configService !== store) {
-    return `Hittar ingen Courtside-app som heter ${name} med inställningarna ${store}. Ta bort den i Open Source Cloud.`;
+  const record = (apps ?? []).find((a) => a.name === name);
+  if (!record || record.configService !== store) {
+    return `Hittar ingen Courtside-app som heter ${name} med inställningarna ${store}. ${fix}`;
   }
+  return { club, record };
+}
+
+/** What would be removed, or the reason this installation cannot remove itself. */
+export async function plan(): Promise<Plan | string> {
+  const own = await ownApp("Ta bort den i Open Source Cloud.");
+  if (typeof own === "string") return own;
+  const { club, record } = own;
+  const name = `${club}api`;
   return {
     club,
-    app: { id: String(own.id ?? own.name), name },
-    store,
+    app: { id: String(record.id ?? record.name), name },
+    store: `${club}config`,
     storage: `${club}storage`,
     restreamer: config.OSC_INSTANCE_NAME,
     tokenPrefix: `courtside-${club}-`,

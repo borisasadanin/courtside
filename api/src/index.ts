@@ -1,5 +1,4 @@
 import "dotenv/config";
-import { readFileSync } from "node:fs";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
@@ -29,6 +28,7 @@ import webRoutes, { webDistDir } from "./routes/web.js";
 import setupRoutes from "./routes/setup-routes.js";
 import { Setup } from "./setup.js";
 import { Branding } from "./club-branding.js";
+import { VERSION } from "./version.js";
 
 // --- Validate required env vars (exits on failure) ---
 validateConfig();
@@ -109,16 +109,6 @@ if (webRoot) {
 } else {
   console.log("No built website found — serving the API only");
 }
-
-// The release this installation runs: the repository root's package.json,
-// whose version is bumped in the commit each vX.Y.Z tag points to.
-const VERSION = (() => {
-  try {
-    return JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version as string;
-  } catch {
-    return "unknown";
-  }
-})();
 
 // --- Health check ---
 app.get("/health", async () => {

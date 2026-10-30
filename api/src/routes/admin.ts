@@ -4,9 +4,10 @@
 import type { FastifyInstance } from "fastify";
 import { requireAdminAuth } from "../auth.js";
 import { config } from "../config.js";
-import { minio } from "../state.js";
+import { minio, oscManager } from "../state.js";
 import { runPreflight, overallStatus } from "../preflight.js";
 import { plan, removeData, removeSelf } from "../teardown.js";
+import { NotNow, startUpdate, updateInfo } from "../update.js";
 
 export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/admin/storage — Get storage usage info (admin)
@@ -80,6 +81,26 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
     reply.send({ club: p.club, removed });
     // After the answer is on its way: removing the app ends this process.
     setTimeout(() => void removeSelf(p, request.log), 1000);
+  });
+
+  // GET /api/admin/update — Which release this runs, and whether a newer one is out
+  app.get("/api/admin/update", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    return reply.header("Cache-Control", "no-cache").send(await updateInfo());
+  });
+
+  // POST /api/admin/update — Rebuild from the newest release (site down a few minutes)
+  app.post("/api/admin/update", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    try {
+      const version = await startUpdate(oscManager.getActiveStreamCount());
+      request.log.info({ version }, "update started from the admin view");
+      return reply.code(202).send({ version });
+    } catch (err) {
+      if (err instanceof NotNow) return reply.code(409).send({ error: err.message });
+      request.log.error(err, "update failed");
+      return reply.code(502).send({ error: "Uppdateringen kunde inte startas. Försök igen om en stund." });
+    }
   });
 
   // GET /api/admin/verify — Check if admin token is still valid

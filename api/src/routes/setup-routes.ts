@@ -1,8 +1,10 @@
 /**
- * First-run setup endpoints — see setup.ts.
+ * First-run setup endpoints, and changing the PINs afterwards from the admin
+ * view — see setup.ts.
  */
 import type { FastifyInstance } from "fastify";
-import { createAdminToken, createViewerToken } from "../auth.js";
+import { createAdminToken, createViewerToken, requireAdminAuth } from "../auth.js";
+import { mutableConfig } from "../config.js";
 import type { Setup } from "../setup.js";
 
 export default async function setupRoutes(
@@ -38,6 +40,48 @@ export default async function setupRoutes(
         token: createViewerToken(),
         role: "admin",
         adminToken: createAdminToken(),
+      });
+    },
+  );
+
+  // GET /api/admin/pins — The viewer PIN, for the admin to pass on, and
+  // whether the PINs can be changed here.  The admin PIN is never sent.
+  app.get("/api/admin/pins", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    const locked = setup.pinsLocked();
+    return reply.header("Cache-Control", "no-store").send({
+      viewerPin: mutableConfig.VIEWER_PIN,
+      changeable: !locked,
+      reason: locked ?? undefined,
+    });
+  });
+
+  // PUT /api/admin/pins — New viewer and/or admin PIN.  An empty viewer PIN
+  // opens watching to anyone with the link.
+  app.put<{ Body: { currentAdminPin?: string; adminPin?: string; viewerPin?: string } }>(
+    "/api/admin/pins",
+    { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      if (!requireAdminAuth(request, reply)) return;
+      let error: string | null;
+      try {
+        error = await setup.changePins(request.body || {});
+      } catch (err) {
+        request.log.error(err, "storing new PINs failed");
+        return reply.code(502).send({ error: "Kunde inte spara koderna. Försök igen om en stund." });
+      }
+      if (error) {
+        const status = error.startsWith("Fel nuvarande") ? 403 : setup.pinsLocked() ? 409 : 400;
+        return reply.code(status).send({ error });
+      }
+
+      // Sessions are signed with the PINs, so every one from before is now
+      // invalid, the admin's own included: hand the admin fresh ones.
+      app.log.info("PINs changed from the admin view");
+      return reply.send({
+        token: createViewerToken(),
+        adminToken: createAdminToken(),
+        viewerPin: mutableConfig.VIEWER_PIN,
       });
     },
   );

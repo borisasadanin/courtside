@@ -2074,7 +2074,9 @@ footer {
   text-decoration: underline; cursor: pointer; padding: 4px 0; font-size: 0.85rem;
 }
 .branding-field { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-muted); }
-.branding-field input[type="text"] {
+.branding-field input[type="text"],
+.branding-field input[type="tel"],
+.branding-field input[type="password"] {
   background: var(--surface-hover); color: var(--text); border: 1px solid #2a2a2a;
   border-radius: var(--radius); padding: 10px 12px; font-size: 1rem; min-height: 44px;
 }
@@ -2085,7 +2087,9 @@ footer {
 .branding-contrast { color: var(--red); font-size: 0.8rem; }
 .branding-save-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .branding-status { font-size: 0.85rem; color: var(--text-muted); }
-.admin-version { margin-top: 24px; text-align: center; font-size: 0.8rem; color: var(--text-muted); }
+.pins-current { color: var(--text); letter-spacing: 0.1em; }
+.pins-admin { margin-top: 12px; }
+.update-link { color: var(--accent); }
 .branding-status.error { color: var(--red); }
 
 .pin-skip:not(.hidden) { display: block; margin: 16px auto 0; }
