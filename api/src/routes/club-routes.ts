@@ -48,6 +48,17 @@ export default async function clubRoutes(
     },
   );
 
+  // PUT /api/admin/club/privacy — who answers for the recordings
+  app.put<{ Body: { controller?: string; contact?: string; policyUrl?: string } }>(
+    "/api/admin/club/privacy",
+    async (request, reply) => {
+      if (!requireAdminAuth(request, reply)) return;
+      const error = await branding.updatePrivacy(request.body || {});
+      if (error) return reply.code(400).send({ error });
+      return reply.send(clubManifest);
+    },
+  );
+
   // PUT /api/admin/club/logo — a data URL, resized by the admin view first
   app.put<{ Body: { dataUrl?: string } }>(
     "/api/admin/club/logo",

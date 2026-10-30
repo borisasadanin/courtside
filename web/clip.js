@@ -2,10 +2,12 @@ import Hls from "hls.js";
 import { CONFIG } from "./modules/config.js";
 import { club, loadClub } from "./modules/club.js";
 import { mediaUrl } from "./modules/utils.js";
+import { initPrivacy } from "./modules/privacy.js";
 
 (async function init() {
   // Theme first — the error state is branded too.
   await loadClub();
+  initPrivacy();
 
   const clipId = parseHash();
   if (!clipId) return showError();

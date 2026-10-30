@@ -52,6 +52,22 @@ export interface ClubManifest {
   tagline: string;
   /** Sport terminology and rules. */
   sport: SportProfile;
+  /** Who answers for the recordings, shown under "Om inspelningarna". */
+  privacy: ClubPrivacy;
+}
+
+/**
+ * The club is responsible for what it records, and viewers must be told who
+ * that is and how to reach them.  Set in the admin view; empty until then, and
+ * the website falls back to the club's name.
+ */
+export interface ClubPrivacy {
+  /** The association responsible, e.g. "Hammarby IF Basketförening". */
+  controller: string;
+  /** Where to ask about or object to a recording. */
+  contact: string;
+  /** The club's own privacy policy, if it has one. */
+  policyUrl: string;
 }
 
 function optional(name: string, fallback: string): string {
@@ -81,6 +97,7 @@ export const clubManifest: ClubManifest = {
   siteUrl: optional("PUBLIC_SITE_URL", "").replace(/\/$/, ""),
   tagline: optional("CLUB_TAGLINE", `Följ ${NAME} live — direkt från hallen.`),
   sport: BASKETBALL,
+  privacy: { controller: "", contact: "", policyUrl: "" },
 };
 
 /** Default team name for a new recording when the camera sends none. */

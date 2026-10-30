@@ -6,7 +6,7 @@ import { state, dom } from "./state.js";
 import { escapeHtml, formatDuration, formatDate, formatBytes } from "./utils.js";
 import { logoutViewer } from "./auth.js";
 import { loadDevices, startPairing } from "./devices.js";
-import { renderBranding } from "./branding.js";
+import { renderBranding, renderPrivacyAdmin } from "./branding.js";
 import { renderTeardown } from "./teardown.js";
 import { renderPins } from "./pins.js";
 import { renderUpdate } from "./update.js";
@@ -65,6 +65,7 @@ export async function loadAdminStorage() {
   // Cameras load alongside storage — both belong to the admin view.
   loadDevices();
   renderBranding();
+  renderPrivacyAdmin();
   renderTeardown();
   renderShare();
   renderPins();

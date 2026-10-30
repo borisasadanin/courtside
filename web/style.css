@@ -2260,3 +2260,34 @@ footer {
 
 .admin-share-url { font-size: 1.15rem; font-weight: 600; margin: 0 0 8px; word-break: break-all; }
 .admin-share-url a { color: var(--accent); }
+
+/* ── About the recordings ──────────────────────────────────────────────── */
+
+footer a { color: var(--text-muted); }
+footer a:hover { color: var(--accent); }
+
+.pin-privacy { margin-top: 20px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+.pin-privacy a { color: var(--accent); }
+
+.privacy-dialog {
+  max-width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 1px solid #2a2a2a;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.privacy-dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
+
+.privacy-body { padding: 24px; line-height: 1.55; font-size: 0.9rem; }
+.privacy-body h2 { margin: 0 0 12px; font-size: 1.2rem; }
+.privacy-body h3 { margin: 18px 0 4px; font-size: 0.95rem; }
+.privacy-body p { margin: 0 0 8px; }
+.privacy-body a { color: var(--accent); }
+.privacy-note { margin-top: 16px !important; font-size: 0.8rem; color: var(--text-muted); }
+.privacy-close { margin-top: 16px; width: 100%; }
+
+.privacy-admin-intro { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 12px; line-height: 1.5; }
+.privacy-admin-intro a { color: var(--accent); }
