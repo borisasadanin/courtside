@@ -74,7 +74,7 @@ export function renderPrivacyAdmin() {
   if (!el) return;
   const p = club.privacy || {};
   el.innerHTML = `
-    <p class="privacy-admin-intro">Föreningen ansvarar för det som spelas in. Tittarna ser de här uppgifterna under <a href="#" data-privacy-open>Om inspelningarna</a>, längst ner på sidan och vid tittarkoden.</p>
+    <p class="privacy-admin-intro">Föreningen ansvarar för det som spelas in. Tittarna ser de här uppgifterna under <a href="#" data-privacy-open>Om inspelningarna</a>, längst ner på sidan och vid tittarkoden. Texter till föräldrar och motståndarlag, och en skylt till hallen, finns på <a href="https://courtside.apps.osaas.io/gdpr/" target="_blank" rel="noopener">courtside.apps.osaas.io/gdpr</a>.</p>
     <label class="branding-field">Ansvarig förening
       <input type="text" id="privacyController" maxlength="100" placeholder="${escapeHtml(club.shortName || club.name)}" value="${escapeHtml(p.controller || "")}">
     </label>

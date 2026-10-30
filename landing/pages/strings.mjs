@@ -198,7 +198,7 @@ export const sv = {
 
   foot: {
     runs: "Courtside körs på", oss: "Öppen källkod (Apache-2.0)",
-    links: [["/data/", "Era filmer"], ["/integritet/", "Integritet"], ["/support/", "Support"]],
+    links: [["/data/", "Era filmer"], ["/gdpr/", "GDPR"], ["/integritet/", "Integritet"], ["/support/", "Support"]],
     more: "Fler tjänster:",
   },
 
@@ -419,7 +419,7 @@ export const en = {
 
   foot: {
     runs: "Courtside runs on", oss: "Open source (Apache-2.0)",
-    links: [["/en/data/", "Your videos"], ["/en/privacy/", "Privacy"], ["/en/support/", "Support"]],
+    links: [["/en/data/", "Your videos"], ["/en/gdpr/", "GDPR"], ["/en/privacy/", "Privacy"], ["/en/support/", "Support"]],
     more: "More services:",
   },
 

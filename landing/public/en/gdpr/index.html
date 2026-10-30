@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GDPR — Courtside</title>
+  <link rel="stylesheet" href="/fonts/inter.css">
+  <link rel="stylesheet" href="/page.css">
+  <link rel="stylesheet" href="/gdpr/gdpr.css">
+  <link rel="icon" href="/courtside.png" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+<main>
+  <a class="back" href="/en/">← Courtside</a> · <a class="back" href="/gdpr/" hreflang="sv">🇸🇪 Svenska</a>
+  <h1>GDPR for your Courtside</h1>
+  <p>It is usually children on camera. Here is who is responsible for what, and ready-made texts to send to parents and visiting teams.</p>
+
+  <h2>Who is responsible for what</h2>
+  <p><strong>Your club</strong> is the controller for what is streamed and recorded. The club decides who may watch, how long the videos are kept, and removes whatever someone asks to have removed.</p>
+  <p><strong>Open Source Cloud</strong> stores the videos for the club, in Stockholm, and Eyevinn is then the club's processor under <a href="https://www.osaas.io/dpa">OSC's data processing agreement</a>. Accept it for your account in the OSC console.</p>
+  <p><strong>Courtside</strong> is the software. Eyevinn does not watch or use your videos.</p>
+
+  <h2>What you do once</h2>
+  <ol>
+    <li>Choose a viewer code and share it with the team's families only.</li>
+    <li>Fill in <em>Om inspelningarna</em> (About the recordings) in the admin view: the club responsible and an e-mail address for questions. Viewers see it at the bottom of the page and by the viewer code.</li>
+    <li>Send the information below to the parents.</li>
+    <li>Decide how long you keep the games, and delete them when that time is up.</li>
+  </ol>
+
+  <h2>To the parents</h2>
+  <p class="muted">Short enough for the team chat. Replace what is in square brackets.</p>
+  <div class="template" id="t-parents">Hi! We stream and record [the team's] games with Courtside, so families who cannot be there can follow them.
+
+• [The club] is responsible for the videos.
+• Only those with our viewer code can watch. We share the code here. Please do not pass it on.
+• Short highlights are saved during the game. A clip can be shared with a link, but it cannot be downloaded from there.
+• We keep the games for [one year] and then delete them.
+• Want a clip or a game removed, or don't want your child filmed? Tell [name or e-mail] and we will sort it out.
+
+More under "Om inspelningarna" at [your address].</div>
+  <button class="copy" data-copy="t-parents">Copy the text</button>
+
+  <h2>To the visiting team</h2>
+  <p class="muted">Put it in the game invitation. The visiting players are filmed too, and have no other way of finding out.</p>
+  <div class="template" id="t-visitors">The game is streamed and recorded by [the club] with Courtside. Only those with the club's viewer code can watch, and the recording is kept for [one year]. If anyone on your team does not want to be seen, or wants a clip removed, contact [e-mail] before or after the game. More: [your address], under "Om inspelningarna".</div>
+  <button class="copy" data-copy="t-visitors">Copy the text</button>
+
+  <h2>A sign for the hall</h2>
+  <p>Put up a sign at the entrance or by the camera, so everyone in the hall knows the game is streamed. <a href="/en/gdpr/sign/">Make a sign to print</a>.</p>
+
+  <h2>When someone does not want to take part</h2>
+  <p>It is the club's call how to handle it. Common ways are to point the camera away from the bench, not to stream that game, or to delete clips afterwards. Delete clips and games in the admin view and tick that it is on request, and it is noted in the deletion log.</p>
+
+  <p class="muted" style="margin-top:32px">This is support, not legal advice. The club decides itself which legal basis it relies on and whether it needs an impact assessment.</p>
+</main>
+<script>
+  document.querySelectorAll("[data-copy]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var text = document.getElementById(b.getAttribute("data-copy")).textContent;
+      navigator.clipboard.writeText(text).then(function () { b.textContent = "Copied"; });
+    });
+  });
+</script>
+</body>
+</html>
