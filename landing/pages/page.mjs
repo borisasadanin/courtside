@@ -116,6 +116,7 @@ export function page(t) {
                 <button type="submit" class="btn btn-primary btn-block" id="create-btn">${t.inst.create}</button>
               </form>
               <p class="muted" style="margin-top:1rem">${t.inst.takes}</p>
+              <p class="muted inst-dpa">${t.inst.dpa}</p>
             </div>
             <div id="progress-view" hidden>
               <h3 id="progress-h">${t.inst.creating} <span id="progress-club"></span></h3>

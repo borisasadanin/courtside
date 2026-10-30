@@ -505,3 +505,6 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
 .done-codes { margin: 0 0 1rem; padding-left: 1.1rem; }
 .done-codes li { margin: .3rem 0; }
 .inst-item .url-label { display: block; font-size: .8rem; color: var(--muted, #9a9aa5); margin-top: .35rem; }
+
+.inst-dpa { font-size: 13px; margin-top: 0.75rem; }
+.inst-dpa a { color: var(--accent); }
