@@ -1,6 +1,33 @@
 /* === Courtside === */
 
+/* Inter for everything you read; Barlow Condensed, scoreboard-like, only for
+   team names, headings and numbers. Self-hosted (fonts/OFL.txt). */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/inter-latin-var.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fonts/barlow-condensed-latin-700.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("fonts/barlow-condensed-latin-800.woff2") format("woff2");
+}
+
 :root {
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --bg: #0a0a0a;
   --surface: #141414;
   --surface-hover: #1e1e1e;
@@ -22,6 +49,8 @@
   --green: #27ae60;
   /* Status colours mean the same thing for every club */
   --live: #d42a36;
+  /* Basketball court line drawing, the poster for cards without a thumbnail */
+  --court-lines: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 172' fill='none' stroke='%232a323e' stroke-width='2'%3E%3Crect x='1' y='1' width='318' height='170' rx='2'/%3E%3Cline x1='160' y1='1' x2='160' y2='171'/%3E%3Ccircle cx='160' cy='86' r='24'/%3E%3Crect x='1' y='56' width='56' height='60'/%3E%3Crect x='263' y='56' width='56' height='60'/%3E%3Cpath d='M1 18 Q 118 86 1 154'/%3E%3Cpath d='M319 18 Q 202 86 319 154'/%3E%3C/svg%3E");
 }
 
 *, *::before, *::after {
@@ -31,7 +60,7 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -69,9 +98,12 @@ header {
 }
 
 .header-text h1 {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
   letter-spacing: 0.02em;
+  text-transform: uppercase;
   color: var(--text);
 }
 
@@ -160,7 +192,8 @@ header {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: color 0.2s, background 0.2s;
+  /* No transition: it would fade in from the default accent before the
+     club's colour has loaded */
 }
 
 .tab-icon {
@@ -274,28 +307,31 @@ main {
 
 .pin-container {
   text-align: center;
-  padding: 60px 20px;
-  max-width: 340px;
+  padding: 56px 20px;
+  max-width: 360px;
   margin: 0 auto;
 }
 
 .pin-logo {
-  width: 72px;
-  height: 72px;
+  width: 80px;
+  height: 80px;
   object-fit: contain;
-  opacity: 0.5;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .pin-title {
-  font-size: 1.3rem;
-  font-weight: 700;
-  margin-bottom: 8px;
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  margin-bottom: 10px;
 }
 
 .pin-desc {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 1rem;
+  line-height: 1.5;
   margin-bottom: 28px;
 }
 
@@ -305,15 +341,16 @@ main {
 
 #pinInput {
   width: 100%;
-  max-width: 200px;
-  padding: 14px 16px;
-  font-size: 1.6rem;
+  max-width: 280px;
+  padding: 12px 16px;
+  font-family: var(--font-display);
+  font-size: 2rem;
   font-weight: 700;
   letter-spacing: 0.4em;
   text-align: center;
   background: var(--surface);
-  border: 2px solid #333;
-  border-radius: var(--radius);
+  border: 2px solid #3a3f49;
+  border-radius: 12px;
   color: var(--text);
   outline: none;
   transition: border-color 0.2s;
@@ -331,20 +368,22 @@ main {
 }
 
 #pinInput::placeholder {
-  color: #444;
+  color: #4b515c;
   letter-spacing: 0.4em;
 }
 
 .pin-btn {
   width: 100%;
-  max-width: 200px;
+  max-width: 280px;
+  min-height: 52px;
   padding: 12px 24px;
+  font-family: inherit;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   background: var(--accent);
   color: var(--on-accent);
   border: none;
-  border-radius: var(--radius);
+  border-radius: 12px;
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
 }
@@ -386,12 +425,14 @@ main {
 
 .setup-field input {
   width: 100%;
+  min-height: 48px;
   padding: 12px 14px;
+  font-family: inherit;
   font-size: 1.1rem;
   letter-spacing: 0.1em;
   background: var(--surface);
-  border: 2px solid #333;
-  border-radius: var(--radius);
+  border: 2px solid #3a3f49;
+  border-radius: 12px;
   color: var(--text);
   outline: none;
   transition: border-color 0.2s;
@@ -433,50 +474,82 @@ main {
 
 .stream-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
 }
 
+/* A card per camera. The poster is a drawn court until real thumbnails exist. */
 .stream-card {
-  background: var(--surface);
-  border: 1px solid #222;
-  border-radius: var(--radius);
-  padding: 20px;
-  cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  transition: background 0.15s, border-color 0.15s;
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  cursor: pointer;
   text-align: left;
   color: var(--text);
   font-family: inherit;
   font-size: inherit;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .stream-card:hover {
   background: var(--surface-hover);
-  border-color: var(--accent-ink);
+  border-color: #3a3f49;
+}
+
+.stream-card:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.stream-card-poster {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  background: #12161c var(--court-lines) center / 92% auto no-repeat;
 }
 
 .stream-card-top {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
 }
 
 .stream-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: #fff;
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  padding: 3px 8px;
-  border-radius: 3px;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 999px;
   flex-shrink: 0;
 }
 
 .stream-card-badge.live {
-  background: var(--red);
-  animation: badge-pulse 2s ease-in-out infinite;
+  background: var(--live);
+}
+
+/* Status is told by text and a dot, never by colour alone */
+.stream-card-badge.live::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  animation: pulse-dot 2s infinite;
 }
 
 .stream-card-badge.waiting {
@@ -486,7 +559,8 @@ main {
 }
 
 .stream-card-badge.stopped {
-  background: #555;
+  background: #3a3f49;
+  color: #d5d9e0;
 }
 
 .stream-card-badge.paused {
@@ -495,34 +569,75 @@ main {
   animation: badge-pulse 3s ease-in-out infinite;
 }
 
+.stream-card-viewers {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stream-card-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s;
+}
+
+.stream-card:hover .stream-card-play {
+  transform: scale(1.06);
+}
+
+.stream-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.stream-card-name {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.stream-card-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
 .stream-card.paused {
-  border-color: #f59e0b33;
-  cursor: pointer;
+  border-color: #f59e0b55;
 }
 
 .stream-card.paused:hover {
-  background: var(--surface-hover);
-  border-color: #f59e0b88;
+  border-color: #f59e0b99;
 }
 
 .stream-card.stopped {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: default;
 }
 
 .stream-card.stopped:hover {
   background: var(--surface);
-  border-color: #222;
-}
-
-.stream-card-viewers {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.stream-card-name {
-  font-size: 1rem;
-  font-weight: 600;
+  border-color: var(--line);
 }
 
 /* --- VOD list --- */
@@ -618,135 +733,133 @@ main {
 .match-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding: 4px 24px 40px;
+  gap: 16px;
+  padding: 4px 0 40px;
   max-width: 860px;
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
 }
 
-/* Thin gold separator between match sections */
+/* Each match is its own card now, so the line between them is not needed */
 .match-separator {
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--accent-dim) 20%,
-    var(--accent-dim) 80%,
-    transparent
-  );
-  opacity: 0.55;
+  display: none;
 }
 
-/* Open layout — no outer box */
 .match-group {
-  padding: 26px 0 22px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
 }
 
 /* ── Match header ─────────────────────────── */
 
 .match-group-header {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .match-eyebrow {
   display: block;
-  font-size: 0.58rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   color: var(--accent-ink);
   text-transform: uppercase;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
 }
 
 .match-group-title {
-  font-size: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
   font-weight: 800;
-  margin: 0 0 5px;
-  line-height: 1.2;
+  margin: 0 0 6px;
+  line-height: 1.05;
+  text-transform: uppercase;
   color: var(--text);
 }
 
 .match-group-date {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
   margin: 0;
 }
 
-/* ── Recording cards (large tiles) ──────── */
+/* ── Recording cards: one per camera angle ── */
 
 .match-recordings {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 6px;
+  gap: 8px;
 }
 
 .recording-card {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
-  padding: 16px 20px;
-  background: var(--surface);
-  border: 1px solid #222;
-  border-radius: var(--radius);
+  min-height: 60px;
+  padding: 8px 8px 8px 14px;
+  background: var(--surface-hover);
+  border: 1px solid var(--line);
+  border-radius: 12px;
   cursor: pointer;
   color: var(--text);
   font-family: inherit;
   font-size: inherit;
   text-align: left;
-  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .recording-card:hover {
-  background: var(--surface-hover);
-  border-color: rgba(200, 164, 64, 0.4);
-  transform: translateY(-1px);
+  border-color: #3a3f49;
+}
+
+.recording-card:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 
 .recording-card-icon {
-  color: var(--accent-ink);
-  opacity: 0.7;
+  color: var(--text-muted);
   display: flex;
   flex-shrink: 0;
 }
 
 .recording-card-name {
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 600;
   flex: 1;
   line-height: 1.3;
 }
 
 .recording-card-dur {
-  font-size: 0.82rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
 
 .recording-card-play {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex-shrink: 0;
-  font-size: 0.72rem;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--accent-ink);
-  transition: color 0.15s;
-}
-
-.recording-card:hover .recording-card-play {
-  color: var(--accent-ink);
 }
 
 /* ── Highlights section ──────────────────── */
 
 .match-highlights {
-  border-top: 1px solid #1e1e1e;
+  border-top: 1px solid var(--line);
   padding-top: 14px;
   margin-top: 14px;
 }
@@ -755,129 +868,134 @@ main {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   color: var(--accent-ink);
   margin-bottom: 10px;
   text-transform: uppercase;
 }
 
 .match-highlights-count {
-  background: rgba(200, 164, 64, 0.12);
+  background: var(--accent-soft);
   color: var(--accent-ink);
   padding: 1px 8px;
   border-radius: 10px;
-  font-size: 0.58rem;
+  font-size: 0.7rem;
   font-weight: 700;
 }
 
 .match-highlights-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 8px;
 }
 
-/* Clip card — smaller subordinate tile */
+/* Highlight: a chip in the club tone, with share and download beside it.
+   Every part is at least 44px tall, so it can be hit with a thumb. */
 
 .clip-chip {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: flex-start;
-  gap: 1px;
-  padding: 9px 13px;
-  min-width: 72px;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid #202020;
-  border-radius: 6px;
+  gap: 2px;
+  min-height: 52px;
+  min-width: 84px;
+  padding: 6px 14px;
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: 12px;
   cursor: pointer;
   font-family: inherit;
   color: var(--text);
-  transition: background 0.15s, border-color 0.15s;
+  transition: border-color 0.15s;
 }
 
 .clip-chip:hover {
-  background: rgba(200, 164, 64, 0.07);
-  border-color: rgba(200, 164, 64, 0.3);
+  border-color: var(--accent-ink);
 }
 
 .clip-chip-num {
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 0.58rem;
-  font-weight: 800;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
   color: var(--accent-ink);
   letter-spacing: 0.04em;
-  margin-bottom: 4px;
 }
 
 .clip-chip-time {
-  font-size: 0.86rem;
-  font-weight: 600;
-  line-height: 1.2;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .clip-chip-dur {
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
 }
 
 .clip-chip-sep { display: none; }
 
-/* Clip chip wrapper — chip + share button side by side */
+/* Clip chip wrapper — chip + share and download side by side */
 .clip-chip-wrapper {
   display: flex;
   align-items: stretch;
-  gap: 0;
-}
-
-.clip-chip-wrapper .clip-chip {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-right: none;
+  gap: 4px;
 }
 
 .clip-share-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
+  width: 44px;
+  min-height: 44px;
   padding: 0;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid #202020;
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 12px;
   color: var(--text-muted);
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   text-decoration: none;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.clip-share-btn:last-child {
-  border-radius: 0 6px 6px 0;
+.clip-share-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .clip-share-btn:hover {
-  background: rgba(200, 164, 64, 0.07);
-  border-color: rgba(200, 164, 64, 0.3);
-  color: var(--accent-ink);
+  border-color: #3a3f49;
+  color: var(--text);
+}
+
+.clip-chip:focus-visible,
+.clip-share-btn:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 
 .clip-share-copied {
-  color: #4ade80;
-  background: rgba(74, 222, 128, 0.08);
+  color: #3dd68c;
+  border-color: rgba(61, 214, 140, 0.4);
 }
 
 /* Empty state */
 
 .empty-state {
   text-align: center;
-  padding: 60px 20px;
+  padding: 48px 24px;
   position: relative;
-  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
   overflow: hidden;
   min-height: 280px;
   display: flex;
@@ -913,10 +1031,10 @@ main {
 }
 
 .empty-logo {
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
-  opacity: 0.3;
+  opacity: 0.5;
   margin-bottom: 20px;
   transition: opacity 0.4s;
 }
@@ -928,8 +1046,9 @@ main {
 }
 
 .empty-state p {
-  color: var(--text-muted);
-  font-size: 1rem;
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 700;
 }
 
 .empty-state.upcoming p,
@@ -939,9 +1058,12 @@ main {
 }
 
 .empty-sub {
-  font-size: 0.85rem !important;
-  margin-top: 6px;
-  opacity: 0.6;
+  max-width: 34ch;
+  margin: 8px auto 0;
+  font-size: 0.95rem !important;
+  font-weight: 400 !important;
+  line-height: 1.5;
+  color: var(--text-muted) !important;
 }
 
 .empty-state.upcoming .empty-sub,
@@ -953,7 +1075,7 @@ main {
 /* Upcoming: gold glow */
 .empty-state.upcoming {
   border: 1px solid var(--accent-dim);
-  box-shadow: 0 0 30px rgba(200, 164, 63, 0.15);
+  box-shadow: 0 0 30px var(--accent-soft);
 }
 
 .empty-state.upcoming #emptyTitle {
@@ -1184,8 +1306,9 @@ main {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
-  background: rgba(255, 255, 255, 0.5);
+  width: 3px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.8);
   z-index: 2;
   pointer-events: none;
 }
@@ -1511,7 +1634,11 @@ main {
 }
 
 .info-section h2 {
-  font-size: 1.1rem;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-transform: uppercase;
   margin-bottom: 6px;
 }
 
@@ -1528,7 +1655,7 @@ footer {
   padding: 20px;
   color: var(--text-muted);
   font-size: 0.75rem;
-  border-top: 1px solid #1a1a1a;
+  border-top: 1px solid var(--line);
 }
 
 /* Courtside's own mark — never replaced by the club's logo. */
@@ -1599,10 +1726,6 @@ footer {
     gap: 10px;
   }
 
-  .stream-card {
-    padding: 16px;
-  }
-
   .volume-slider {
     width: 50px;
   }
@@ -1671,17 +1794,23 @@ footer {
 }
 
 .admin-title {
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .admin-logout-btn {
   background: none;
-  border: 1px solid #444;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  padding: 6px 14px;
-  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
 }
@@ -1693,8 +1822,8 @@ footer {
 
 .admin-storage-summary {
   background: var(--surface);
-  border: 1px solid #222;
-  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  border-radius: 16px;
   padding: 20px;
   margin-bottom: 20px;
 }
@@ -1735,8 +1864,10 @@ footer {
 }
 
 .storage-total {
-  font-size: 1.3rem;
+  font-family: var(--font-display);
+  font-size: 1.9rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--text);
 }
 
@@ -1754,9 +1885,9 @@ footer {
 
 .admin-vod-item {
   background: var(--surface);
-  border: 1px solid #222;
-  border-radius: var(--radius);
-  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 12px 12px 16px;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1785,9 +1916,11 @@ footer {
 }
 
 .admin-vod-size {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--accent-ink);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
   white-space: nowrap;
   min-width: 70px;
   text-align: right;
@@ -1795,11 +1928,14 @@ footer {
 
 .admin-vod-delete {
   background: none;
-  border: 1px solid #444;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  padding: 6px 12px;
-  border-radius: var(--radius);
+  border: 1px solid rgba(212, 42, 54, 0.45);
+  color: #ff8a92;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
@@ -1970,38 +2106,26 @@ footer {
   background: #000;
 }
 
+/* On phones the mini-player floats above the bottom bar, not over it */
+@media (max-width: 767px) {
+  .clip-player {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+}
+
 @media (max-width: 480px) {
   .clip-player {
-    bottom: 10px;
     right: 10px;
     left: 10px;
     width: auto;
   }
 
-  .match-list {
-    padding: 4px 14px 24px;
-  }
-
   .match-group {
-    padding: 20px 0 16px;
+    padding: 14px;
   }
 
   .match-group-title {
-    font-size: 1.05rem;
-  }
-
-  .match-recordings {
-    gap: 8px;
-  }
-
-  .recording-card {
-    padding: 14px 16px;
-    gap: 10px;
-  }
-
-  .match-highlights {
-    padding-top: 12px;
-    margin-top: 10px;
+    font-size: 1.4rem;
   }
 }
 
@@ -2037,9 +2161,10 @@ footer {
   background: var(--accent);
   color: var(--on-accent);
   border: none;
-  border-radius: var(--radius);
-  padding: 10px 16px;
-  font-weight: 600;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-family: inherit;
+  font-weight: 700;
   font-size: 0.9rem;
   cursor: pointer;
   min-height: 44px;
@@ -2052,7 +2177,8 @@ footer {
 
 .admin-pair-panel {
   background: var(--surface);
-  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  border-radius: 16px;
   padding: 20px;
   margin-bottom: 16px;
   text-align: center;
@@ -2087,10 +2213,11 @@ footer {
 
 .pair-code {
   margin: 0 0 4px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 1.5rem;
-  letter-spacing: 0.1em;
-  color: var(--accent-ink);
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text);
 }
 
 .pair-url {
@@ -2113,8 +2240,10 @@ footer {
   justify-content: space-between;
   gap: 12px;
   background: var(--surface);
-  border-radius: var(--radius);
-  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  min-height: 64px;
+  padding: 10px 10px 10px 16px;
   margin-bottom: 8px;
 }
 
@@ -2137,9 +2266,11 @@ footer {
 
 .device-revoke {
   background: transparent;
-  border: 1px solid var(--text-muted);
-  color: var(--text-muted);
-  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: 10px;
   padding: 8px 14px;
   font-size: 0.85rem;
   cursor: pointer;
@@ -2176,8 +2307,8 @@ footer {
 .branding-field input[type="text"],
 .branding-field input[type="tel"],
 .branding-field input[type="password"] {
-  background: var(--surface-hover); color: var(--text); border: 1px solid #2a2a2a;
-  border-radius: var(--radius); padding: 10px 12px; font-size: 1rem; min-height: 44px;
+  background: var(--bg); color: var(--text); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 14px; font-family: inherit; font-size: 1rem; min-height: 46px;
 }
 .branding-colour { flex-direction: row; align-items: center; gap: 12px; }
 .branding-colour input[type="color"] {
@@ -2200,8 +2331,8 @@ footer {
 .admin-danger {
   margin: 0;
   padding: 16px;
-  border: 1px solid rgba(231, 76, 60, 0.45);
-  border-radius: var(--radius);
+  border: 1px solid rgba(212, 42, 54, 0.45);
+  border-radius: 16px;
 }
 
 /* ── Hantera: an overview, and one page per section ─────────────────────── */
@@ -2218,9 +2349,20 @@ footer {
 }
 
 .admin-page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
   margin: 0;
+}
+
+/* Utseende and Koder render their forms straight into these containers */
+.admin-page > .admin-branding {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
 }
 
 .admin-page .admin-storage-summary {
@@ -2346,12 +2488,14 @@ footer {
 }
 
 .teardown-btn {
-  background: var(--red);
+  background: var(--live);
   color: #fff;
   border: none;
-  border-radius: var(--radius);
-  padding: 10px 16px;
-  font-weight: 600;
+  border-radius: 12px;
+  min-height: 48px;
+  padding: 10px 18px;
+  font-family: inherit;
+  font-weight: 700;
   font-size: 0.9rem;
   cursor: pointer;
 }

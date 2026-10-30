@@ -43,7 +43,7 @@ async function fetchBroadcastState() {
 const BROADCAST_MESSAGES = {
   idle: {
     title: "Ingen sänder just nu",
-    sub: "Sändningen visas här automatiskt när den startar",
+    sub: "Matchen dyker upp här av sig själv när en kamera börjar sända. Du behöver inte ladda om sidan.",
   },
   upcoming: {
     title: "En basketmatch startar snart!",
@@ -132,11 +132,17 @@ function renderStreamList(streams, broadcastState) {
       const isPaused = s.status === "paused";
       return `
     <button class="stream-card ${isStopped ? "stopped" : ""}${isPaused ? " paused" : ""}" data-hls="${escapeHtml(s.hlsUrl)}" data-dvr="${s.dvrUrl ? escapeHtml(s.dvrUrl) : ""}" data-name="${escapeHtml(s.name)}" data-id="${escapeHtml(s.id)}" ${isStopped ? "disabled" : ""}>
-      <div class="stream-card-top">
-        <div class="stream-card-badge ${badge.cls}">${escapeHtml(badge.text)}</div>
-        ${s.viewers > 0 ? `<div class="stream-card-viewers">${escapeHtml(String(s.viewers))} tittare</div>` : ""}
-      </div>
-      <div class="stream-card-name">${escapeHtml(s.name)}</div>
+      <span class="stream-card-poster">
+        <span class="stream-card-top">
+          <span class="stream-card-badge ${badge.cls}">${escapeHtml(badge.text)}</span>
+          ${s.viewers > 0 ? `<span class="stream-card-viewers">${escapeHtml(String(s.viewers))} tittare</span>` : ""}
+        </span>
+        ${isStopped ? "" : `<span class="stream-card-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg></span>`}
+      </span>
+      <span class="stream-card-body">
+        <span class="stream-card-name">${escapeHtml(s.name)}</span>
+        ${isStopped ? "" : `<span class="stream-card-cta">Titta${s.status === "live" ? " live" : ""}</span>`}
+      </span>
     </button>`;
     })
     .join("");

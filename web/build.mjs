@@ -42,6 +42,9 @@ await esbuild.build({
 cpSync("style.css", "dist/assets/style.css");
 cpSync("icon.png", "dist/assets/icon.png");
 cpSync("courtside.png", "dist/assets/courtside.png");
+// Self-hosted, so viewers' browsers never call a third-party font service.
+// style.css refers to them as fonts/…, relative to dist/assets/.
+cpSync("fonts", "dist/assets/fonts", { recursive: true });
 // Served as-is and never bundled, so a club can repoint the backend without
 // rebuilding. Deliberately unhashed.
 cpSync("runtime-config.js", "dist/runtime-config.js");
