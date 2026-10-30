@@ -279,6 +279,22 @@ main {
   margin-bottom: 20px;
 }
 
+.setup-open {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: -8px 0 20px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.setup-open input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
 .setup-field span {
   display: block;
   font-weight: 600;

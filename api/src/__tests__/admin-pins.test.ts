@@ -75,7 +75,9 @@ describe("Setup.changePins", () => {
 
   it("can open watching to anyone, on purpose", async () => {
     const { setup } = await setUp();
-    expect(await setup.changePins({ viewerPin: "" })).toBeNull();
+    expect(await setup.changePins({ viewerPin: "" })).toMatch(/bekräfta/);
+    expect(mutableConfig.VIEWER_PIN).toBe("2468");
+    expect(await setup.changePins({ viewerPin: "", openAccess: true })).toBeNull();
     expect(mutableConfig.VIEWER_PIN).toBe("");
   });
 

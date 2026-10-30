@@ -7,6 +7,9 @@
 import { CONFIG } from "./config.js";
 import { state } from "./state.js";
 
+/** After a reset an empty viewer PIN keeps the old one, so it opens nothing. */
+let keepsViewerPin = false;
+
 /** Whether the backend is waiting for setup.  False if it cannot be asked. */
 export async function isSetupRequired() {
   try {
@@ -17,6 +20,8 @@ export async function isSetupRequired() {
     if (data.keepsViewerPin) {
       const hint = document.getElementById("setupViewerPinHint");
       if (hint) hint.textContent = "Lämna tom för att behålla den tittarkod ni redan har.";
+      keepsViewerPin = true;
+      document.getElementById("setupOpenRow")?.classList.add("hidden");
     }
     return !!data.required;
   } catch {
@@ -67,9 +72,14 @@ export function showSetup(onDone) {
       code: code.value.trim(),
       adminPin: adminPin.value.trim(),
       viewerPin: viewerPin.value.trim(),
+      openAccess: document.getElementById("setupOpenAccess").checked,
     };
     if (!body.code) return fail("Fyll i uppsättningskoden.");
     if (!/^\d{6,8}$/.test(body.adminPin)) return fail("Admin-koden ska vara 6–8 siffror.");
+    // It is usually children on the film: an empty field alone does not open watching to anyone.
+    if (!body.viewerPin && !body.openAccess && !keepsViewerPin) {
+      return fail("Välj en tittarkod, eller kryssa i att alla som har adressen får titta.");
+    }
     if (body.viewerPin && !/^\d{4,8}$/.test(body.viewerPin)) return fail("Tittarkoden ska vara 4–8 siffror.");
     if (body.viewerPin && body.viewerPin === body.adminPin) return fail("Tittarkoden och admin-koden måste vara olika.");
 

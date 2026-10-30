@@ -68,6 +68,15 @@ describe("Setup", () => {
     expect(await setup.complete({ code: CODE, adminPin: "123456", viewerPin: "123456" })).toMatch(/olika/);
   });
 
+  it("does not leave watching open just because the viewer PIN was left empty", async () => {
+    const setup = new Setup(memoryStorage(), CODE);
+    await setup.load();
+    expect(await setup.complete({ code: CODE, adminPin: "123456" })).toMatch(/tittarkod/);
+    expect(setup.isRequired()).toBe(true);
+    expect(await setup.complete({ code: CODE, adminPin: "123456", openAccess: true })).toBeNull();
+    expect(mutableConfig.VIEWER_PIN).toBe("");
+  });
+
   it("accepts the code typed loosely", () => {
     expect(codeMatches(" abcd-efgh ", CODE)).toBe(true);
   });
@@ -103,7 +112,7 @@ describe("Setup", () => {
     const storage = memoryStorage();
     const first = new Setup(storage, CODE);
     await first.load();
-    await first.complete({ code: CODE, adminPin: "123456" });
+    await first.complete({ code: CODE, adminPin: "123456", openAccess: true });
 
     const reset = new Setup(storage, "NEWC-ODE2");
     await reset.load();
@@ -122,7 +131,7 @@ describe("Setup", () => {
     await reset.load();
     expect(mutableConfig.VIEWER_PIN).toBe("4321");
 
-    expect(await reset.complete({ code: "NEWC-ODE2", adminPin: "654321" })).toBeNull();
+    expect(await reset.complete({ code: "NEWC-ODE2", adminPin: "654321" })).toBeNull(); // keeps the viewer PIN
     expect(mutableConfig.VIEWER_PIN).toBe("4321");
   });
 

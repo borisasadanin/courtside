@@ -65,8 +65,8 @@ export async function renderPins() {
     save({ viewerPin }, "pinsViewerStatus", "Tittarkoden är bytt. Tittarna behöver ange den nya koden.");
   });
   document.getElementById("pinsViewerRemove")?.addEventListener("click", () => {
-    if (!window.confirm("Utan tittarkod kan alla som har adressen se era matcher. Ta bort koden?")) return;
-    save({ viewerPin: "" }, "pinsViewerStatus", "Tittarkoden är borttagen. Alla med adressen kan titta.");
+    if (!window.confirm("Utan tittarkod kan alla som har adressen se era matcher. Det är oftast barn på filmen. Ta bara bort koden om föräldrarna vet om det och ni har stöd för att visa matcherna öppet. Ta bort koden?")) return;
+    save({ viewerPin: "", openAccess: true }, "pinsViewerStatus", "Tittarkoden är borttagen. Alla med adressen kan titta.");
   });
   document.getElementById("pinsAdminSave").addEventListener("click", () => {
     const currentAdminPin = document.getElementById("pinsAdminCurrent").value.trim();

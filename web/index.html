@@ -80,7 +80,12 @@
         <label class="setup-field">
           <span>Tittarkod</span>
           <input type="tel" id="setupViewerPin" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="8" placeholder="4–8 siffror" autocomplete="off">
-          <small id="setupViewerPinHint">För alla som bara ska titta på livesändningar och inspelningar. Dela den tillsammans med adressen. Lämna tom så kan alla med adressen titta.</small>
+          <small id="setupViewerPinHint">För alla som bara ska titta på livesändningar och inspelningar. Dela den tillsammans med adressen.</small>
+        </label>
+
+        <label class="setup-open" id="setupOpenRow">
+          <input type="checkbox" id="setupOpenAccess">
+          <span>Ingen tittarkod: alla som har adressen får titta. Föräldrarna vet om det och vi har stöd för att visa matcherna öppet.</span>
         </label>
 
         <button type="submit" id="setupSubmit" class="pin-btn">Spara och fortsätt</button>
