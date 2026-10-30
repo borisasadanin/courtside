@@ -18,6 +18,14 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.3.3 — 2026-10-30
+
+- Parningskoden kan skannas med telefonens vanliga kamera: den öppnar Courtside-appen och kopplar kameran
+  direkt. Tidigare öppnade den plattformens webbsida i Safari
+- En kamera som redan är kopplad till en klubb byter inte klubb av en skanning, utan säger att den först
+  ska kopplas bort under inställningar
+- Kameraappen behöver vara byggd från den här versionen för att läsa den nya koden, även i appens egen skanner
+
 ## v0.3.2 — 2026-10-30
 
 - Admin kan logga in även när matcherna är öppna för alla utan tittarkod. Tidigare ledde admin-koden
