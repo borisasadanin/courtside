@@ -139,18 +139,20 @@ describe("GET /api/clips/:id/media/:file", () => {
     expect(res.headers.location).toContain("stream01/p1_seg41.ts");
   });
 
-  it("serves the clip's own MP4 and thumbnail", async () => {
-    for (const [file, expected] of [
-      [`${CLIP.id}.mp4`, `clips/stream01/${CLIP.id}.mp4`],
-      [`${CLIP.id}.jpg`, `clips/stream01/${CLIP.id}.jpg`],
-    ]) {
-      const res = await app.inject({
-        method: "GET",
-        url: `/api/clips/${CLIP.id}/media/${file}`,
-      });
-      expect(res.statusCode).toBe(302);
-      expect(res.headers.location).toContain(expected);
-    }
+  it("serves the clip's thumbnail without a PIN, for the preview", async () => {
+    const res = await app.inject({ method: "GET", url: `/api/clips/${CLIP.id}/media/${CLIP.id}.jpg` });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toContain(`clips/stream01/${CLIP.id}.jpg`);
+  });
+
+  it("keeps the clip's MP4, the download, behind the PIN", async () => {
+    const url = `/api/clips/${CLIP.id}/media/${CLIP.id}.mp4`;
+    const stranger = await app.inject({ method: "GET", url });
+    expect(stranger.statusCode).toBe(401);
+
+    const viewer = await app.inject({ method: "GET", url, headers: { "x-api-key": config.API_KEY } });
+    expect(viewer.statusCode).toBe(302);
+    expect(viewer.headers.location).toContain(`clips/stream01/${CLIP.id}.mp4`);
   });
 
   it("does NOT open the rest of the match — the whole point of scoping a clip", async () => {

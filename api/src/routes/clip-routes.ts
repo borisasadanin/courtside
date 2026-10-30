@@ -144,7 +144,9 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
         if (!clip) {
           return reply.code(404).send({ error: "clip_not_found", message: "Klippet hittades inte" });
         }
-        return reply.send(clip);
+        // No MP4: the shared page plays the clip, it does not hand out a download.
+        const { mp4Url: _download, ...shared } = clip;
+        return reply.send(shared);
       } catch (err) {
         request.log.error(err, "Failed to read clip");
         return reply.code(500).send({ error: "read_failed", message: "Kunde inte läsa klipp" });
@@ -178,7 +180,6 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
       const label = clip.label || "Höjdpunkt";
       const siteUrl = clubManifest.siteUrl || `${proto}://${host}`;
       const clipPageUrl = `${siteUrl}/clip.html#${encodeURIComponent(clip.id)}`;
-      const videoUrl = absolute(clip.mp4Url);
 
       // Look up match info from VOD index
       let matchTitle = "";
@@ -211,15 +212,10 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
 <html>
 <head>
 <meta charset="UTF-8">
-<meta property="og:type" content="video.other">
+<meta property="og:type" content="website">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${description}">
 <meta property="og:image" content="${absolute(clip.thumbnailUrl) || absoluteLogoUrl() || ""}">
-${videoUrl ? `<meta property="og:video" content="${videoUrl}">
-<meta property="og:video:secure_url" content="${videoUrl}">
-<meta property="og:video:type" content="video/mp4">
-<meta property="og:video:width" content="1280">
-<meta property="og:video:height" content="720">` : ""}
 ${redirectTag}
 <title>${title}</title>
 </head>

@@ -16,7 +16,10 @@
  *                             The clip id is the capability, and access is
  *                             limited to the files that clip's own manifest
  *                             references — knowing one clip never opens the
- *                             rest of the match.
+ *                             rest of the match.  The exception is the clip's
+ *                             MP4, which is a download: that is for viewers on
+ *                             the site, behind the PIN.  A shared clip plays
+ *                             from its segments and shows its thumbnail.
  */
 import type { FastifyInstance } from "fastify";
 import { requireViewerAuth } from "../auth.js";
@@ -81,6 +84,9 @@ export default async function mediaRoutes(app: FastifyInstance): Promise<void> {
       if (!clip) {
         return reply.code(404).send({ error: "clip_not_found" });
       }
+
+      // Downloading a clip is for viewers on the site, not for anyone with the link.
+      if (file === `${clip.id}.mp4` && !requireViewerAuth(request, reply)) return;
 
       // A clip hands out its own MP4 and thumbnail, plus exactly the segments
       // its manifest lists — nothing else. Knowing one clip link never opens

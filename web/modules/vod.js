@@ -330,7 +330,8 @@ function createClipCard(clip, index) {
   wrapper.appendChild(btn);
   wrapper.appendChild(shareBtn);
 
-  // Download button (only if MP4 is available)
+  // Download button (only if MP4 is available). The MP4 is behind the PIN:
+  // only a shared clip's segments and thumbnail open without it.
   if (clip.mp4Url) {
     const dlBtn = document.createElement("button");
     dlBtn.className = "clip-share-btn clip-download-btn";
@@ -343,7 +344,8 @@ function createClipCard(clip, index) {
       dlBtn.disabled = true;
       dlBtn.innerHTML = "&#8987;";
       try {
-        const res = await fetch(mediaUrl(clip.mp4Url));
+        const res = await fetch(mediaUrl(clip.mp4Url), { headers: authHeaders() });
+        if (!res.ok) throw new Error(res.status);
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -351,12 +353,13 @@ function createClipCard(clip, index) {
         a.download = `${label}.mp4`;
         a.click();
         URL.revokeObjectURL(url);
+        dlBtn.innerHTML = DOWNLOAD_SVG;
       } catch {
-        // Fallback: open directly
-        window.open(mediaUrl(clip.mp4Url), "_blank");
+        dlBtn.textContent = "!";
+        dlBtn.title = "Kunde inte ladda ner";
+        setTimeout(() => { dlBtn.innerHTML = DOWNLOAD_SVG; dlBtn.title = "Ladda ner"; }, 2000);
       }
       dlBtn.disabled = false;
-      dlBtn.innerHTML = DOWNLOAD_SVG;
     });
 
     wrapper.appendChild(dlBtn);
