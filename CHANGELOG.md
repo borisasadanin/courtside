@@ -18,6 +18,25 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.4.0 — 2026-10-30
+
+Dataskydd. Det är oftast barn på filmen, och föreningen ansvarar för det som spelas in.
+
+- Tar ni bort en match försvinner nu också dess klipp. Tidigare låg klippen kvar och gick att se via delade
+  länkar. Klipp från matcher som togs bort före den här versionen syns i adminvyn under "Klipp från
+  borttagna matcher" och kan tas bort där
+- Enskilda klipp går att ta bort i adminvyn. En delad länk till klippet slutar fungera direkt
+- Adminvyn har en raderingslogg. Kryssa i att det ni tar bort görs på begäran, så noteras det. Loggen säger
+  vad som togs bort och när, aldrig vem som bad om det
+- Ett delat klipp kan fortfarande ses av den som får länken, med förhandsbild i till exempel WhatsApp. Det går
+  däremot bara att ladda ner inifrån er Courtside, med tittarkoden
+- Fyll i "Om inspelningarna" i adminvyn: ansvarig förening och en e-postadress för frågor. Tittarna ser det
+  längst ner på sidan, vid tittarkoden och på delade klipp
+- En ny plattform kräver en tittarkod. Att låta alla med adressen titta är ett val man kryssar i
+- Kameraappen frågar efter ett kameranamn, som "Läktaren", i stället för den som filmar. Gäller nästa
+  version av appen
+- Texter till föräldrar och motståndarlag, och en skylt till hallen, finns på courtside.apps.osaas.io/gdpr
+
 ## v0.3.5 — 2026-10-30
 
 - Plattformen kan uppdateras direkt från adminvyn: under Version syns vilken version ni kör, och finns en
