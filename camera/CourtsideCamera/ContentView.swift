@@ -3,7 +3,6 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var pairing = Pairing.shared
     @State private var streamInfo: StreamInfo?
-    @State private var returningFromStream = false
 
     var body: some View {
         screen
@@ -28,12 +27,11 @@ struct ContentView: View {
                 .transition(.opacity)
         } else if let info = streamInfo {
             StreamView(streamInfo: info) {
-                returningFromStream = true
                 streamInfo = nil
             }
             .transition(.move(edge: .trailing))
         } else {
-            StartView(streamInfo: $streamInfo, autoStartRestreamer: !returningFromStream)
+            StartView(streamInfo: $streamInfo)
                 .transition(.move(edge: .leading))
         }
     }
