@@ -304,15 +304,17 @@ final class APIService {
 
     struct RestreamerStatus: Decodable {
         let state: String
+        /// Seconds until the backend shuts an idle Restreamer down; nil when
+        /// someone is streaming, or on a platform too old to say.
+        let shutdownInSeconds: Int?
     }
 
-    func checkRestreamerStatus() async -> String? {
+    func checkRestreamerStatus() async -> RestreamerStatus? {
         guard let url = URL(string: "\(baseURL)/api/restreamer/status") else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 5)
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         guard let (data, http) = try? await send(request), http.statusCode == 200 else { return nil }
-        guard let status = try? JSONDecoder().decode(RestreamerStatus.self, from: data) else { return nil }
-        return status.state
+        return try? JSONDecoder().decode(RestreamerStatus.self, from: data)
     }
 
     struct RestreamerStartResponse: Decodable {
@@ -331,13 +333,29 @@ final class APIService {
         return try? JSONDecoder().decode(RestreamerStartResponse.self, from: data)
     }
 
-    func stopRestreamer() async -> Bool {
-        guard let url = URL(string: "\(baseURL)/api/restreamer/stop") else { return false }
+    enum RestreamerStopResult {
+        case stopped
+        /// The backend kept it running, and says why: someone is streaming.
+        case refused(String)
+        case failed
+    }
+
+    private struct RestreamerStopRefusal: Decodable {
+        let message: String?
+    }
+
+    func stopRestreamer() async -> RestreamerStopResult {
+        guard let url = URL(string: "\(baseURL)/api/restreamer/stop") else { return .failed }
         var request = URLRequest(url: url, timeoutInterval: 10)
         request.httpMethod = "DELETE"
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
-        guard let (_, http) = try? await send(request) else { return false }
-        return (200...299).contains(http.statusCode)
+        guard let (data, http) = try? await send(request) else { return .failed }
+        if (200...299).contains(http.statusCode) { return .stopped }
+        if http.statusCode == 409 {
+            let refusal = try? JSONDecoder().decode(RestreamerStopRefusal.self, from: data)
+            return .refused(refusal?.message ?? "Sändningsmotorn används och kan inte stängas av just nu.")
+        }
+        return .failed
     }
 
     /// Revoke this camera's own token. Best effort: unpairing goes ahead locally either way.

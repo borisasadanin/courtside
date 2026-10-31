@@ -71,7 +71,7 @@ const RESTREAMER_URL = optional(
 const PROCESS_PREFIX = optional("PROCESS_PREFIX", "cs-");
 
 const RESTREAMER_GRACE_PERIOD_MS = parseInt(
-  process.env.RESTREAMER_GRACE_PERIOD_MS || String(60 * 60 * 1000),
+  process.env.RESTREAMER_GRACE_PERIOD_MS || String(15 * 60 * 1000),
   10
 );
 

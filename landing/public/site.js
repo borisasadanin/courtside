@@ -144,10 +144,10 @@ var T = ({
     // always on: app (backend + website) 10 + object storage 10 + parameter store
     // (Valkey 10 + config 1) = 31 tokens/day — see docs/cost.md.
     // live: Restreamer 160 tokens/day, metered only while running = 160/24 per hour,
-    // and it stays up for an hour after the last broadcast.
+    // and it stays up for 15 minutes after the last broadcast.
     var BASE_PER_DAY = 31;
     var LIVE_PER_HOUR = 160 / 24;
-    var GRACE_HOURS = 1;
+    var GRACE_HOURS = 0.25;
     var DAYS = 30;
     var WEEKS_PER_MONTH = 52 / 12;
     var PLANS = [

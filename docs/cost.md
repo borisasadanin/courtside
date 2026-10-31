@@ -23,15 +23,15 @@ eller en egen domän. Det är ett tillval, inte ett krav.
 | `datarhei-restreamer` | Tar emot RTMP och gör HLS | 160 | Bara vid sändning |
 
 Restreamer kostar fem gånger mer än allt annat tillsammans, men den är bara igång när någon sänder.
-Backend startar den vid första sändningen och stänger ner den en timme efter den sista
-(`RESTREAMER_GRACE_PERIOD_MS`). **Varje timme den är igång kostar ungefär 6,7 tokens.**
+Den startas från kameraappen och stängs ner automatiskt när ingen har sänt på 15 minuter, både efter
+en match och när den startats men ingen börjat sända (`RESTREAMER_GRACE_PERIOD_MS`). **Varje timme den är igång kostar ungefär 6,7 tokens.**
 
 ## Räkneexempel
 
 | Klubb | Restreamer-timmar/vecka | Tokens/dygn | Personal (40/dygn) |
 |---|---|---|---|
-| 2 matcher à 2 h | 6 (inkl. 1 h efterlöptid per match) | ≈ 37 | Räcker |
-| 4 matcher à 2 h | 12 | ≈ 43 | Lite över |
+| 2 matcher à 2 h | 4,5 (inkl. 15 min efterlöptid per match) | ≈ 35 | Räcker |
+| 4 matcher à 2 h | 9 | ≈ 40 | Precis |
 
 Om det blir för mycket finns tre vägar: ett tokenpaket (100 tokens för 9,90 EUR, de förfaller inte), en
 kortare efterlöptid, eller Professional.

@@ -2,7 +2,7 @@
 // out; build.mjs writes public/index.html (sv) and public/en/index.html (en).
 //
 // Numbers here follow docs/cost.md: 31 tokens/day base, ≈7 tokens per
-// broadcast hour plus an hour of standby, Personal 40 tokens/day ≈ 10 games a
+// broadcast hour plus a quarter of an hour of standby, Personal 40 tokens/day ≈ 10 games a
 // month. Change them there first.
 
 export const sv = {
@@ -148,7 +148,7 @@ export const sv = {
       h: "Hur mycket räcker planen till?", hint: "Dra i reglagen eller välj ett exempel.", presetsLabel: "Exempel",
       presets: ["Ett lag, hemmamatcher", "Några lag", "Hela föreningen"],
       matches: "Matcher per vecka", matchesHint: "Alla lag tillsammans, under säsong.",
-      hours: "Sändningstid per match", hoursHint: "Med uppvärmning och periodvilor. Sändningsmotorn står redo en timme efter matchen, det räknas in.",
+      hours: "Sändningstid per match", hoursHint: "Med uppvärmning och periodvilor. Sändningsmotorn står redo en kvart efter matchen, det räknas in.",
       lead: "Ni behöver ungefär", unit: "tokens / månad", base: "Grund (alltid på)", live: "Sändning", ofPlan: ["av", "i planen"],
       reco: "Rekommenderad OSC-plan", recoDefault: "Personal <em>15 €/mån</em>",
     },
@@ -156,7 +156,7 @@ export const sv = {
       ["Cup-helg? Fyll på.", "Tokenpaket kostar 9,90 € för 100 tokens och går aldrig ut. Ett paket räcker till ungefär 5 matcher till, perfekt för en turnering från morgon till kväll."],
       ["Lugn vecka betalar för en intensiv helg.", "Tokens ni inte använder sparas och rullar vidare."],
     ],
-    note: "Uppskattningen bygger på Open Source Clouds listpriser och räknar med att sändningsmotorn bara körs under matcher, plus en timme efteråt. Alla priser i euro exkl. moms.",
+    note: "Uppskattningen bygger på Open Source Clouds listpriser och räknar med att sändningsmotorn bara körs under matcher, plus en kvart efteråt. Alla priser i euro exkl. moms.",
   },
 
   worry: {
@@ -369,7 +369,7 @@ export const en = {
       h: "How far does the plan go?", hint: "Drag the sliders or pick an example.", presetsLabel: "Examples",
       presets: ["One team, home games", "A few teams", "The whole club"],
       matches: "Games per week", matchesHint: "All teams combined, in season.",
-      hours: "Streaming time per game", hoursHint: "Including warm-up and breaks. The streaming engine stays on standby for an hour after the game, and that's included.",
+      hours: "Streaming time per game", hoursHint: "Including warm-up and breaks. The streaming engine stays on standby for 15 minutes after the game, and that's included.",
       lead: "You need about", unit: "tokens / month", base: "Base (always on)", live: "Streaming", ofPlan: ["of", "in the plan"],
       reco: "Recommended OSC plan", recoDefault: "Personal <em>€15/month</em>",
     },
@@ -377,7 +377,7 @@ export const en = {
       ["Tournament weekend? Top up.", "Token packs cost €9.90 for 100 tokens and never expire. One pack covers about 5 more games, perfect for a tournament running from morning to night."],
       ["A quiet week pays for a busy weekend.", "Tokens you don't use are saved and roll over."],
     ],
-    note: "The estimate is based on Open Source Cloud list prices and assumes the streaming engine only runs during games, plus one hour after. All prices in euros excl. VAT.",
+    note: "The estimate is based on Open Source Cloud list prices and assumes the streaming engine only runs during games, plus 15 minutes after. All prices in euros excl. VAT.",
   },
 
   worry: {

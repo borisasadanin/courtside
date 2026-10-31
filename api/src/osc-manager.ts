@@ -45,6 +45,7 @@ export class OscInstanceManager {
 
   private startPromise: Promise<InstanceInfo> | null = null;
   private gracePeriodTimer: ReturnType<typeof setTimeout> | null = null;
+  private gracePeriodEndsAt: number | null = null;
   private cachedInfo: InstanceInfo | null = null;
   private activeStreamCount = 0;
   private pausedStreamCount = 0;
@@ -77,6 +78,12 @@ export class OscInstanceManager {
   /** Returns cached state + info instantly (no network calls). */
   getCachedState(): { state: InstanceState; info: InstanceInfo | null } {
     return { state: this.state, info: this.cachedInfo };
+  }
+
+  /** Seconds until an idle instance is shut down, or null when no shutdown is pending. */
+  getShutdownInSeconds(): number | null {
+    if (this.gracePeriodEndsAt === null) return null;
+    return Math.max(0, Math.ceil((this.gracePeriodEndsAt - Date.now()) / 1000));
   }
 
   /** Start background health polling (every 15s). Call once at server startup. */
@@ -146,6 +153,7 @@ export class OscInstanceManager {
       const info = await this.startPromise;
       this.setInfo(info);
       this.state = "running";
+      this.shutDownIfUnused();
       return info;
     } catch (err) {
       this.state = "stopped";
@@ -155,7 +163,19 @@ export class OscInstanceManager {
     }
   }
 
+  /**
+   * Start the instance, or keep it up if it already is. Whoever asked for it
+   * gets the full grace period to start a stream: nobody streaming by then
+   * means it is shut down, also when it was started by hand.
+   */
   async ensureRunning(): Promise<InstanceInfo> {
+    const info = await this.startOrKeepRunning();
+    this.cancelGracePeriod();
+    this.shutDownIfUnused();
+    return info;
+  }
+
+  private async startOrKeepRunning(): Promise<InstanceInfo> {
     // Already starting — await the same promise (no duplicate creation)
     if (this.state === "starting" && this.startPromise) {
       return this.startPromise;
@@ -250,24 +270,21 @@ export class OscInstanceManager {
 
   streamEnded(): void {
     this.activeStreamCount = Math.max(0, this.activeStreamCount - 1);
-    if (this.activeStreamCount === 0 && this.pausedStreamCount === 0 && this.state === "running") {
-      this.startGracePeriod();
-    }
+    this.shutDownIfUnused();
   }
 
   /** Called when a paused stream is stopped (not resumed) */
   pausedStreamEnded(): void {
     this.pausedStreamCount = Math.max(0, this.pausedStreamCount - 1);
-    if (this.activeStreamCount === 0 && this.pausedStreamCount === 0 && this.state === "running") {
-      this.startGracePeriod();
-    }
+    this.shutDownIfUnused();
   }
 
   syncActiveCount(count: number): void {
-    const prev = this.activeStreamCount;
     this.activeStreamCount = Math.max(0, count);
-    if (prev > 0 && this.activeStreamCount === 0 && this.pausedStreamCount === 0 && this.state === "running") {
-      this.startGracePeriod();
+    if (this.activeStreamCount > 0) {
+      this.cancelGracePeriod();
+    } else {
+      this.shutDownIfUnused();
     }
   }
 
@@ -379,6 +396,9 @@ export class OscInstanceManager {
             this.state = "running";
             this.healthFailCount = 0;
             this.log.info(`Recovered running Restreamer instance — URL: ${instance.url}, RTMP: ${rtmpHost}`);
+            // Streams recovered after a restart are counted by the next
+            // cleanup round, which cancels this again.
+            this.shutDownIfUnused();
             return "running";
           }
         }
@@ -578,15 +598,24 @@ export class OscInstanceManager {
     return `${rtmpPort.externalIp}:${rtmpPort.externalPort}`;
   }
 
+  /** Start the grace period if the instance is up and nobody is streaming. */
+  private shutDownIfUnused(): void {
+    if (this.activeStreamCount === 0 && this.pausedStreamCount === 0 && this.state === "running") {
+      this.startGracePeriod();
+    }
+  }
+
   private startGracePeriod(): void {
     if (this.gracePeriodTimer) return; // Already running
     this.state = "stopping";
+    this.gracePeriodEndsAt = Date.now() + this.gracePeriodMs;
     this.log.info(
       `No active streams — Restreamer shutdown in ${this.gracePeriodMs / 60000} minutes`
     );
 
     this.gracePeriodTimer = setTimeout(async () => {
       this.gracePeriodTimer = null;
+      this.gracePeriodEndsAt = null;
       if (this.activeStreamCount > 0 || this.pausedStreamCount > 0) {
         this.state = "running";
         return;
@@ -599,6 +628,7 @@ export class OscInstanceManager {
     if (this.gracePeriodTimer) {
       clearTimeout(this.gracePeriodTimer);
       this.gracePeriodTimer = null;
+      this.gracePeriodEndsAt = null;
       if (this.state === "stopping") {
         this.state = "running";
       }
