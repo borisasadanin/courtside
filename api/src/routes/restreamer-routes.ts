@@ -58,9 +58,23 @@ export default async function restreamerRoutes(app: FastifyInstance): Promise<vo
     return reply.send({ state: "starting", message: "Restreamer startar..." });
   });
 
-  // DELETE /api/restreamer/stop — Force-stop Restreamer instance
+  // DELETE /api/restreamer/stop — Stop the Restreamer instance, unless someone
+  // is using it. Any paired camera may call this, so one camera pressing stop
+  // must not cut off a match another is streaming, or one that is paused.
   app.delete("/api/restreamer/stop", async (request, reply) => {
     if (!(await requireBroadcasterAuth(request, reply))) return;
+
+    const activeStreams = oscManager.getActiveStreamCount();
+    const pausedStreams = oscManager.getPausedStreamCount();
+    if (activeStreams > 0 || pausedStreams > 0) {
+      return reply.code(409).send({
+        error: "streams_active",
+        message: streamsActiveMessage(activeStreams, pausedStreams),
+        activeStreams,
+        pausedStreams,
+      });
+    }
+
     try {
       await oscManager.forceStop();
       return reply.code(204).send();
@@ -69,4 +83,12 @@ export default async function restreamerRoutes(app: FastifyInstance): Promise<vo
       return reply.code(500).send({ error: "Failed to stop Restreamer" });
     }
   });
+}
+
+/** Why the engine stays on, in words for whoever pressed stop. */
+function streamsActiveMessage(active: number, paused: number): string {
+  const parts: string[] = [];
+  if (active > 0) parts.push(active === 1 ? "en sändning pågår" : `${active} sändningar pågår`);
+  if (paused > 0) parts.push(paused === 1 ? "en match är pausad" : `${paused} matcher är pausade`);
+  return `Sändningsmotorn kan inte stängas av: ${parts.join(" och ")}. Avsluta sändningen först.`;
 }

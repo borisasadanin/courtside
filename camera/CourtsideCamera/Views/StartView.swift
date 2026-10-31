@@ -33,6 +33,7 @@ struct StartView: View {
     @State private var hasNotified = false
     @State private var showNotifyConfirmation = false
     @State private var showUnpairConfirmation = false
+    @State private var showStopRestreamerConfirmation = false
     @State private var isUnpairing = false
     @State private var platformVersion: String?
 
@@ -170,7 +171,7 @@ struct StartView: View {
                     .padding(.horizontal, horizontalPad)
                 } else if restreamerStatus == .healthy {
                     Button {
-                        Task { await stopRestreamer() }
+                        showStopRestreamerConfirmation = true
                     } label: {
                         HStack(spacing: 6) {
                             if isStoppingRestreamer {
@@ -191,6 +192,17 @@ struct StartView: View {
                     }
                     .disabled(isStoppingRestreamer)
                     .padding(.horizontal, horizontalPad)
+                    .confirmationDialog(
+                        "Stäng av sändningsmotorn?",
+                        isPresented: $showStopRestreamerConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Stäng av", role: .destructive) {
+                            Task { await stopRestreamer() }
+                        }
+                    } message: {
+                        Text("Ingen kan sända förrän den startats igen, och en ny start tar 1–3 minuter.")
+                    }
                 }
 
                 // Name + match fields
@@ -544,13 +556,17 @@ struct StartView: View {
     @MainActor
     private func stopRestreamer() async {
         isStoppingRestreamer = true
-        let success = await APIService.shared.stopRestreamer()
+        errorMessage = nil
+        let result = await APIService.shared.stopRestreamer()
         isStoppingRestreamer = false
-        if success {
+        switch result {
+        case .stopped:
             restreamerStartRequestedAt = nil
             restreamerShutdownIn = nil
             restreamerStatus = .off
-        } else {
+        case .refused(let message):
+            errorMessage = message
+        case .failed:
             errorMessage = "Kunde inte stänga av sändningsmotorn"
         }
     }
