@@ -4,12 +4,13 @@ enum ComponentStatus: Equatable {
     case checking
     case healthy
     case starting
+    /// Off by choice, not broken. Only the engine is ever in this state.
+    case stopped
     case unhealthy(String)
 }
 
 struct StartView: View {
     @Binding var streamInfo: StreamInfo?
-    var autoStartRestreamer: Bool = false
     @State private var name = UserDefaults.standard.string(forKey: "courtside_last_name") ?? ""
     @State private var opponent = UserDefaults.standard.string(forKey: "courtside_last_opponent") ?? ""
     @State private var team = UserDefaults.standard.string(forKey: "courtside_last_team")
@@ -87,7 +88,7 @@ struct StartView: View {
                             .foregroundColor(.white.opacity(0.6))
                         Spacer()
                         Button {
-                            runHealthChecks(autoStartRestreamer: false)
+                            runHealthChecks()
                         } label: {
                             Image(systemName: "arrow.clockwise")
                                 .font(.caption)
@@ -113,7 +114,7 @@ struct StartView: View {
                 .padding(.horizontal, horizontalPad)
 
                 // Start/Stop Restreamer button
-                if case .unhealthy = restreamerStatus {
+                if restreamerCanStart {
                     Button {
                         Task { await startRestreamer() }
                     } label: {
@@ -257,8 +258,9 @@ struct StartView: View {
                 }
                 .padding(.horizontal, horizontalPad)
 
-                // Notify viewers button
-                if allHealthy {
+                // Notify viewers button. Viewers only need the server for this,
+                // so it works before the engine is started.
+                if backendStatus == .healthy {
                     Button {
                         Task { await notifyViewers() }
                     } label: {
@@ -308,10 +310,12 @@ struct StartView: View {
                 .disabled(!canStart)
                 .padding(.horizontal, horizontalPad)
 
-                if !allHealthy && backendStatus != .checking {
-                    Text("Alla system måste vara online för att starta")
+                if let reason = cannotStartReason {
+                    Text(reason)
                         .font(.caption2)
                         .foregroundColor(.white.opacity(0.5))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, horizontalPad)
                 }
 
                 Spacer(minLength: isCompact ? 8 : 20)
@@ -326,6 +330,9 @@ struct StartView: View {
                 } label: {
                     Label("Koppla bort från \(club.name)",
                           systemImage: "link.badge.minus")
+                }
+                Section {
+                    Text("Courtside Kamera \(AppVersion.display)")
                 }
             } label: {
                 Image(systemName: "gearshape")
@@ -350,16 +357,17 @@ struct StartView: View {
         }
         .onAppear {
             OrientationManager.shared.lockPortrait()
-            runHealthChecks(autoStartRestreamer: autoStartRestreamer)
+            runHealthChecks()
         }
         .onDisappear {
             healthCheckTasks.forEach { $0.cancel() }
         }
     }
 
-    /// Runs all health checks. When `autoStartRestreamer` is true (onAppear),
-    /// it will auto-start Restreamer if stopped. When false (refresh button), it only checks status.
-    private func runHealthChecks(autoStartRestreamer: Bool = false) {
+    /// Checks every component. Never starts the engine: opening the app is not
+    /// a decision to broadcast, and a running engine costs the club whether
+    /// anyone films or not. The operator starts it with the button.
+    private func runHealthChecks() {
         healthCheckTasks.forEach { $0.cancel() }
         errorMessage = nil
         backendStatus = .checking
@@ -368,13 +376,7 @@ struct StartView: View {
 
         healthCheckTasks = [
             Task { await checkBackend() },
-            Task {
-                if autoStartRestreamer {
-                    await ensureRestreamerRunning()
-                } else {
-                    await checkRestreamerQuick()
-                }
-            },
+            Task { await checkRestreamer() },
             Task {
                 // The manifest says where the viewers' page is, so it comes first.
                 await club.refresh()
@@ -424,9 +426,31 @@ struct StartView: View {
         team = club.homeTeam
     }
 
-    /// Quick status check only — used by the refresh button. Never auto-starts Restreamer.
+    private var restreamerCanStart: Bool {
+        switch restreamerStatus {
+        case .stopped, .unhealthy: return true
+        default: return false
+        }
+    }
+
+    /// Why "Starta sändning" is greyed out, when it is not obvious.
+    private var cannotStartReason: String? {
+        guard backendStatus != .checking, !allHealthy else { return nil }
+        let othersHealthy = backendStatus == .healthy && websiteStatus == .healthy
+        switch restreamerStatus {
+        case .stopped where othersHealthy:
+            return "Starta sändningsmotorn först. Den tar 1–3 minuter att starta. Tittarna kan meddelas redan nu."
+        case .starting where othersHealthy:
+            return "Sändningsmotorn startar. Det tar 1–3 minuter."
+        default:
+            return "Alla system måste vara online för att starta"
+        }
+    }
+
+    /// Reads the engine's state without changing it. If someone else is
+    /// starting it, follows along until it is up.
     @MainActor
-    private func checkRestreamerQuick() async {
+    private func checkRestreamer() async {
         guard let state = await APIService.shared.checkRestreamerStatus() else {
             guard !Task.isCancelled else { return }
             restreamerStatus = .unhealthy("Ej nåbar")
@@ -436,57 +460,27 @@ struct StartView: View {
 
         switch state {
         case "running", "stopping":
+            // "stopping" is the grace period after a match: still available.
             restreamerStatus = .healthy
         case "starting":
             restreamerStatus = .starting
+            await waitForRestreamer()
         case "stopped":
-            restreamerStatus = .unhealthy("Stoppad")
+            restreamerStatus = .stopped
         default:
             restreamerStatus = .unhealthy(state)
         }
     }
 
-    /// Full check with auto-start — used on onAppear. Starts Restreamer if stopped, then polls.
+    /// Polls until the engine is running (max ~3 minutes, every 5 seconds).
     @MainActor
-    private func ensureRestreamerRunning() async {
-        guard let state = await APIService.shared.checkRestreamerStatus() else {
-            guard !Task.isCancelled else { return }
-            restreamerStatus = .unhealthy("Ej nåbar")
-            return
-        }
-
-        guard !Task.isCancelled else { return }
-
-        // Running or stopping (grace period) — instance is available
-        if state == "running" || state == "stopping" {
-            restreamerStatus = .healthy
-            return
-        }
-
-        // Stopped — fire start request, then poll for status
-        if state == "stopped" {
-            restreamerStatus = .starting
-            let response = await APIService.shared.startRestreamer()
-            guard !Task.isCancelled else { return }
-            if let msg = response?.message {
-                // Show start message briefly (e.g. "Restreamer startar...")
-                restreamerStatus = .starting
-                _ = msg // logged for debugging
-            }
-        } else if state == "starting" {
-            restreamerStatus = .starting
-        } else {
-            restreamerStatus = .unhealthy(state)
-            return
-        }
-
-        // Poll until running (max ~3 minutes, every 5 seconds)
+    private func waitForRestreamer() async {
         for _ in 0..<36 {
             guard !Task.isCancelled else { return }
             try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled else { return }
-            if let newState = await APIService.shared.checkRestreamerStatus(),
-               newState == "running" || newState == "stopping" {
+            if let state = await APIService.shared.checkRestreamerStatus(),
+               state == "running" || state == "stopping" {
                 restreamerStatus = .healthy
                 return
             }
@@ -497,8 +491,13 @@ struct StartView: View {
     @MainActor
     private func startRestreamer() async {
         isStartingRestreamer = true
+        errorMessage = nil
         restreamerStatus = .starting
-        await ensureRestreamerRunning()
+        if await APIService.shared.startRestreamer() == nil {
+            restreamerStatus = .unhealthy("Kunde inte starta")
+        } else {
+            await waitForRestreamer()
+        }
         isStartingRestreamer = false
     }
 
@@ -508,7 +507,7 @@ struct StartView: View {
         let success = await APIService.shared.stopRestreamer()
         isStoppingRestreamer = false
         if success {
-            restreamerStatus = .unhealthy("Stoppad")
+            restreamerStatus = .stopped
         } else {
             errorMessage = "Kunde inte stänga av sändningsmotorn"
         }
@@ -607,6 +606,7 @@ private struct StatusRow: View {
         case .checking: return .yellow
         case .healthy: return .green
         case .starting: return .orange
+        case .stopped: return .gray
         case .unhealthy: return .red
         }
     }
@@ -616,6 +616,7 @@ private struct StatusRow: View {
         case .checking: return "Kontrollerar..."
         case .healthy: return "Online"
         case .starting: return "Startar..."
+        case .stopped: return "Avstängd"
         case .unhealthy(let msg): return msg
         }
     }

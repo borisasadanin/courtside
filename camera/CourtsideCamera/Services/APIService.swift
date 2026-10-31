@@ -67,6 +67,8 @@ final class APIService {
     /// a viewer PIN, an old platform wanting the API key — says nothing about
     /// the pairing, and unpairing on it would strand a working camera.
     private func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        var request = request
+        request.setValue(AppVersion.release, forHTTPHeaderField: AppVersion.header)
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse

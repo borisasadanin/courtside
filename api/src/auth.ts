@@ -86,7 +86,8 @@ export async function requireBroadcasterAuth(
   if (token) {
     const device = await devices.verify(token);
     if (device) {
-      void devices.touch(device);
+      const version = request.headers["x-courtside-app-version"];
+      void devices.touch(device, typeof version === "string" ? version : undefined);
       return true;
     }
   }

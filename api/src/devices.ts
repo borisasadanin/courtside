@@ -20,6 +20,8 @@ export interface Device {
   tokenHash: string;
   createdAt: string;
   lastSeenAt?: string;
+  /** The camera app's release when last seen. Says which features it has. */
+  appVersion?: string;
   revokedAt?: string;
 }
 
@@ -122,11 +124,18 @@ export class DeviceRegistry {
     return device;
   }
 
-  /** Record that a device was seen, at most once a minute to avoid write churn. */
-  async touch(device: Device): Promise<void> {
+  /**
+   * Record that a device was seen, at most once a minute to avoid write churn.
+   * A new app version is recorded at once, so an update shows up right away.
+   * Apps before 1.1.0 send no version; theirs stays unknown.
+   */
+  async touch(device: Device, appVersion?: string): Promise<void> {
+    const version = normaliseAppVersion(appVersion);
+    const newVersion = version !== undefined && version !== device.appVersion;
     const last = device.lastSeenAt ? new Date(device.lastSeenAt).getTime() : 0;
-    if (Date.now() - last < 60_000) return;
+    if (!newVersion && Date.now() - last < 60_000) return;
     device.lastSeenAt = new Date().toISOString();
+    if (version !== undefined) device.appVersion = version;
     await this.minio.writeDeviceIndex(this.devices).catch(() => {
       // Losing a lastSeen timestamp is not worth failing a broadcast over.
     });
@@ -152,6 +161,13 @@ export class DeviceRegistry {
     this.prunePending();
     return this.pending.length;
   }
+}
+
+/** A version string as the app sends it ("1.1.0"), or undefined for anything else. */
+export function normaliseAppVersion(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return /^\d+(\.\d+){1,2}$/.test(trimmed) ? trimmed : undefined;
 }
 
 function toSummary(device: Device): DeviceSummary {
