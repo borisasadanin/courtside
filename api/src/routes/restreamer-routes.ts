@@ -13,7 +13,7 @@ export default async function restreamerRoutes(app: FastifyInstance): Promise<vo
   app.get("/api/restreamer/status", async (request, reply) => {
     if (!(await requireBroadcasterAuth(request, reply))) return;
     const { state, info } = oscManager.getCachedState();
-    return reply.send({ state, info });
+    return reply.send({ state, info, shutdownInSeconds: oscManager.getShutdownInSeconds() });
   });
 
   // POST /api/restreamer/start — Trigger Restreamer instance start (non-blocking, with crash recovery)

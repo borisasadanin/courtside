@@ -23,6 +23,7 @@ beforeAll(async () => {
   };
   const oscManager = {
     getCachedState: () => ({ state: "stopped", info: null }),
+    getShutdownInSeconds: () => null,
     getState: () => "stopped",
   };
   initServices({} as never, minio as never, oscManager as never);

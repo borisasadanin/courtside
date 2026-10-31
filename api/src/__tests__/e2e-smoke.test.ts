@@ -96,6 +96,7 @@ function createMockOscManager() {
       state: "running",
       info: { url: "https://restreamer.example.com", rtmpHost: "mock-rtmp.example.com" },
     }),
+    getShutdownInSeconds: vi.fn().mockReturnValue(null),
     ensureRunning: vi.fn().mockResolvedValue({ url: "https://restreamer.example.com", rtmpHost: "mock-rtmp.example.com" }),
     streamStarted: vi.fn(),
     streamEnded: vi.fn(),

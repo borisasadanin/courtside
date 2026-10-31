@@ -304,15 +304,17 @@ final class APIService {
 
     struct RestreamerStatus: Decodable {
         let state: String
+        /// Seconds until the backend shuts an idle Restreamer down; nil when
+        /// someone is streaming, or on a platform too old to say.
+        let shutdownInSeconds: Int?
     }
 
-    func checkRestreamerStatus() async -> String? {
+    func checkRestreamerStatus() async -> RestreamerStatus? {
         guard let url = URL(string: "\(baseURL)/api/restreamer/status") else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 5)
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         guard let (data, http) = try? await send(request), http.statusCode == 200 else { return nil }
-        guard let status = try? JSONDecoder().decode(RestreamerStatus.self, from: data) else { return nil }
-        return status.state
+        return try? JSONDecoder().decode(RestreamerStatus.self, from: data)
     }
 
     struct RestreamerStartResponse: Decodable {

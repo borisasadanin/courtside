@@ -28,6 +28,7 @@ struct StartView: View {
     @State private var isStoppingRestreamer = false
     @State private var isStartingRestreamer = false
     @State private var restreamerStartRequestedAt: Date?
+    @State private var restreamerShutdownIn: Int?
     @State private var isNotifying = false
     @State private var hasNotified = false
     @State private var showNotifyConfirmation = false
@@ -57,6 +58,15 @@ struct StartView: View {
     /// not have to wait for the sändningsmotor.
     private var canNotify: Bool {
         backendStatus == .healthy
+    }
+
+    /// Minutes left before the backend shuts the idle sändningsmotor down.
+    private var restreamerShutdownMinutes: Int? {
+        restreamerShutdownIn.map { max(1, Int((Double($0) / 60).rounded(.up))) }
+    }
+
+    private var restreamerReadyLabel: String {
+        restreamerShutdownMinutes.map { "Redo · stängs av om \($0) min" } ?? "Redo"
     }
 
     private var canStartRestreamer: Bool {
@@ -117,7 +127,7 @@ struct StartView: View {
                     }
 
                     StatusRow(label: "Server", status: backendStatus)
-                    StatusRow(label: "Sändningsmotor", status: restreamerStatus, healthyLabel: "Redo")
+                    StatusRow(label: "Sändningsmotor", status: restreamerStatus, healthyLabel: restreamerReadyLabel)
                     StatusRow(label: "Tittarsida", status: websiteStatus)
 
                     if let hint = statusHint {
@@ -461,6 +471,9 @@ struct StartView: View {
             return "Starta sändningsmotorn när det är dags att sända — det tar 1–3 minuter. Tittarna kan du meddela redan nu."
         case .starting:
             return "Sändningsmotorn startar, det tar 1–3 minuter."
+        case .healthy:
+            guard let minutes = restreamerShutdownMinutes else { return nil }
+            return "Ingen sänder. Sändningsmotorn stängs av automatiskt om \(minutes) min om ingen börjar sända."
         default:
             return nil
         }
@@ -475,17 +488,21 @@ struct StartView: View {
     /// Reads the sändningsmotor's state from the backend. Never starts it.
     @MainActor
     private func checkRestreamer() async {
-        guard let state = await APIService.shared.checkRestreamerStatus() else {
+        guard let status = await APIService.shared.checkRestreamerStatus() else {
             guard !Task.isCancelled else { return }
             restreamerStatus = .unhealthy("Ej nåbar")
+            restreamerShutdownIn = nil
             return
         }
         guard !Task.isCancelled else { return }
 
+        let state = status.state
+        restreamerShutdownIn = status.shutdownInSeconds
         switch state {
         case "running", "stopping":
-            // "stopping" is the grace period after a match: still up, and a
-            // new stream cancels the shutdown.
+            // "stopping" is the grace period: nobody is streaming and the
+            // backend shuts it down when it runs out, but until then it is up,
+            // and a new stream cancels the shutdown.
             restreamerStatus = .healthy
             restreamerStartRequestedAt = nil
         case "starting":
@@ -531,6 +548,7 @@ struct StartView: View {
         isStoppingRestreamer = false
         if success {
             restreamerStartRequestedAt = nil
+            restreamerShutdownIn = nil
             restreamerStatus = .off
         } else {
             errorMessage = "Kunde inte stänga av sändningsmotorn"
