@@ -808,14 +808,6 @@ main {
   white-space: nowrap;
 }
 
-.match-group-result {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  margin: 0 0 6px;
-}
-
 /* ── Recording cards: one per camera angle ── */
 
 .match-recordings {
@@ -3150,12 +3142,6 @@ footer a:hover { color: var(--accent-ink); }
   align-items: center;
   gap: 6px;
 }
-.empty-next {
-  font-size: 1.05rem;
-  font-weight: 700;
-  line-height: 1.4;
-  color: var(--accent-ink);
-}
 .empty-schedule-title {
   margin-top: 14px;
   font-size: 0.75rem;
@@ -3230,4 +3216,192 @@ footer a:hover { color: var(--accent-ink); }
 }
 @media (max-width: 480px) {
   .match-form-row { grid-template-columns: 1fr; }
+}
+/* ABL-049: match cards — one head for live, coming and played matches (match-card.js): the teams with
+   their badges, then the status line. Also the badge cover for a match without a picture, and the
+   filter per team above the replays and the coming matches. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mc-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.mc-title {
+  display: block;
+  margin: 0;
+  font: inherit;
+}
+/* Own team left, opponent right; a long name wraps beside its badge */
+.mc-teams {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) auto minmax(0, max-content);
+  justify-content: start;
+  align-items: center;
+  column-gap: 10px;
+}
+/* A ring keeps a badge in a dark team colour apart from the card */
+.mc-teams .team-badge:not(.has-logo),
+.match-cover-teams .team-badge:not(.has-logo) {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.mc-team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.mc-opponent { text-align: right; }
+.mc-name,
+.mc-dash {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+.mc-name {
+  min-width: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.mc-dash { color: var(--text-muted); }
+
+.mc-status,
+.empty-state .mc-head .mc-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 4px;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mc-pill { margin-right: 10px; }
+.mc-part + .mc-part::before {
+  content: "\00b7";
+  margin: 0 7px;
+}
+.mc-status .match-score {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.mc-camera {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Played: a hand-written title above the teams, the share button beside them */
+.match-group-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.match-group-heading {
+  flex: 1;
+  min-width: 0;
+}
+.match-share-btn { flex-shrink: 0; }
+
+/* No cover: the two badges on the drawn court */
+.match-cover-teams {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  height: 190px;
+  background: #12161c var(--court-lines) center / auto 88% no-repeat;
+}
+/* A logo here is a badge, not a cover picture */
+.match-cover-teams .team-badge img {
+  height: 100%;
+  aspect-ratio: auto;
+  max-height: none;
+  object-fit: contain;
+}
+.match-cover-dash {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+/* Coming: cards under the empty live page */
+.empty-schedule {
+  max-width: 480px;
+  align-items: stretch;
+}
+.empty-schedule-list li { display: block; }
+.match-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 14px 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  text-align: left;
+}
+.match-card .mc-head { align-self: stretch; }
+.match-card .mc-name,
+.match-card .mc-dash { font-size: 1.3rem; }
+.match-card .calendar-btn { margin-left: -4px; }
+
+/* Alla · P12 · F14 */
+.team-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.empty-schedule .team-filter {
+  justify-content: center;
+  margin-bottom: 6px;
+}
+.team-filter-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.team-filter-btn:hover { background: var(--surface-hover); }
+/* The ring, not only the tint, says which is chosen */
+.team-filter-btn[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-ink);
+  color: var(--accent-ink);
+}
+.team-filter-btn:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .mc-name,
+  .mc-dash { font-size: 1.3rem; }
+  .mc-teams,
+  .mc-team { gap: 8px; }
+  .match-cover-teams { gap: 14px; }
 }

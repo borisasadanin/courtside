@@ -37,6 +37,9 @@ export interface StreamMeta {
   pauses?: RecordedPause[];
   /** The match in the schedule this stream records (ABL-048) */
   matchId?: string;
+  /** The teams as recorded, for a live card when the schedule cannot be read (ABL-049) */
+  homeTeam?: string;
+  awayTeam?: string;
 }
 
 /** In-memory stream metadata */

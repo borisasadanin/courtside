@@ -494,6 +494,25 @@ describe("match routes, streams and announcements", () => {
     expect(list.find((s: { id: string }) => s.id === stream.id)?.matchId).toBe(match.id);
   });
 
+  it("names the teams on the stream list, so a live card needs no schedule", async () => {
+    const match = await matches.create({ date: today, ownTeamName: "P12", opponentName: "AIK" });
+    const picked = (await start(camera, { matchId: match.id })).json();
+    const typed = (await start(cameraB, { name: "Kortsidan", team: "F14", opponent: "Hornets" })).json();
+    restreamer = Object.assign(restreamer, { listManagedProcesses: vi.fn(async () => []) });
+    const list = (await app.inject({ url: "/api/streams", headers: viewer })).json();
+    const shown = (id: string) => list.find((s: { id: string }) => s.id === id);
+    expect(shown(picked.id)).toMatchObject({ matchId: match.id, homeTeam: "P12", awayTeam: "AIK" });
+    expect(shown(typed.id)).toMatchObject({ matchId: typed.matchId, homeTeam: "F14", awayTeam: "Hornets" });
+
+    // A stream from before the names were kept shows without them, as before.
+    streamMeta.set("old", { name: "Gammal kamera", createdAt: new Date().toISOString(), partNumber: 1, periodNumber: 1, completedParts: [] });
+    const again = (await app.inject({ url: "/api/streams", headers: viewer })).json();
+    const old = again.find((s: { id: string }) => s.id === "old");
+    expect(old).toBeTruthy();
+    expect(old).not.toHaveProperty("homeTeam");
+    expect(old).not.toHaveProperty("matchId");
+  });
+
   it("shows two cameras' announcements of one match once, and starting it ends both", async () => {
     const match = await matches.create({ date: today, time: "14:00", ownTeamName: "P12", opponentName: "AIK" });
     // An older app names its match only in the message; a newer one by id.

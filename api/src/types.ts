@@ -28,6 +28,9 @@ export interface StreamPublicInfo {
   posterUrl?: string;
   /** The match the stream belongs to (ABL-048). Missing on streams started before it. */
   matchId?: string;
+  /** The teams as recorded, own team first (ABL-049). Missing on streams started before it. */
+  homeTeam?: string;
+  awayTeam?: string;
 }
 
 export interface CreateStreamBody {
