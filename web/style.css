@@ -3140,3 +3140,94 @@ footer a:hover { color: var(--accent-ink); }
   background: var(--accent);
   color: var(--on-accent);
 }
+
+/* ABL-048: match schedule — the next matches under the empty live page (streams.js) and Hantera → Matcher (match-admin.js). */
+.empty-schedule {
+  margin: 20px auto 0;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.empty-next {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--accent-ink);
+}
+.empty-schedule-title {
+  margin-top: 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.empty-schedule-list {
+  list-style: none;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.empty-schedule-list li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.4;
+}
+.calendar-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  text-decoration: underline;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 6px 4px;
+  min-height: 32px;
+}
+.calendar-btn:hover { color: var(--text); }
+
+.match-add-panel { text-align: left; }
+.match-row { justify-content: flex-start; }
+.match-row .device-info { flex: 1; }
+.match-row-badges { display: inline-flex; gap: 4px; flex-shrink: 0; }
+.match-edit {
+  margin: -2px 0 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.match-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.match-team { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.match-new-team { display: flex; flex-direction: column; gap: 6px; }
+.match-logo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.match-logo-name { font-size: 0.8rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.match-form select,
+.match-form input[type="date"],
+.match-form input[type="time"] {
+  background: var(--bg); color: var(--text); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 14px; font-family: inherit; font-size: 1rem; min-height: 46px;
+  width: 100%; min-width: 0;
+  color-scheme: dark;
+}
+.match-form button:disabled { opacity: 0.5; cursor: default; }
+.match-played { margin-top: 20px; }
+.match-played > summary {
+  cursor: pointer;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+@media (max-width: 480px) {
+  .match-form-row { grid-template-columns: 1fr; }
+}

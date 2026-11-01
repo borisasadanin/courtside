@@ -115,6 +115,7 @@
           <img src="icon.png" alt="" data-club-logo class="empty-logo" id="emptyLogo">
           <p id="emptyTitle">Ingen sänder just nu</p>
           <p class="empty-sub" id="emptySub">Matchen dyker upp här av sig själv när en kamera börjar sända. Du behöver inte ladda om sidan.</p>
+          <div class="empty-schedule hidden" id="emptySchedule"></div>
         </div>
       </div>
     </section>
@@ -256,6 +257,11 @@
             <span class="admin-row-text"><span class="admin-row-title">Lag</span><span class="admin-row-sub" id="adminRowTeamsSub">Egna lag och motståndare</span></span>
             <svg class="admin-row-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
+          <button class="admin-row" type="button" data-admin-open="matches">
+            <svg class="admin-row-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span class="admin-row-text"><span class="admin-row-title">Matcher</span><span class="admin-row-sub" id="adminRowMatchesSub">Kommande matcher</span></span>
+            <svg class="admin-row-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
           <button class="admin-row" type="button" data-admin-open="pins">
             <svg class="admin-row-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
             <span class="admin-row-text"><span class="admin-row-title">Koder</span><span class="admin-row-sub">Tittarkod och admin-kod</span></span>
@@ -304,6 +310,16 @@
         </div>
         <div class="admin-pair-panel team-add-panel hidden" id="adminTeamAddPanel"></div>
         <div class="team-list" id="adminTeamList"></div>
+      </div>
+
+      <div class="admin-page hidden" data-admin-page="matches">
+        <button class="back-btn" type="button" data-admin-back><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Hantera</button>
+        <div class="admin-section-head">
+          <h2 class="admin-page-title">Matcher</h2>
+          <button class="admin-pair-btn" id="adminMatchAdd" type="button">Lägg till match</button>
+        </div>
+        <div class="admin-pair-panel match-add-panel hidden" id="adminMatchAddPanel"></div>
+        <div class="match-admin-list" id="adminMatchList"></div>
       </div>
 
       <div class="admin-page hidden" data-admin-page="pins">

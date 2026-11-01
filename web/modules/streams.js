@@ -7,6 +7,8 @@ import { escapeHtml } from "./utils.js";
 import { authHeaders, showPinScreen } from "./auth.js";
 import { openPlayer, pauseLabel } from "./player.js";
 import { showImage } from "./images.js";
+import { club } from "./club.js";
+import { loadMatches, findMatch, upcomingMatches, describeMatch, severalOwnTeams, downloadIcs } from "./matches.js";
 
 // ============================
 // Fetch & render
@@ -72,18 +74,85 @@ function updateEmptyState(broadcastState) {
 
   dom.emptyTitle.textContent = msgs.title;
 
-  // Show match info as subtitle if available (e.g., "Hammarby vs AIK")
-  if (broadcastState?.message && status === "upcoming") {
+  // Show match info as subtitle if available (e.g., "Hammarby vs AIK"), or
+  // when, where and who from the schedule if the camera named its match.
+  const announced = broadcastState?.upcoming ?? [];
+  const match = announced.length === 1 ? findMatch(announced[0].matchId) : null;
+  if (status === "upcoming" && match) {
+    dom.emptySub.textContent = describeMatch(match, { withOwnTeam: true });
+  } else if (broadcastState?.message && status === "upcoming") {
     dom.emptySub.textContent = broadcastState.message;
   } else {
     dom.emptySub.textContent = msgs.sub;
   }
+
+  renderSchedule(status, announced);
 
   // Toggle background image for non-idle states
   dom.emptyBg.classList.toggle("active", showBg);
 
   // Toggle state-specific class on empty-state container
   dom.emptyState.className = "empty-state" + (status !== "idle" ? ` ${status}` : "");
+}
+
+// ============================
+// Schedule under the empty state (ABL-048)
+// ============================
+
+/** What the schedule block shows now, so a poll that changes nothing leaves it (and focus) alone. */
+let scheduleShown = "";
+
+/**
+ * "Nästa match: lör 8 nov 14:00 mot Hornets, Sporthallen" and a few after it,
+ * each with "Lägg till i kalendern". A match a camera has announced already
+ * shows above as starting soon, so it is left out here.
+ */
+function renderSchedule(status, announced) {
+  const el = dom.emptySchedule;
+  if (!el) return;
+  const skip = new Set(announced.map((u) => u.matchId).filter(Boolean));
+  const list = upcomingMatches().filter((m) => !skip.has(m.id));
+  const withOwnTeam = severalOwnTeams(list);
+  const headline = status === "idle" ? list[0] : null;
+  const later = (headline ? list.slice(1) : list).slice(0, headline ? 3 : 4);
+
+  const shown = JSON.stringify([status, withOwnTeam, headline, later]);
+  if (shown === scheduleShown) return;
+  scheduleShown = shown;
+
+  el.replaceChildren();
+  el.classList.toggle("hidden", list.length === 0);
+  if (headline) {
+    const next = document.createElement("div");
+    next.className = "empty-next";
+    next.textContent = `Nästa match: ${describeMatch(headline, { withOwnTeam })}`;
+    el.append(next, calendarButton(headline));
+  }
+  if (later.length > 0) {
+    const title = document.createElement("div");
+    title.className = "empty-schedule-title";
+    title.textContent = headline ? "Sedan" : "Kommande matcher";
+    const items = document.createElement("ul");
+    items.className = "empty-schedule-list";
+    for (const match of later) {
+      const li = document.createElement("li");
+      const text = document.createElement("span");
+      text.textContent = describeMatch(match, { withOwnTeam });
+      li.append(text, calendarButton(match));
+      items.append(li);
+    }
+    el.append(title, items);
+  }
+}
+
+function calendarButton(match) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "calendar-btn";
+  btn.textContent = "Lägg till i kalendern";
+  btn.setAttribute("aria-label", `Lägg till ${match.ownTeam.name} mot ${match.opponent.name} i kalendern`);
+  btn.addEventListener("click", () => downloadIcs(match, { clubName: club.name }));
+  return btn;
 }
 
 /**
@@ -193,9 +262,11 @@ function renderStreamList(streams, broadcastState) {
 // ============================
 
 async function pollStreamList() {
+  // The schedule is fetched at most once a minute (matches.js).
   const [streams, broadcastState] = await Promise.all([
     fetchStreams(),
     fetchBroadcastState(),
+    loadMatches(),
   ]);
   if (streams !== null) {
     renderStreamList(streams, broadcastState);

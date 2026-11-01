@@ -1,6 +1,7 @@
 // === VOD module ===
 // VOD list fetching, rendering, polling.
-// Groups recordings and highlight clips by match (date + teams).
+// Groups recordings and highlight clips by match: the match in the schedule
+// (ABL-048), or date + teams for recordings made before it.
 
 import { CONFIG } from "./config.js";
 import { state, dom } from "./state.js";
@@ -10,6 +11,7 @@ import { openVodPlayer } from "./player.js";
 import { fetchAllClips, playClip } from "./highlights.js";
 import { copyClipLink, setClipHash } from "./deeplink.js";
 import { showImage } from "./images.js";
+import { loadMatches, findMatch } from "./matches.js";
 
 // ============================
 // Fetch
@@ -39,29 +41,34 @@ async function fetchVod() {
 
 /**
  * Group VOD entries and clips into match groups.
- * Grouping key: matchDate + homeTeam + awayTeam (all lowercased).
+ * Grouping key: the recording's match id; for recordings made before the
+ * schedule, matchDate + homeTeam + awayTeam (all lowercased).
  * Clips are attached to their group via streamId → vod → group.
  * Orphan clips (from live streams not yet in VOD index) get their own group.
+ *
+ * A group of a match in the schedule carries it as `match` (see matches.js),
+ * and takes its teams, date and venue from it; otherwise `match` is null.
  */
 function groupByMatch(vods, clips) {
   const groups = new Map(); // key → MatchGroup
 
   // Build groups from VOD entries
   for (const vod of vods) {
-    const key = [
-      vod.matchDate || "",
-      (vod.homeTeam || "").toLowerCase(),
-      (vod.awayTeam || "").toLowerCase(),
-    ].join("|");
+    const key = vod.matchId
+      ? `match:${vod.matchId}`
+      : [
+        vod.matchDate || "",
+        (vod.homeTeam || "").toLowerCase(),
+        (vod.awayTeam || "").toLowerCase(),
+      ].join("|");
 
     if (!groups.has(key)) {
+      const match = findMatch(vod.matchId);
       groups.set(key, {
         key,
-        matchTitle: vod.matchTitle || "Inspelning",
-        matchDate: vod.matchDate || "",
-        location: vod.location || "",
-        homeTeam: vod.homeTeam || "",
-        awayTeam: vod.awayTeam || "",
+        matchId: vod.matchId || null,
+        match,
+        ...matchHeading(vod, match),
         recordings: [],
         clips: [],
         latestAt: vod.stoppedAt || vod.createdAt,
@@ -120,6 +127,8 @@ function groupByMatch(vods, clips) {
     orphanClips.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     sorted.unshift({
       key: "__orphan__",
+      matchId: null,
+      match: null,
       matchTitle: "Pågående match",
       matchDate: "",
       location: "",
@@ -132,6 +141,30 @@ function groupByMatch(vods, clips) {
   }
 
   return sorted;
+}
+
+/**
+ * What a match's header shows: the match in the schedule as it is now (a team
+ * renamed in Lag, a misspelling fixed in Matcher), or else the recording's own
+ * text. A title written by hand is kept.
+ */
+function matchHeading(vod, match) {
+  const heading = {
+    matchTitle: vod.matchTitle || "Inspelning",
+    matchDate: vod.matchDate || "",
+    location: vod.location || "",
+    homeTeam: vod.homeTeam || "",
+    awayTeam: vod.awayTeam || "",
+  };
+  if (!match) return heading;
+  const titleIsTeams = vod.matchTitle === `${vod.homeTeam} vs ${vod.awayTeam}`;
+  return {
+    matchTitle: titleIsTeams ? `${match.ownTeam.name} vs ${match.opponent.name}` : heading.matchTitle,
+    matchDate: match.date,
+    location: match.venue || "",
+    homeTeam: match.ownTeam.name,
+    awayTeam: match.opponent.name,
+  };
 }
 
 /** Cover sources, best first. The admin's choice wins over a camera's first highlight. */
@@ -527,7 +560,8 @@ function formatClipTime(isoString) {
 // ============================
 
 async function pollVodList() {
-  const [vods, clips] = await Promise.all([fetchVod(), fetchAllClips()]);
+  // The schedule only names the matches: without it the list still groups by match id.
+  const [vods, clips] = await Promise.all([fetchVod(), fetchAllClips(), loadMatches()]);
   if (vods !== null) {
     renderVodList(vods, clips ?? []);
   }

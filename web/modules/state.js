@@ -61,6 +61,7 @@ export function initDom() {
   dom.emptyLogo = document.getElementById("emptyLogo");
   dom.emptyTitle = document.getElementById("emptyTitle");
   dom.emptySub = document.getElementById("emptySub");
+  dom.emptySchedule = document.getElementById("emptySchedule");
 
   // VOD list
   dom.vodListView = document.getElementById("vodListView");
