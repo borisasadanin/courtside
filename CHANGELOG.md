@@ -31,6 +31,15 @@ Matchresultat på repriserna.
 - Kräver kameraappen 1.3.0 för att frågan ska komma efter matchen. Äldre appar fungerar som förut, och
   resultatet sätts då i Hantera
 
+Sändningsmotorn.
+
+- Sändningsmotorn startar bara när någon trycker på *Starta sändningsmotor* i kameraappen, inte när appen öppnas.
+  Står den igång utan att någon sänder stängs den av efter 15 minuter i stället för en timme, och appen visar
+  hur länge det är kvar
+- Motorn går inte att stänga av medan en match sänds eller är pausad, så en kamera kan inte bryta en annans sändning.
+  Avstängningen rapporteras nu rätt även när Open Source Cloud tar mer än tio sekunder på sig
+- Hantera → Kameror visar vilken version av kameraappen varje kamera har
+
 ## v0.4.1 — 2026-10-30
 
 Nytt utseende. Allt fungerar som förut, men det är lättare att hitta.
