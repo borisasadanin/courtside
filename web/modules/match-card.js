@@ -132,6 +132,8 @@ export function upcomingHead(match, { pill } = {}) {
 // ============================
 
 const FILTER_KEY = "teamFilter";
+/** Fired on document when the viewer picks a team in either list. */
+export const TEAM_FILTER_EVENT = "courtside:teamfilter";
 /** The choice when the browser keeps no storage (private mode, blocked). */
 let remembered = null;
 
@@ -206,6 +208,8 @@ function filterRow(options, chosen, onChange) {
       const container = row.parentElement;
       chooseTeam(key);
       onChange();
+      // Repriser and the upcoming list share the choice; the other one redraws too.
+      document.dispatchEvent(new CustomEvent(TEAM_FILTER_EVENT));
       if (container) focusTeamFilter(container, key);
     });
     row.append(btn);

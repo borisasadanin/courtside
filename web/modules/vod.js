@@ -13,7 +13,7 @@ import { copyClipLink, copyMatchLink, setClipHash } from "./deeplink.js";
 import { showImage } from "./images.js";
 import { loadMatches, findMatch } from "./matches.js";
 import { loadTeams, teamBadge } from "./teams.js";
-import { matchTeams, matchHead, spokenTeams, playedOn, teamFilter, focusedTeamFilter, focusTeamFilter } from "./match-card.js";
+import { matchTeams, matchHead, spokenTeams, playedOn, teamFilter, focusedTeamFilter, focusTeamFilter, TEAM_FILTER_EVENT } from "./match-card.js";
 
 // ============================
 // Fetch
@@ -214,7 +214,14 @@ function highlightsOpen(group, streamIds) {
 // Rendering
 // ============================
 
+/** The list as last drawn, to draw it again when the team filter changes elsewhere. */
+let lastVodList = null;
+document.addEventListener(TEAM_FILTER_EVENT, () => {
+  if (lastVodList) renderVodList(...lastVodList);
+});
+
 function renderVodList(vods, clips) {
+  lastVodList = [vods, clips];
   const groups = groupByMatch(vods, clips ?? []);
   // Polling rebuilds the list; a viewer on a highlights toggle or the team
   // filter keeps their place.

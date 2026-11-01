@@ -10,7 +10,7 @@ import { showImage } from "./images.js";
 import { club } from "./club.js";
 import { loadMatches, findMatch, upcomingMatches, describeMatch, downloadIcs } from "./matches.js";
 import { loadTeams } from "./teams.js";
-import { matchTeams, matchHead, matchName, spokenTeams, upcomingHead, teamFilter, focusedTeamFilter, focusTeamFilter } from "./match-card.js";
+import { matchTeams, matchHead, matchName, spokenTeams, upcomingHead, teamFilter, focusedTeamFilter, focusTeamFilter, TEAM_FILTER_EVENT } from "./match-card.js";
 
 // ============================
 // Fetch & render
@@ -105,6 +105,8 @@ function updateEmptyState(broadcastState) {
 let scheduleShown = "";
 /** The arguments it was last drawn with, to draw it again when the team filter changes. */
 let scheduleArgs = ["idle", []];
+
+document.addEventListener(TEAM_FILTER_EVENT, () => renderSchedule(...scheduleArgs));
 
 /**
  * "Nästa match" as a match card, and a few after it, each with "Lägg till i
