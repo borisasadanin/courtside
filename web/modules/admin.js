@@ -10,6 +10,7 @@ import { renderBranding, renderPrivacyAdmin } from "./branding.js";
 import { renderTeardown } from "./teardown.js";
 import { renderPins } from "./pins.js";
 import { renderUpdate } from "./update.js";
+import { showImage } from "./images.js";
 
 // Callback injected by the orchestrator
 let onSwitchTab = null;
@@ -150,6 +151,7 @@ export async function loadAdminStorage() {
             ${duration ? `<span>${escapeHtml(duration)}</span>` : ""}
           </div>
           <div class="admin-vod-result" data-result="${escapeHtml(v.id)}"></div>
+          <div class="admin-vod-cover" data-cover="${escapeHtml(v.id)}"></div>
           ${renderClipList(v.clips || [], `${(v.clips || []).length} klipp`)}
         </div>
         <div class="admin-vod-size">${escapeHtml(size)}</div>
@@ -172,6 +174,9 @@ export async function loadAdminStorage() {
     const vodsById = new Map(data.vods.map((v) => [v.id, v]));
     dom.adminVodList.querySelectorAll("[data-result]").forEach((el) => {
       renderResult(el, vodsById.get(el.dataset.result));
+    });
+    dom.adminVodList.querySelectorAll("[data-cover]").forEach((el) => {
+      renderCoverChoice(el, vodsById.get(el.dataset.cover));
     });
 
     // Bind delete buttons
@@ -302,6 +307,105 @@ function renderResult(el, vod) {
   form.querySelector('[data-action="remove"]')?.addEventListener("click", () => send("DELETE"));
 
   el.append(summary, form);
+}
+
+// ============================
+// Cover picture
+// ============================
+
+/**
+ * "Byt omslagsbild": pick one of the match's highlight thumbnails as its cover,
+ * or go back to the automatic choice (the first highlight, else a frame from
+ * the recording). Shown only for a match with a highlight that has a picture.
+ */
+function renderCoverChoice(el, vod) {
+  const clips = (vod.clips || []).filter((c) => c.thumbnailUrl);
+  if (clips.length === 0) return;
+
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "branding-link";
+  open.textContent = "Byt omslagsbild";
+
+  const picker = document.createElement("div");
+  picker.className = "admin-cover-picker hidden";
+  const options = document.createElement("div");
+  options.className = "admin-cover-options";
+  const row = document.createElement("div");
+  row.className = "branding-save-row";
+  row.innerHTML = `
+    <button class="branding-link" type="button" data-action="close">Stäng</button>
+    <span class="branding-status" role="status"></span>`;
+  picker.append(options, row);
+  const status = row.querySelector(".branding-status");
+  const say = (text, error = false) => { status.textContent = text; status.classList.toggle("error", error); };
+
+  // One button per choice; the one in use is pressed.
+  const choices = [{ clipId: null, label: "Automatisk" }].concat(
+    clips.map((c, i) => ({ clipId: c.id, label: c.label || `Höjdpunkt ${i + 1}`, thumbnailUrl: c.thumbnailUrl })),
+  );
+  const buttons = choices.map((choice) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "admin-cover-option";
+    b.setAttribute("aria-label", choice.label);
+    b.title = choice.label;
+    if (choice.thumbnailUrl) {
+      const img = document.createElement("img");
+      img.alt = "";
+      b.appendChild(img);
+      showImage(img, choice.thumbnailUrl);
+    } else {
+      b.textContent = choice.label;
+    }
+    b.addEventListener("click", () => choose(choice.clipId));
+    options.appendChild(b);
+    return b;
+  });
+  const refresh = () => {
+    buttons.forEach((b, i) => b.setAttribute("aria-pressed", String((vod.coverClipId ?? null) === choices[i].clipId)));
+  };
+  refresh();
+
+  async function choose(clipId) {
+    say("");
+    buttons.forEach((b) => { b.disabled = true; });
+    try {
+      const res = await fetch(`${CONFIG.API_URL}/api/vod/${encodeURIComponent(vod.id)}/cover`, {
+        method: "PUT",
+        headers: { ...adminHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ clipId }),
+      });
+      if (res.status === 401) {
+        deactivateAdmin();
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Kunde inte spara omslagsbilden");
+      }
+      vod.coverClipId = clipId ?? undefined;
+      refresh();
+      say("Sparat");
+    } catch (e) {
+      say(e.message || "Kunde inte spara omslagsbilden", true);
+    }
+    buttons.forEach((b) => { b.disabled = false; });
+  }
+
+  open.addEventListener("click", () => {
+    say("");
+    open.classList.add("hidden");
+    picker.classList.remove("hidden");
+    buttons.find((b) => b.getAttribute("aria-pressed") === "true")?.focus();
+  });
+  row.querySelector('[data-action="close"]').addEventListener("click", () => {
+    picker.classList.add("hidden");
+    open.classList.remove("hidden");
+    open.focus();
+  });
+
+  el.append(open, picker);
 }
 
 /** A match's clips, each removable on its own: removing one ends its shared link. */

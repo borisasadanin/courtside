@@ -9,6 +9,7 @@ import { authHeaders, showPinScreen } from "./auth.js";
 import { openVodPlayer } from "./player.js";
 import { fetchAllClips, playClip } from "./highlights.js";
 import { copyClipLink, setClipHash } from "./deeplink.js";
+import { showImage } from "./images.js";
 
 // ============================
 // Fetch
@@ -82,6 +83,7 @@ function groupByMatch(vods, clips) {
     group.recordings.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const reported = group.recordings.filter((r) => r.result);
     group.result = reported.length ? reported[reported.length - 1].result : null;
+    group.cover = matchCover(group.recordings);
   }
 
   // Map streamId → group key for clip assignment
@@ -130,6 +132,19 @@ function groupByMatch(vods, clips) {
   }
 
   return sorted;
+}
+
+/** Cover sources, best first. The admin's choice wins over a camera's first highlight. */
+const COVER_RANK = { chosen: 0, highlight: 1, frame: 2 };
+
+/**
+ * The match's cover: the best one any of its recordings has, the first camera's
+ * on a tie. Without one the card shows no picture (ABL-049 will draw one).
+ */
+function matchCover(recordings) {
+  const covers = recordings.map((r) => r.cover).filter((c) => c && c.source in COVER_RANK);
+  covers.sort((a, b) => COVER_RANK[a.source] - COVER_RANK[b.source]);
+  return covers[0] ?? null;
 }
 
 // ============================
@@ -203,6 +218,10 @@ function createMatchGroup(group) {
   const el = document.createElement("div");
   el.className = "match-group";
 
+  if (group.cover && group.recordings.length > 0) {
+    el.appendChild(createCover(group));
+  }
+
   // ── Header ──────────────────────────────────────────────
   const header = document.createElement("div");
   header.className = "match-group-header";
@@ -267,6 +286,26 @@ function createMatchGroup(group) {
   }
 
   return el;
+}
+
+/**
+ * The match's cover picture. Tapping it plays the first recording; it is hidden
+ * from screen readers, for whom the Spela button already does that.
+ */
+function createCover(group) {
+  const cover = document.createElement("div");
+  cover.className = "match-cover";
+  cover.setAttribute("aria-hidden", "true");
+  const img = document.createElement("img");
+  img.alt = "";
+  cover.appendChild(img);
+
+  const first = group.recordings[0];
+  cover.addEventListener("click", () => {
+    openVodPlayer(first.hlsUrl, first.matchTitle, first.id);
+  });
+  showImage(img, group.cover.url, { onFail: () => cover.remove() });
+  return cover;
 }
 
 /** "★ HÖJDPUNKTER 7 ›" — a toggle over the match's highlight chips. */
@@ -391,9 +430,22 @@ function createClipCard(clip, index) {
   const dur = `${Math.round(clip.durationSeconds)}s`;
 
   btn.innerHTML =
+    (clip.thumbnailUrl ? `<span class="clip-chip-thumb"><img alt=""></span>` : "") +
     `<span class="clip-chip-num">${STAR_SVG} ${index + 1}</span>` +
     `<span class="clip-chip-time">${escapeHtml(time)}</span>` +
     `<span class="clip-chip-dur">${escapeHtml(dur)}</span>`;
+
+  // The clip's thumbnail. Without one the chip is text only, as before.
+  if (clip.thumbnailUrl) {
+    btn.classList.add("has-thumb");
+    const thumb = btn.querySelector(".clip-chip-thumb");
+    showImage(thumb.firstChild, clip.thumbnailUrl, {
+      onFail: () => {
+        thumb.remove();
+        btn.classList.remove("has-thumb");
+      },
+    });
+  }
 
   btn.addEventListener("click", () => {
     setClipHash(clip.id);

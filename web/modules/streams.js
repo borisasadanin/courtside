@@ -6,6 +6,7 @@ import { state, dom } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { authHeaders, showPinScreen } from "./auth.js";
 import { openPlayer, pauseLabel } from "./player.js";
+import { showImage } from "./images.js";
 
 // ============================
 // Fetch & render
@@ -133,6 +134,7 @@ function renderStreamList(streams, broadcastState) {
       return `
     <button class="stream-card ${isStopped ? "stopped" : ""}${isPaused ? " paused" : ""}" data-hls="${escapeHtml(s.hlsUrl)}" data-dvr="${s.dvrUrl ? escapeHtml(s.dvrUrl) : ""}" data-name="${escapeHtml(s.name)}" data-id="${escapeHtml(s.id)}" ${isStopped ? "disabled" : ""}>
       <span class="stream-card-poster">
+        ${s.posterUrl ? `<img class="stream-card-image" alt="" data-poster="${escapeHtml(s.posterUrl)}">` : ""}
         <span class="stream-card-top">
           <span class="stream-card-badge ${badge.cls}">${escapeHtml(badge.text)}</span>
           ${s.viewers > 0 ? `<span class="stream-card-viewers">${escapeHtml(String(s.viewers))} tittare</span>` : ""}
@@ -146,6 +148,11 @@ function renderStreamList(streams, broadcastState) {
     </button>`;
     })
     .join("");
+
+  // The live picture, renewed about once a minute (ABL-045)
+  dom.streamGrid.querySelectorAll("img[data-poster]").forEach((img) => {
+    showImage(img, img.dataset.poster, { slot: img.closest(".stream-card").dataset.id });
+  });
 
   dom.streamGrid.querySelectorAll(".stream-card:not([disabled])").forEach((card) => {
     card.addEventListener("click", () => {

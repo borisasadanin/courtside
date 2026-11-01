@@ -2766,3 +2766,133 @@ footer a:hover { color: var(--accent-ink); }
 }
 .admin-page .admin-on-request input { width: 18px; height: 18px; flex-shrink: 0; }
 .admin-deletions-card { margin-top: 16px; }
+
+/* ABL-045: pictures — the live card, match covers, highlight thumbnails and the cover choice in Hantera.
+   Every picture is loaded with the viewer's code and shown once it has arrived; until then the card
+   looks as it did without one. */
+
+.stream-card-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stream-card-image:not([src]),
+.match-cover img:not([src]),
+.clip-chip-thumb img:not([src]),
+.admin-cover-option img:not([src]) {
+  visibility: hidden;
+}
+
+/* Badges and the play button stay above the picture */
+.stream-card-poster > .stream-card-play {
+  position: relative;
+}
+
+.match-cover {
+  margin: -16px -16px 14px;
+  overflow: hidden;
+  border-radius: 16px 16px 0 0;
+  background: #12161c;
+  cursor: pointer;
+}
+
+/* 16:9 on a phone, a banner on a wide screen */
+.match-cover img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 280px;
+  object-fit: cover;
+}
+
+@media (max-width: 480px) {
+  .match-cover {
+    margin: -14px -14px 14px;
+  }
+}
+
+/* A highlight with a thumbnail: the picture on top, "★ 1  14:32  12s" in a row below */
+.clip-chip.has-thumb {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "thumb thumb thumb"
+    "num time dur";
+  align-items: center;
+  gap: 6px 8px;
+  width: 152px;
+  padding: 0 10px 8px;
+  overflow: hidden;
+}
+
+.clip-chip-thumb {
+  grid-area: thumb;
+  display: block;
+  margin: 0 -10px;
+  aspect-ratio: 16 / 9;
+  background: #12161c;
+}
+
+.clip-chip-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.clip-chip.has-thumb .clip-chip-num { grid-area: num; }
+.clip-chip.has-thumb .clip-chip-time { grid-area: time; font-size: 1rem; }
+.clip-chip.has-thumb .clip-chip-dur { grid-area: dur; }
+
+.admin-vod-cover {
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
+
+.admin-cover-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.admin-cover-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-cover-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 112px;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  overflow: hidden;
+  background: #12161c;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.admin-cover-option img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-cover-option[aria-pressed="true"] {
+  border-color: var(--accent-ink);
+}
+
+.admin-cover-option:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
