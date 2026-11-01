@@ -37,6 +37,17 @@ struct StartView: View {
     @State private var isUnpairing = false
     @State private var platformVersion: String?
 
+    /// Today's matches from the club's schedule. Empty hides the section, which
+    /// is also how a platform without a schedule looks.
+    @State private var todaysMatches: [ScheduledMatch] = []
+    @State private var selectedMatchId: String?
+    /// Set when the user picks Annan match, so a refresh does not pick for them.
+    @State private var prefersManualEntry = false
+    /// What the user had typed before a match filled in the teams.
+    @State private var manualTeam = ""
+    @State private var manualOpponent = ""
+    @State private var matchesTask: Task<Void, Never>?
+
     @StateObject private var club = Club.shared
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -75,6 +86,10 @@ struct StartView: View {
         case .off, .unhealthy: return true
         default: return false
         }
+    }
+
+    private var selectedMatch: ScheduledMatch? {
+        todaysMatches.first { $0.id == selectedMatchId }
     }
 
     private var canStart: Bool {
@@ -120,6 +135,7 @@ struct StartView: View {
                         Spacer()
                         Button {
                             runHealthChecks()
+                            loadMatches()
                         } label: {
                             Image(systemName: "arrow.clockwise")
                                 .font(.caption)
@@ -205,6 +221,11 @@ struct StartView: View {
                     }
                 }
 
+                if !todaysMatches.isEmpty {
+                    todaysMatchesSection
+                        .padding(.horizontal, horizontalPad)
+                }
+
                 // Name + match fields
                 VStack(spacing: 12) {
                     // Shown to every viewer as the camera's name, so it asks
@@ -218,23 +239,8 @@ struct StartView: View {
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.sentences)
 
-                    TextField("Hemmalag", text: $team)
-                        .textFieldStyle(.plain)
-                        .padding(14)
-                        .background(Color(white: 0.12))
-                        .cornerRadius(8)
-                        .foregroundColor(.white)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.words)
-
-                    TextField("Motståndarlag", text: $opponent)
-                        .textFieldStyle(.plain)
-                        .padding(14)
-                        .background(Color(white: 0.12))
-                        .cornerRadius(8)
-                        .foregroundColor(.white)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.words)
+                    teamField("Hemmalag", text: $team)
+                    teamField("Motståndarlag", text: $opponent)
 
                     Text("Syns för alla tittare. Skriv inte ditt eget eller spelares fullständiga namn.")
                         .font(.caption)
@@ -399,12 +405,141 @@ struct StartView: View {
             OrientationManager.shared.lockPortrait()
             runHealthChecks()
             startPolling()
+            loadMatches()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            loadMatches()
         }
         .onDisappear {
             healthCheckTasks.forEach { $0.cancel() }
             pollTask?.cancel()
             pollTask = nil
+            matchesTask?.cancel()
         }
+    }
+
+    /// Today's matches as a choice, with Annan match last for one that is not
+    /// in the schedule.
+    private var todaysMatchesSection: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text("Dagens matcher")
+                    .font(.caption.bold())
+                    .foregroundColor(.white.opacity(0.6))
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+            }
+
+            ForEach(todaysMatches) { match in
+                MatchChoice(
+                    title: "\(match.ownTeam.name) – \(match.opponent.name)",
+                    detail: match.detail,
+                    badge: match.isLive ? "LIVE" : (match.hasEnded ? "Slut" : nil),
+                    isSelected: match.id == selectedMatchId,
+                    accent: club.accent,
+                    compact: isCompact
+                ) {
+                    select(match)
+                }
+                .accessibilityLabel(match.spokenLabel)
+            }
+
+            MatchChoice(
+                title: "Annan match",
+                detail: nil,
+                badge: nil,
+                isSelected: selectedMatchId == nil,
+                accent: club.accent,
+                compact: isCompact
+            ) {
+                chooseManualEntry()
+            }
+            .accessibilityHint("Skriv in lagen själv")
+        }
+    }
+
+    /// A team name: typed by hand, or filled in and locked by the chosen match.
+    private func teamField(_ label: String, text: Binding<String>) -> some View {
+        let fromMatch = selectedMatch != nil
+        return TextField(label, text: text)
+            .textFieldStyle(.plain)
+            .padding(14)
+            .padding(.trailing, fromMatch ? 24 : 0)
+            .background(Color(white: 0.12))
+            .cornerRadius(8)
+            .foregroundColor(fromMatch ? .white.opacity(0.6) : .white)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.words)
+            .disabled(fromMatch)
+            .overlay(alignment: .trailing) {
+                if fromMatch {
+                    Image(systemName: "lock.fill")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.4))
+                        .padding(.trailing, 14)
+                        .accessibilityHidden(true)
+                }
+            }
+            .accessibilityLabel(label)
+            .accessibilityHint(fromMatch ? "Från dagens match. Välj Annan match för att ändra." : "")
+    }
+
+    /// Fetches today's matches. Runs when the screen appears and when the app
+    /// comes back to the foreground; the schedule is set ahead of time, so it
+    /// is not polled.
+    private func loadMatches() {
+        matchesTask?.cancel()
+        matchesTask = Task { @MainActor in
+            let today = ScheduledMatch.day()
+            let fetched = await APIService.shared.fetchMatches(on: today)
+            guard !Task.isCancelled else { return }
+            // An unanswered request keeps what was there, as long as it is
+            // still today's. A platform without a schedule never has any.
+            let matches = (fetched ?? todaysMatches).filter { $0.date == today }
+            applyMatches(matches.sorted { ($0.time ?? "99:99") < ($1.time ?? "99:99") })
+        }
+    }
+
+    @MainActor
+    private func applyMatches(_ matches: [ScheduledMatch]) {
+        todaysMatches = matches
+        if let id = selectedMatchId {
+            if let match = matches.first(where: { $0.id == id }) {
+                // The admin may have corrected a name since it was chosen.
+                team = match.ownTeam.name
+                opponent = match.opponent.name
+            } else {
+                leaveMatch()
+            }
+        }
+        // A single match today is almost certainly the one being filmed.
+        let open = matches.filter { !$0.hasEnded }
+        if selectedMatchId == nil, !prefersManualEntry, open.count == 1 {
+            select(open[0])
+        }
+    }
+
+    private func select(_ match: ScheduledMatch) {
+        if selectedMatchId == nil {
+            manualTeam = team
+            manualOpponent = opponent
+        }
+        selectedMatchId = match.id
+        team = match.ownTeam.name
+        opponent = match.opponent.name
+    }
+
+    private func chooseManualEntry() {
+        prefersManualEntry = true
+        leaveMatch()
+    }
+
+    /// Back to typing the teams, with what the user had typed before.
+    private func leaveMatch() {
+        guard selectedMatchId != nil else { return }
+        selectedMatchId = nil
+        team = manualTeam
+        opponent = manualOpponent
     }
 
     /// Checks every component once, from scratch. Only reads status: the
@@ -590,7 +725,8 @@ struct StartView: View {
         do {
             _ = try await APIService.shared.setBroadcastState(
                 status: "upcoming",
-                message: matchMessage.isEmpty ? nil : matchMessage
+                message: matchMessage.isEmpty ? nil : matchMessage,
+                matchId: selectedMatchId
             )
             hasNotified = true
             isNotifying = false
@@ -609,20 +745,34 @@ struct StartView: View {
 
         isLoading = true
         errorMessage = nil
+        let matchId = selectedMatchId
 
         Task {
             do {
                 let info = try await APIService.shared.createStream(
                     name: trimmed,
                     opponent: opponent.trimmingCharacters(in: .whitespaces),
-                    team: team.trimmingCharacters(in: .whitespaces)
+                    team: team.trimmingCharacters(in: .whitespaces),
+                    matchId: matchId
                 )
                 UserDefaults.standard.set(trimmed, forKey: "courtside_last_name")
-                UserDefaults.standard.set(opponent.trimmingCharacters(in: .whitespaces), forKey: "courtside_last_opponent")
-                UserDefaults.standard.set(team.trimmingCharacters(in: .whitespaces), forKey: "courtside_last_team")
+                // Only typed teams are remembered: they are what Annan match
+                // starts from next time.
+                if matchId == nil {
+                    UserDefaults.standard.set(opponent.trimmingCharacters(in: .whitespaces), forKey: "courtside_last_opponent")
+                    UserDefaults.standard.set(team.trimmingCharacters(in: .whitespaces), forKey: "courtside_last_team")
+                }
                 streamInfo = info
             } catch let apiError as APIError {
                 switch apiError {
+                case .matchNotFound(let message):
+                    // Removed from the schedule since the list was fetched.
+                    // The teams stay filled in, now editable, so starting
+                    // again goes ahead as Annan match.
+                    errorMessage = message
+                    prefersManualEntry = true
+                    selectedMatchId = nil
+                    loadMatches()
                 case .restreamerNotReady(let message):
                     // Show as warning (not critical error) — user just needs to wait
                     errorMessage = message
@@ -686,6 +836,79 @@ private struct StatusRow: View {
         case .off: return "Avstängd"
         case .unhealthy(let msg): return msg
         }
+    }
+}
+
+/// One choice in Dagens matcher: a scheduled match, or Annan match.
+private struct MatchChoice: View {
+    let title: String
+    let detail: String?
+    let badge: String?
+    let isSelected: Bool
+    let accent: Color
+    let compact: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundColor(isSelected ? accent : .white.opacity(0.4))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline.bold())
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.leading)
+                    if let detail {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                if let badge {
+                    Text(badge)
+                        .font(.caption2.bold())
+                        .foregroundColor(badge == "LIVE" ? .white : .white.opacity(0.6))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(badge == "LIVE" ? Color.red : Color(white: 0.2))
+                        .cornerRadius(3)
+                }
+            }
+            .padding(compact ? 10 : 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(white: 0.12))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? accent : .clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+private extension ScheduledMatch {
+    /// Time and place, e.g. "14:00 · Sporthallen".
+    var detail: String? {
+        let parts = [time, venue]
+            .compactMap { $0?.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    var spokenLabel: String {
+        var parts = ["\(ownTeam.name) mot \(opponent.name)"]
+        if let time, !time.isEmpty { parts.append("klockan \(time)") }
+        if let venue, !venue.isEmpty { parts.append(venue) }
+        if isLive { parts.append("sänds nu") } else if hasEnded { parts.append("slut") }
+        return parts.joined(separator: ", ")
     }
 }
 
