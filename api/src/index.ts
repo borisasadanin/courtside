@@ -28,6 +28,7 @@ import webRoutes, { webDistDir } from "./routes/web.js";
 import setupRoutes from "./routes/setup-routes.js";
 import teamRoutes from "./routes/team-routes.js";
 import matchRoutes from "./routes/match-routes.js";
+import shareRoutes from "./routes/share-routes.js";
 import { Setup } from "./setup.js";
 import { Branding } from "./club-branding.js";
 import { VERSION } from "./version.js";
@@ -109,6 +110,7 @@ await app.register(teamRoutes);
 await app.register(matchRoutes);
 
 const webRoot = webDistDir();
+await app.register(shareRoutes, { branding, webRoot });
 if (webRoot) {
   await app.register(webRoutes, { root: webRoot });
   console.log(`Serving the website from ${webRoot}`);

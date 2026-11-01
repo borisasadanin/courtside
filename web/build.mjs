@@ -71,11 +71,14 @@ try {
 function processHtml(src, dest, scriptFile) {
   let html = readFileSync(src, "utf-8");
 
-  // Replace icon references
+  // Replace icon references. Paths from the root, like the stylesheet and
+  // the script: the page is also served at /match/<id> (ABL-050), where a
+  // relative path would point into /match/.
   html = html.replace(/(?:src|href)="icon\.png"/g, (m) =>
-    m.replace("icon.png", `assets/icon-${iconHash}.png`)
+    m.replace("icon.png", `/assets/icon-${iconHash}.png`)
   );
-  html = html.replace(/src="courtside\.png"/g, `src="assets/courtside-${courtsideHash}.png"`);
+  html = html.replace(/src="courtside\.png"/g, `src="/assets/courtside-${courtsideHash}.png"`);
+  html = html.replace(/<script src="runtime-config\.js"><\/script>/, `<script src="/runtime-config.js"></script>`);
   // Point og:image at the hashed asset. The absolute URL is filled in at
   // runtime from the club manifest — the build cannot know which domain this
   // installation will be served from.

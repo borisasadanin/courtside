@@ -29,6 +29,9 @@ väljas i schemat läggs in där av sig själv. Resultatet ligger kvar på inspe
 sin senaste inspelning som har ett. En match utan inspelningar kan tas bort under Matcher. Har den inspelningar
 tar ni bort dem under *Inspelningar*, så att raderingsloggen gäller. Schemat syns bara med tittarkoden. Tas
 Courtside bort följer schemat med.
+Undantaget är en delad matchlänk: förhandsbilden i chatten visar utan kod lagen, datumet och resultatet.
+Bilden ritas av Courtside och visar inga personer, och den sparas inte i lagringen. Själva matchen kräver
+fortfarande tittarkoden.
 
 ## Vad får videon att försvinna?
 
