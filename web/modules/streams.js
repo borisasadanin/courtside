@@ -41,6 +41,11 @@ async function fetchBroadcastState() {
 }
 
 const BROADCAST_MESSAGES = {
+  // Only when the list could not be read: the status is derived from every match
+  live: {
+    title: "En match sänds just nu",
+    sub: "Den dyker upp här strax.",
+  },
   idle: {
     title: "Ingen sänder just nu",
     sub: "Matchen dyker upp här av sig själv när en kamera börjar sända. Du behöver inte ladda om sidan.",
@@ -78,11 +83,38 @@ function updateEmptyState(broadcastState) {
 
   // Toggle state-specific class on empty-state container
   dom.emptyState.className = "empty-state" + (status !== "idle" ? ` ${status}` : "");
+}
 
-  // Update status dot for upcoming
-  if (status === "upcoming") {
-    dom.statusDot.className = "status-dot upcoming";
-  }
+/**
+ * The header dot and LIVE label, from every match at once (ABL-051): live while
+ * any match is live or paused, so one match ending never turns another off.
+ */
+function updateHeaderStatus(streams, broadcastState) {
+  const status = broadcastState?.status;
+  const hasLive = streams.length > 0
+    ? streams.some((s) => s.status === "live" || s.status === "paused")
+    : status === "live" || status === "paused";
+  const upcoming = status === "upcoming" || (broadcastState?.upcoming?.length ?? 0) > 0;
+  dom.statusDot.className = `status-dot ${hasLive ? "live" : upcoming ? "upcoming" : "offline"}`;
+  // Drives the LIVE label in the header and the dot on the Live tab
+  document.body.classList.toggle("is-live", hasLive);
+}
+
+/** A card per match announced from a camera but not started yet. */
+function upcomingCards(broadcastState) {
+  return (broadcastState?.upcoming ?? [])
+    .map((u) => `
+    <div class="stream-card upcoming">
+      <span class="stream-card-poster">
+        <span class="stream-card-top">
+          <span class="stream-card-badge upcoming">SNART</span>
+        </span>
+      </span>
+      <span class="stream-card-body">
+        <span class="stream-card-name">${escapeHtml(u.message || "Nästa match")}</span>
+      </span>
+    </div>`)
+    .join("");
 }
 
 function renderStreamList(streams, broadcastState) {
@@ -96,25 +128,18 @@ function renderStreamList(streams, broadcastState) {
     streams.length === 0 ||
     (broadcastState?.status === "upcoming" && !hasNonStopped);
 
+  updateHeaderStatus(streams || [], broadcastState);
+
   if (showAsEmpty) {
     dom.streamGrid.innerHTML = "";
     dom.streamGrid.classList.add("hidden");
     dom.emptyState.classList.remove("hidden");
     updateEmptyState(broadcastState);
-    document.body.classList.remove("is-live");
-    if (!broadcastState || broadcastState.status === "idle") {
-      dom.statusDot.className = "status-dot offline";
-    }
     return;
   }
 
   dom.emptyState.classList.add("hidden");
   dom.streamGrid.classList.remove("hidden");
-
-  const hasLive = streams.some((s) => s.status === "live" || s.status === "paused");
-  dom.statusDot.className = hasLive ? "status-dot live" : "status-dot offline";
-  // Drives the LIVE label in the header and the dot on the Live tab
-  document.body.classList.toggle("is-live", hasLive);
 
   const badgeMap = {
     live: { cls: "live", text: "S\u00c4NDER LIVE" },
@@ -145,9 +170,9 @@ function renderStreamList(streams, broadcastState) {
       </span>
     </button>`;
     })
-    .join("");
+    .join("") + upcomingCards(broadcastState);
 
-  dom.streamGrid.querySelectorAll(".stream-card:not([disabled])").forEach((card) => {
+  dom.streamGrid.querySelectorAll("button.stream-card:not([disabled])").forEach((card) => {
     card.addEventListener("click", () => {
       openPlayer(card.dataset.hls, card.dataset.name, card.dataset.id, card.dataset.dvr);
     });

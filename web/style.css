@@ -2766,3 +2766,17 @@ footer a:hover { color: var(--accent-ink); }
 }
 .admin-page .admin-on-request input { width: 18px; height: 18px; flex-shrink: 0; }
 .admin-deletions-card { margin-top: 16px; }
+
+/* ABL-051: a match announced from a camera while another is on shows as its own card. */
+.stream-card.upcoming {
+  cursor: default;
+  border-style: dashed;
+}
+.stream-card.upcoming:hover {
+  background: var(--surface);
+  border-color: var(--line);
+}
+.stream-card-badge.upcoming {
+  background: var(--accent);
+  color: var(--on-accent);
+}

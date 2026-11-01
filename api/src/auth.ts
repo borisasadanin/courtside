@@ -100,6 +100,18 @@ export async function requireBroadcasterAuth(
 }
 
 /**
+ * Who a broadcaster request comes from: "device:<id>" for a paired camera,
+ * "api-key" for the installation's key. Use after requireBroadcasterAuth.
+ */
+export async function broadcasterOf(request: RequestLike): Promise<string> {
+  const key = request.headers["x-api-key"];
+  if (config.API_KEY && key === config.API_KEY) return "api-key";
+  const header = request.headers["x-device-token"];
+  const device = typeof header === "string" && header ? await devices.verify(header) : null;
+  return device ? `device:${device.id}` : "unknown";
+}
+
+/**
  * Viewer access, or a paired camera. The camera shows its own viewer count, and
  * it should not need the viewer PIN for that.
  */

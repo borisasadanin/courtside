@@ -4,7 +4,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
-import { requireBroadcasterAuth, requireViewerAuth, requireViewerOrBroadcasterAuth } from "../auth.js";
+import { broadcasterOf, requireBroadcasterAuth, requireViewerAuth, requireViewerOrBroadcasterAuth } from "../auth.js";
 import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream, PAUSE_TYPES } from "../state.js";
 import type { PauseType, StreamMeta } from "../state.js";
 import { SegmentCollector } from "../segment-collector.js";
@@ -13,7 +13,7 @@ import { determineStreamStatus } from "../stream-status.js";
 import { uploadPauseSegments } from "../pause-segments.js";
 import { stitchPlaylist, buildPartList } from "../playlist-stitcher.js";
 import type { CreateStreamBody, StreamInfo, StreamPublicInfo, VodEntry } from "../types.js";
-import { getBroadcastState, setBroadcastState } from "../broadcast-state.js";
+import { streamStartedBy } from "../broadcast-state.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "../club-config.js";
 import { saveStreamMetaSoon } from "../stream-meta-store.js";
 
@@ -139,11 +139,9 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       streamMeta.set(streamId, { name: displayName, createdAt: info.createdAt, deviceId, partNumber: 1, periodNumber: 1, completedParts: [] });
       saveStreamMetaSoon(minio, request.log);
 
-      // Auto-transition broadcast state to "live" (only if idle or upcoming)
-      const bState = getBroadcastState().status;
-      if (bState === "idle" || bState === "upcoming") {
-        setBroadcastState("live");
-      }
+      // The camera's announced match has started. Every status after this
+      // follows the stream itself (ABL-051).
+      streamStartedBy(await broadcasterOf(request));
 
       // Create VOD entry with match metadata from request
       const homeTeam = team || defaultHomeTeam;
@@ -222,12 +220,6 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     // at the next part — nothing has to be built up again.
     oscManager.streamPaused();
 
-    // Auto-transition broadcast state to "paused" if all streams are now paused
-    const allPaused = [...streamMeta.values()].every((m) => m.stoppedAt || m.pausedAt);
-    if (allPaused) {
-      setBroadcastState("paused");
-    }
-
     return reply.code(200).send({ status: "paused", pauseType, pausedAt: meta.pausedAt, period: meta.periodNumber });
   });
 
@@ -284,7 +276,6 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       const how = await restreamer.switchPart(id, meta.partNumber);
       request.log.info(`Resume ${id}: process ${how} for part ${meta.partNumber} in ${Date.now() - resumeStarted} ms`);
       oscManager.streamResumed();
-      setBroadcastState("live");
 
       // Start collecting segments for the new part
       const resumeCollector = new SegmentCollector(id, () => restreamer.baseUrlValue, minio, request.log, meta.partNumber);
@@ -641,12 +632,6 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         request.log.warn(err, `Could not delete Restreamer process for ${id} (may already be stopped)`);
       });
 
-      // Auto-transition broadcast state to "ended" if no active streams remain
-      const hasActiveStreams = [...streamMeta.values()].some((m) => !m.stoppedAt);
-      if (!hasActiveStreams) {
-        setBroadcastState("ended");
-      }
-
       // Stitch playlist (always needed — all recordings use p1.m3u8, not index.m3u8)
       if (meta && meta.partNumber >= 1) {
         const parts = buildPartList(meta.completedParts, meta.partNumber);
@@ -749,14 +734,6 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
 
       // Sync the manager's active stream count with reality
       oscManager.syncActiveCount(activeCount);
-
-      // If no active streams remain and broadcast state is still live/paused, transition to ended
-      if (activeCount === 0) {
-        const bStatus = getBroadcastState().status;
-        if (bStatus === "live" || bStatus === "paused") {
-          setBroadcastState("ended");
-        }
-      }
 
       // Remove stopped metadata older than TTL
       const now = Date.now();
