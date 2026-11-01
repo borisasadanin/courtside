@@ -2766,3 +2766,61 @@ footer a:hover { color: var(--accent-ink); }
 }
 .admin-page .admin-on-request input { width: 18px; height: 18px; flex-shrink: 0; }
 .admin-deletions-card { margin-top: 16px; }
+
+/* ABL-047: team registry — the team badge (teams.js) and Hantera → Lag (team-admin.js). */
+.team-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+.team-badge.is-long { font-size: 0.8rem; letter-spacing: 0; }
+.team-badge-sm { width: 24px; height: 24px; font-size: 0.6rem; }
+.team-badge-sm.is-long { font-size: 0.5rem; }
+.team-badge-lg { width: 64px; height: 64px; font-size: 1.4rem; }
+.team-badge-lg.is-long { font-size: 1.15rem; }
+/* A logo keeps its own shape: no circle to crop it. */
+.team-badge.has-logo { border-radius: 0; overflow: visible; }
+.team-badge.has-logo img { width: 100%; height: 100%; object-fit: contain; }
+
+.team-group { margin: 20px 0 8px; }
+.team-list > .team-group:first-child { margin-top: 4px; }
+.team-row { justify-content: flex-start; }
+.team-row .device-info { flex: 1; }
+.team-no-logo { color: var(--accent-ink); }
+.team-add-panel { text-align: left; }
+.team-edit {
+  margin: -2px 0 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.team-edit-badge { display: inline-flex; width: 72px; justify-content: center; }
+.team-own { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--text); }
+.team-own input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--accent); }
+.team-merge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.team-merge .branding-field { align-self: stretch; }
+.team-merge .privacy-admin-intro { margin: 0; }
+.team-merge select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 14px; font-family: inherit; font-size: 1rem; min-height: 46px;
+}
+.team-merge button:disabled { opacity: 0.5; cursor: default; }

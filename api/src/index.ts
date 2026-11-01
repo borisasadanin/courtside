@@ -26,6 +26,7 @@ import deviceRoutes from "./routes/device-routes.js";
 import dvrRoutes from "./routes/dvr.js";
 import webRoutes, { webDistDir } from "./routes/web.js";
 import setupRoutes from "./routes/setup-routes.js";
+import teamRoutes from "./routes/team-routes.js";
 import { Setup } from "./setup.js";
 import { Branding } from "./club-branding.js";
 import { VERSION } from "./version.js";
@@ -101,6 +102,7 @@ await app.register(mediaRoutes);
 await app.register(deviceRoutes);
 await app.register(dvrRoutes);
 await app.register(setupRoutes, { setup });
+await app.register(teamRoutes);
 
 const webRoot = webDistDir();
 if (webRoot) {

@@ -5,6 +5,7 @@ import { RestreamerClient } from "./restreamer.js";
 import { OscInstanceManager } from "./osc-manager.js";
 import { MinioClient } from "./minio.js";
 import { DeviceRegistry } from "./devices.js";
+import { TeamRegistry } from "./teams.js";
 import type { SegmentCollector } from "./segment-collector.js";
 import type { HighlightClip } from "./types.js";
 
@@ -51,10 +52,13 @@ export let minio: MinioClient;
 export let oscManager: OscInstanceManager;
 /** Registry of paired cameras — see devices.ts. */
 export let devices: DeviceRegistry;
+/** The club's teams and their opponents — see teams.ts. */
+export let teams: TeamRegistry;
 
 export function initServices(r: RestreamerClient, m: MinioClient, o: OscInstanceManager): void {
   restreamer = r;
   minio = m;
   oscManager = o;
   devices = new DeviceRegistry(m);
+  teams = new TeamRegistry(m);
 }

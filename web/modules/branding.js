@@ -172,7 +172,7 @@ async function removeLogo() {
 }
 
 /** Scale an image down in the browser, so a photo straight off a phone is fine to pick. */
-async function resize(file) {
+export async function resize(file) {
   const bitmap = await decode(file).catch(() => {
     throw new Error("Bilden gick inte att läsa. Välj en PNG eller JPG.");
   });

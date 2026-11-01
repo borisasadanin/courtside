@@ -10,6 +10,11 @@ I en lagringstjänst i ert OSC-konto, som heter `<klubbnamn>storage`. Den skapad
 Där finns hela matcher, klipp, miniatyrbilder och er logotyp, och varje matchs lag, datum och resultat.
 Tas en match bort försvinner resultatet med den. Inställningar och koder ligger i `<klubbnamn>config`.
 
+Lagen under *Hantera → Lag* ligger i samma lagring: listan i `config/teams.json` och varje lags logga i
+`config/teams/<id>`. Ett lag har namn, kortnamn, färg och eventuellt en logga. Matcherna sparar lagens namn
+som text och hittar sitt lag via namnet. Tar ni bort ett lag finns matcherna kvar. Loggorna visar
+inga personer och kan ses utan kod, som klubbens logotyp. Tas Courtside bort följer lagen och loggorna med.
+
 ## Vad får videon att försvinna?
 
 | Det här | Händer med videon |

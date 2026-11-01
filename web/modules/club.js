@@ -29,7 +29,7 @@ const FETCH_TIMEOUT_MS = 4000;
 /** The lightest dark surface accent text sits on (--surface-hover). */
 const DARKEST_TEXT_BACKGROUND = [30, 30, 30];
 
-function parseHex(hex) {
+export function parseHex(hex) {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
   if (!m) return null;
   const n = parseInt(m[1], 16);

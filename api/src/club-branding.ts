@@ -32,6 +32,20 @@ interface BrandingStorage {
   deleteObject(key: string): Promise<void>;
 }
 
+/**
+ * A logo sent as a data URL, checked for type and size. Returns the image, or
+ * an error message for the admin. Team logos (teams.ts) use it too.
+ */
+export function decodeLogo(dataUrl: string): { bytes: Buffer; type: string } | string {
+  const match = /^data:([a-z/]+);base64,(.+)$/.exec(dataUrl ?? "");
+  if (!match || !LOGO_TYPES.includes(match[1])) return "Logotypen ska vara PNG, JPG eller WebP.";
+
+  const bytes = Buffer.from(match[2], "base64");
+  if (bytes.length === 0) return "Bilden är tom.";
+  if (bytes.length > MAX_LOGO_BYTES) return "Bilden är för stor (max 1 MB).";
+  return { bytes, type: match[1] };
+}
+
 /** Only a six-digit hex colour: it is also used to compute contrast. */
 const COLOUR = /^#[0-9a-fA-F]{6}$/;
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
@@ -86,15 +100,11 @@ export class Branding {
 
   /** Store a logo sent as a data URL. Returns an error message, or null. */
   async setLogo(dataUrl: string): Promise<string | null> {
-    const match = /^data:([a-z/]+);base64,(.+)$/.exec(dataUrl ?? "");
-    if (!match || !LOGO_TYPES.includes(match[1])) return "Logotypen ska vara PNG, JPG eller WebP.";
+    const logo = decodeLogo(dataUrl);
+    if (typeof logo === "string") return logo;
 
-    const bytes = Buffer.from(match[2], "base64");
-    if (bytes.length === 0) return "Bilden är tom.";
-    if (bytes.length > MAX_LOGO_BYTES) return "Bilden är för stor (max 1 MB).";
-
-    await this.storage.uploadBuffer(LOGO_KEY, bytes, match[1]);
-    await this.save({ ...this.record, logoType: match[1] });
+    await this.storage.uploadBuffer(LOGO_KEY, logo.bytes, logo.type);
+    await this.save({ ...this.record, logoType: logo.type });
     return null;
   }
 

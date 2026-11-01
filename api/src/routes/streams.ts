@@ -16,6 +16,7 @@ import type { CreateStreamBody, StreamInfo, StreamPublicInfo, VodEntry } from ".
 import { getBroadcastState, setBroadcastState } from "../broadcast-state.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "../club-config.js";
 import { saveStreamMetaSoon } from "../stream-meta-store.js";
+import { teams } from "../state.js";
 
 /** DVR playlist URL for a stream (relative path — frontend prepends API base). */
 function dvrUrl(id: string): string {
@@ -163,6 +164,14 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       minio.addVodEntry(vodEntry).catch((err) => {
         request.log.error(err, "Failed to save VOD entry");
       });
+
+      // A team typed in the app joins the registry, where the admin can give it a logo (ABL-047)
+      const registerTeam = (teamName: unknown, own: boolean) => {
+        if (typeof teamName !== "string") return;
+        teams.ensure(teamName, { own }).catch((err) => request.log.warn(err, "Could not add team to the registry"));
+      };
+      registerTeam(team, true);
+      registerTeam(opponent, false);
 
       return reply.code(201).send({ ...info, homeTeam, awayTeam });
     } catch (err) {
