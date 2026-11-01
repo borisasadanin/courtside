@@ -103,15 +103,20 @@ const GENERIC_WORDS = new Set([
  * three letters of the place ("Solna Vikings" → "SOL"). Age groups and words
  * like "IF" and "Basket" are skipped when there is something else.
  *
+ * The club's own teams usually share the club's name and differ only by age
+ * group, so for them the age group is the short name ("Hornets P12" → "P12").
+ *
  * The website has the same function (web/modules/teams.js), for names that are
  * not in the registry. Change both together.
  */
-export function deriveShortName(name: string): string {
+export function deriveShortName(name: string, own = false): string {
   const words = normalizeName(name)
     .split(/[\s\-–/.,&]+/)
     .map((w) => w.replace(NOT_ALNUM, ""))
     .filter(Boolean);
   if (words.length === 0) return "?";
+  const ageGroup = words.length > 1 ? words.find((w) => /\d/.test(w) && w.length <= 4) : undefined;
+  if (own && ageGroup) return ageGroup.toUpperCase();
   const core = words.filter((w) => !GENERIC_WORDS.has(w.toLowerCase()) && !/\d/.test(w));
   const use = core.length > 0 ? core : words;
   const short = use.length >= 3
@@ -169,7 +174,7 @@ function present(r: TeamRecord): Team {
   return {
     id: r.id,
     name: r.name,
-    shortName: r.shortName || deriveShortName(r.name),
+    shortName: r.shortName || deriveShortName(r.name, r.own === true),
     color: r.color || deriveColor(r.name),
     own: r.own === true,
     // The version in the URL makes browsers fetch a replaced logo at once.

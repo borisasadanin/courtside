@@ -88,6 +88,15 @@ describe("team names", () => {
     expect(deriveShortName("Stockholm Eagles Basket Club Norra")).toBe("SECN");
   });
 
+  it("name the club's own teams by age group, which is what tells them apart", () => {
+    expect(deriveShortName("Hornets P12", true)).toBe("P12");
+    expect(deriveShortName("Älta IF F14", true)).toBe("F14");
+    expect(deriveShortName("Hornets", true)).toBe("HOR");
+    expect(deriveShortName("P12", true)).toBe("P12");
+    // An opponent keeps its club's letters, so P12 does not meet P12.
+    expect(deriveShortName("Hornets P12")).toBe("HOR");
+  });
+
   it("give the same colour every time, readable with white initials", () => {
     for (const name of ["AIK", "Solna Vikings", "Älta IF", "P12", "Täby Basket", "Norrköping Dolphins", "x"]) {
       const colour = deriveColor(name);

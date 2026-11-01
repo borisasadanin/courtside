@@ -124,12 +124,14 @@ const GENERIC_WORDS = new Set([
   "basket", "basketball", "basketboll", "basketklubb", "basketbollklubb", "idrottsförening", "idrottsklubb",
 ]);
 
-export function deriveShortName(name) {
+export function deriveShortName(name, own = false) {
   const words = String(name || "").trim().replace(/\s+/g, " ")
     .split(/[\s\-–/.,&]+/)
     .map((w) => w.replace(/[^0-9A-Za-zÀ-ÖØ-öø-ÿ]/g, ""))
     .filter(Boolean);
   if (words.length === 0) return "?";
+  const ageGroup = words.length > 1 ? words.find((w) => /\d/.test(w) && w.length <= 4) : undefined;
+  if (own && ageGroup) return ageGroup.toUpperCase();
   const core = words.filter((w) => !GENERIC_WORDS.has(w.toLowerCase()) && !/\d/.test(w));
   const use = core.length > 0 ? core : words;
   const short = use.length >= 3

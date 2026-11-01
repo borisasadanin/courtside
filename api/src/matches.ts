@@ -367,7 +367,7 @@ export class MatchSchedule {
   private async teamOf(ref: TeamRef, own: boolean): Promise<MatchTeam> {
     const team = (ref.id ? await this.teams.get(ref.id) : null) ?? (await this.teams.findByName(ref.name));
     if (team) return publicTeam(team);
-    return { id: "", name: ref.name, shortName: deriveShortName(ref.name), color: deriveColor(ref.name), own };
+    return { id: "", name: ref.name, shortName: deriveShortName(ref.name, own), color: deriveColor(ref.name), own };
   }
 
   private async summarize(r: MatchRecord): Promise<MatchSummary> {

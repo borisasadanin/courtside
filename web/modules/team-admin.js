@@ -154,7 +154,7 @@ function teamRow(team, all) {
 }
 
 function editForm(team, all) {
-  const derivedShort = deriveShortName(team.name);
+  const derivedShort = deriveShortName(team.name, team.own);
   const others = all.filter((t) => t.id !== team.id);
   const form = document.createElement("form");
   form.className = "admin-branding team-edit";
