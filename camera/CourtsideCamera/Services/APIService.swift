@@ -333,9 +333,11 @@ final class APIService {
         return try? JSONDecoder().decode(RestreamerStartResponse.self, from: data)
     }
 
+    /// Waits for the backend to remove the instance at OSC, which can take
+    /// well over ten seconds.
     func stopRestreamer() async -> Bool {
         guard let url = URL(string: "\(baseURL)/api/restreamer/stop") else { return false }
-        var request = URLRequest(url: url, timeoutInterval: 10)
+        var request = URLRequest(url: url, timeoutInterval: 60)
         request.httpMethod = "DELETE"
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         guard let (_, http) = try? await send(request) else { return false }

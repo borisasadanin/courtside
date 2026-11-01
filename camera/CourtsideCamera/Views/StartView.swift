@@ -26,6 +26,8 @@ struct StartView: View {
     @State private var healthCheckTasks: [Task<Void, Never>] = []
     @State private var isStoppingRestreamer = false
     @State private var isStartingRestreamer = false
+    /// What became of the last start or stop, shown under the engine's button.
+    @State private var restreamerMessage: String?
     @State private var isNotifying = false
     @State private var hasNotified = false
     @State private var showNotifyConfirmation = false
@@ -160,6 +162,15 @@ struct StartView: View {
                     }
                     .disabled(isStoppingRestreamer)
                     .padding(.horizontal, horizontalPad)
+                }
+
+                if let restreamerMessage {
+                    Text(restreamerMessage)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, horizontalPad)
+                        .padding(.top, -sectionSpacing / 2)
                 }
 
                 // Name + match fields
@@ -491,25 +502,30 @@ struct StartView: View {
     @MainActor
     private func startRestreamer() async {
         isStartingRestreamer = true
-        errorMessage = nil
+        restreamerMessage = nil
         restreamerStatus = .starting
         if await APIService.shared.startRestreamer() == nil {
             restreamerStatus = .unhealthy("Kunde inte starta")
+            restreamerMessage = "Kunde inte starta sändningsmotorn. Försök igen."
         } else {
             await waitForRestreamer()
         }
         isStartingRestreamer = false
     }
 
+    /// Asks for the engine to be stopped, then shows what the backend says
+    /// it is: a lost answer does not mean the stop failed.
     @MainActor
     private func stopRestreamer() async {
         isStoppingRestreamer = true
+        restreamerMessage = nil
         let success = await APIService.shared.stopRestreamer()
+        await checkRestreamer()
         isStoppingRestreamer = false
-        if success {
-            restreamerStatus = .stopped
-        } else {
-            errorMessage = "Kunde inte stänga av sändningsmotorn"
+        if restreamerStatus == .healthy {
+            restreamerMessage = success
+                ? "Sändningsmotorn är fortfarande igång. Försök igen."
+                : "Kunde inte stänga av sändningsmotorn. Försök igen."
         }
     }
 

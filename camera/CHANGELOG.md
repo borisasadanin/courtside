@@ -24,6 +24,14 @@ Rättas något i en version som inte nått någon telefon än, räcker det att k
 Ändra versionen så här: 1.1.0 → 1.1.1 för rättningar, 1.1.0 → 1.2.0 för nya
 funktioner.
 
+## 1.1.1 — 2026-11-01
+
+- **Stäng av sändningsmotor** visar nu om motorn verkligen stängdes av. Tidigare
+  gav appen upp efter tio sekunder och visade "Online" fast motorn var på väg
+  att stängas av. Nu väntar den upp till en minut och frågar sedan klubben
+  vilket läge motorn har
+- Går det inte att starta eller stänga av motorn står det direkt under knappen
+
 ## 1.1.0 — 2026-10-31
 
 - Sändningsmotorn startar inte längre av sig själv när appen öppnas. Starta den

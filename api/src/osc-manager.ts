@@ -271,6 +271,11 @@ export class OscInstanceManager {
     }
   }
 
+  /**
+   * Remove the instance. Throws when OSC would not remove it: the instance is
+   * then still there, and calling it stopped would only last until the next
+   * health poll found it again.
+   */
   async forceStop(): Promise<void> {
     this.cancelGracePeriod();
     if (this.state === "stopped") return;
@@ -282,6 +287,8 @@ export class OscInstanceManager {
       this.log.info(`Restreamer instance "${this.instanceName}" removed`);
     } catch (err) {
       this.log.error(err, "Failed to remove Restreamer instance");
+      this.state = this.cachedInfo ? "running" : "stopped";
+      throw err;
     }
     this.state = "stopped";
     this.cachedInfo = null;
@@ -591,7 +598,9 @@ export class OscInstanceManager {
         this.state = "running";
         return;
       }
-      await this.forceStop();
+      await this.forceStop().catch(() => {
+        // Logged in forceStop. The instance stays up; the next match uses it.
+      });
     }, this.gracePeriodMs);
   }
 
