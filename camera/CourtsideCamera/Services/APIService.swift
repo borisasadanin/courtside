@@ -67,6 +67,8 @@ final class APIService {
     /// a viewer PIN, an old platform wanting the API key — says nothing about
     /// the pairing, and unpairing on it would strand a working camera.
     private func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        var request = request
+        request.setValue(AppVersion.release, forHTTPHeaderField: AppVersion.header)
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -344,9 +346,11 @@ final class APIService {
         let message: String?
     }
 
+    /// Waits for the backend to remove the instance at OSC, which can take
+    /// well over ten seconds.
     func stopRestreamer() async -> RestreamerStopResult {
         guard let url = URL(string: "\(baseURL)/api/restreamer/stop") else { return .failed }
-        var request = URLRequest(url: url, timeoutInterval: 10)
+        var request = URLRequest(url: url, timeoutInterval: 60)
         request.httpMethod = "DELETE"
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         guard let (data, http) = try? await send(request) else { return .failed }

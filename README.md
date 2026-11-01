@@ -111,6 +111,11 @@ its own token, which you can revoke on its own from the same screen.
 `xcodegen` clears `DEVELOPMENT_TEAM` — set your team in Xcode under
 Signing & Capabilities after generating.
 
+Every build that reaches a phone gets a new version, set with
+`camera/release.sh X.Y.Z`. The version is how we know which features a club's
+cameras have: the app sends it, and the admin view shows it per camera. What
+each version contains is in [`camera/CHANGELOG.md`](camera/CHANGELOG.md).
+
 ## Configuring your club
 
 Club identity lives in the backend's environment and is served publicly over

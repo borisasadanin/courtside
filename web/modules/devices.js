@@ -48,7 +48,9 @@ function renderDevices(devices) {
       <div class="device-row">
         <div class="device-info">
           <span class="device-name">${escapeHtml(d.name)}</span>
-          <span class="device-meta">Parad ${formatDate(d.createdAt.slice(0, 10))}${
+          <span class="device-meta">${
+            d.appVersion ? `App ${escapeHtml(d.appVersion)}` : "App 1.0"
+          } · parad ${formatDate(d.createdAt.slice(0, 10))}${
             d.lastSeenAt ? ` · senast aktiv ${formatDate(d.lastSeenAt.slice(0, 10))}` : ""
           }</span>
         </div>
