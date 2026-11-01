@@ -20,6 +20,15 @@ Lagen under *Hantera → Lag* ligger i samma lagring: listan i `config/teams.jso
 `config/teams/<id>`. Ett lag har namn, kortnamn, färg och eventuellt en logga. Matcherna sparar lagens namn
 som text och hittar sitt lag via namnet. Tar ni bort ett lag finns matcherna kvar. Loggorna visar
 inga personer och kan ses utan kod, som klubbens logotyp. Tas Courtside bort följer lagen och loggorna med.
+Lagen från matcher som spelades in innan registret fanns läggs in i registret en gång, när plattformen
+uppdateras. Att det är gjort noteras i `config/backfill.json`, så att ett lag ni tar bort inte kommer tillbaka.
+
+Matcherna under *Hantera → Matcher* ligger i `config/matches.json`: datum, tid, plats och de två lagen (lagets
+id i registret och dess namn). Varje inspelning vet vilken match den hör till. En match som filmats utan att
+väljas i schemat läggs in där av sig själv. Resultatet ligger kvar på inspelningen, och matchen visar det från
+sin senaste inspelning som har ett. En match utan inspelningar kan tas bort under Matcher. Har den inspelningar
+tar ni bort dem under *Inspelningar*, så att raderingsloggen gäller. Schemat syns bara med tittarkoden. Tas
+Courtside bort följer schemat med.
 
 ## Vad får videon att försvinna?
 

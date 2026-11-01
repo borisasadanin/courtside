@@ -17,19 +17,33 @@ import { streamStartedBy } from "../broadcast-state.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "../club-config.js";
 import { saveStreamMetaSoon } from "../stream-meta-store.js";
 import { recordingStopped, withLivePictures } from "../match-images.js";
-import { teams } from "../state.js";
+import { matches } from "../state.js";
+import { clubDate, type MatchSummary } from "../matches.js";
 
 /** DVR playlist URL for a stream (relative path — frontend prepends API base). */
 function dvrUrl(id: string): string {
   return `/api/streams/${id}/dvr.m3u8`;
 }
 
-/** Match fields for the public API: the current period, and the pause type while paused. */
-function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["status"]): Pick<StreamPublicInfo, "pauseType" | "period"> {
+/**
+ * Match fields for the public API: the match in the schedule, the current
+ * period, and the pause type while paused.
+ */
+function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["status"]): Pick<StreamPublicInfo, "pauseType" | "period" | "matchId"> {
   if (!meta) return {};
-  const info: Pick<StreamPublicInfo, "pauseType" | "period"> = { period: meta.periodNumber };
+  const info: Pick<StreamPublicInfo, "pauseType" | "period" | "matchId"> = { ...ofMatch(meta), period: meta.periodNumber };
   if (status === "paused") info.pauseType = meta.pauseType ?? "period";
   return info;
+}
+
+/** The stream's match id, when it has one (ABL-048). */
+function ofMatch(meta: StreamMeta | undefined): Pick<StreamPublicInfo, "matchId"> {
+  return meta?.matchId ? { matchId: meta.matchId } : {};
+}
+
+/** A typed team name, trimmed, or "" when none was typed. */
+function typed(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 /**
@@ -50,9 +64,29 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
   app.post<{ Body: CreateStreamBody }>("/api/streams", async (request, reply) => {
     if (!(await requireBroadcasterAuth(request, reply))) return;
 
-    const { name, deviceId, opponent, team } = request.body || {};
+    const { name, deviceId, opponent, team, matchId } = request.body || {};
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return reply.code(400).send({ error: "missing_name", message: "Namn saknas" });
+    }
+
+    // A match picked from the schedule (ABL-048), looked up before anything
+    // starts so an unknown one starts nothing. If the schedule cannot be read,
+    // the broadcast goes ahead as one without a match: it must not fail on that.
+    let scheduled: MatchSummary | null = null;
+    if (matchId !== undefined && matchId !== null && matchId !== "") {
+      let lookedUp = true;
+      try {
+        scheduled = typeof matchId === "string" ? await matches.summary(matchId) : null;
+      } catch (err) {
+        lookedUp = false;
+        request.log.warn(err, `Could not read the schedule for match ${String(matchId)}`);
+      }
+      if (!scheduled && lookedUp) {
+        return reply.code(404).send({
+          error: "match_not_found",
+          message: "Matchen finns inte i schemat längre. Välj en annan match, eller Annan match.",
+        });
+      }
     }
 
     // Ensure Restreamer is available
@@ -111,6 +145,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           createdAt: meta.createdAt,
           homeTeam: vod?.homeTeam,
           awayTeam: vod?.awayTeam,
+          ...ofMatch(meta),
         };
         return reply.code(200).send(info);
       }
@@ -138,41 +173,62 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         createdAt: new Date().toISOString(),
       };
 
-      streamMeta.set(streamId, { name: displayName, createdAt: info.createdAt, deviceId, partNumber: 1, periodNumber: 1, completedParts: [] });
+      // The match this recording belongs to: the one picked, or else one on
+      // the same day between the same teams, made now if there is none, so
+      // an older app or "Annan match" still lands on a match (ABL-048). A team
+      // typed in the app joins the registry on the way (ABL-047).
+      let match = scheduled;
+      const typedTeam = typed(team);
+      const typedOpponent = typed(opponent);
+      if (!match) {
+        try {
+          match = await matches.forRecording(
+            clubDate(),
+            typedTeam || defaultHomeTeam,
+            typedOpponent || defaultAwayTeam,
+            { own: !!typedTeam, opponent: !!typedOpponent },
+          );
+        } catch (err) {
+          request.log.warn(err, "Could not put the recording on a match");
+        }
+      }
+
+      streamMeta.set(streamId, {
+        name: displayName,
+        createdAt: info.createdAt,
+        deviceId,
+        partNumber: 1,
+        periodNumber: 1,
+        completedParts: [],
+        ...(match && { matchId: match.id }),
+      });
       saveStreamMetaSoon(minio, request.log);
 
       // The camera's announced match has started. Every status after this
       // follows the stream itself (ABL-051).
-      streamStartedBy(await broadcasterOf(request));
+      streamStartedBy(await broadcasterOf(request), match?.id);
 
-      // Create VOD entry with match metadata from request
-      const homeTeam = team || defaultHomeTeam;
-      const awayTeam = opponent || defaultAwayTeam;
+      // Create VOD entry with the match's teams, or the ones typed in the app
+      const homeTeam = match?.ownTeam.name ?? (typedTeam || defaultHomeTeam);
+      const awayTeam = match?.opponent.name ?? (typedOpponent || defaultAwayTeam);
       const vodEntry: VodEntry = {
         id: streamId,
         matchTitle: `${homeTeam} vs ${awayTeam}`,
-        location: clubManifest.venue,
+        location: match ? match.venue ?? "" : clubManifest.venue,
         homeTeam,
         awayTeam,
-        matchDate: new Date().toISOString().slice(0, 10),
+        matchDate: match?.date ?? clubDate(),
         cameraName: name.trim(),
         hlsUrl: `/api/vod/${streamId}/playlist.m3u8`,
         createdAt: info.createdAt,
+        ...(match && { matchId: match.id }),
       };
 
       minio.addVodEntry(vodEntry).catch((err) => {
         request.log.error(err, "Failed to save VOD entry");
       });
 
-      // A team typed in the app joins the registry, where the admin can give it a logo (ABL-047)
-      const registerTeam = (teamName: unknown, own: boolean) => {
-        if (typeof teamName !== "string") return;
-        teams.ensure(teamName, { own }).catch((err) => request.log.warn(err, "Could not add team to the registry"));
-      };
-      registerTeam(team, true);
-      registerTeam(opponent, false);
-
-      return reply.code(201).send({ ...info, homeTeam, awayTeam });
+      return reply.code(201).send({ ...info, homeTeam, awayTeam, ...(match && { matchId: match.id }) });
     } catch (err) {
       request.log.error(err, "Failed to create stream");
       return reply.code(500).send({
@@ -339,6 +395,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             hlsUrl: restreamer.hlsUrl(streamId, meta.partNumber),
             createdAt: meta.createdAt,
             status: "stopped",
+            ...ofMatch(meta),
             viewers: 0,
           });
         } else if (meta.pausedAt) {
@@ -435,6 +492,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           hlsUrl: restreamer.hlsUrl(streamId, meta.partNumber),
           createdAt: meta.createdAt,
           status: "stopped",
+          ...ofMatch(meta),
           viewers: 0,
         });
       }
@@ -501,6 +559,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             hlsUrl: restreamer.hlsUrl(id, partNum),
             createdAt: meta.createdAt,
             status: "stopped",
+            ...ofMatch(meta),
             viewers: 0,
           } satisfies StreamPublicInfo);
         }

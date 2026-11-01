@@ -9,8 +9,12 @@
  * read, is derived from them, so one match ending or pausing never hides or
  * relabels another that is live.
  *
- * Matches are keyed by stream and announcements by the camera that made them.
- * ABL-048 re-keys both on a match id.
+ * Streams of the same match in the schedule (ABL-048) are one match: two
+ * cameras on it give one status. An announcement belongs to the camera that
+ * made it, and names its match when it can; two cameras announcing the same
+ * match show as one, and the match starting from any camera ends both.
+ * Streams and announcements from older apps without a match id keep their
+ * own key, as before.
  */
 
 export type BroadcastStatus = "idle" | "upcoming" | "live" | "paused" | "ended";
@@ -20,14 +24,16 @@ export interface MatchState {
   status: Exclude<BroadcastStatus, "idle">;
   message?: string;
   updatedAt: string;
+  /** The match in the schedule, when known (ABL-048). */
+  matchId?: string;
 }
 
 export interface BroadcastState {
   status: BroadcastStatus;
   message?: string;
   updatedAt: string;
-  /** Announced matches that have not started yet, oldest first */
-  upcoming: { message?: string; updatedAt: string }[];
+  /** Announced matches that have not started yet, oldest first; one per match in the schedule */
+  upcoming: { message?: string; updatedAt: string; matchId?: string }[];
 }
 
 /** The part of a stream's metadata its status is derived from. */
@@ -35,6 +41,7 @@ export interface StreamStatusSource {
   createdAt: string;
   pausedAt?: string;
   stoppedAt?: string;
+  matchId?: string;
 }
 
 const ENDED_TTL_MS = 5 * 60 * 1000; // 5 minutes before "ended" expires to "idle"
@@ -62,31 +69,50 @@ function isExpired(state: MatchState, now: number): boolean {
 
 /** A stream's own match status, or null once it ended long enough ago. */
 export function streamMatchState(meta: StreamStatusSource): MatchState | null {
+  const ofMatch = meta.matchId ? { matchId: meta.matchId } : {};
   if (meta.stoppedAt) {
-    const ended: MatchState = { status: "ended", updatedAt: meta.stoppedAt };
+    const ended: MatchState = { status: "ended", updatedAt: meta.stoppedAt, ...ofMatch };
     return isExpired(ended, Date.now()) ? null : ended;
   }
-  if (meta.pausedAt) return { status: "paused", updatedAt: meta.pausedAt };
+  if (meta.pausedAt) return { status: "paused", updatedAt: meta.pausedAt, ...ofMatch };
   // Created but not sending yet counts as live, as it always has.
-  return { status: "live", updatedAt: meta.createdAt };
+  return { status: "live", updatedAt: meta.createdAt, ...ofMatch };
 }
 
-/** Every match with a status right now: the streams, then announcements. */
+/**
+ * Every match with a status right now: the streams, then announcements.
+ * Streams of one match give that match one status: live if any camera is
+ * live, else paused if any is paused, else ended.
+ */
 export function matchStates(streams: Iterable<StreamStatusSource>): MatchState[] {
   const now = Date.now();
   for (const [caller, state] of announcements) {
     if (isExpired(state, now)) announcements.delete(caller);
   }
-  const fromStreams = [...streams].map(streamMatchState).filter((s): s is MatchState => s !== null);
-  return [...fromStreams, ...announcements.values()];
+  const fromStreams: MatchState[] = [];
+  const byMatch = new Map<string, MatchState>();
+  for (const state of [...streams].map(streamMatchState)) {
+    if (!state) continue;
+    if (!state.matchId) {
+      fromStreams.push(state);
+      continue;
+    }
+    const other = byMatch.get(state.matchId);
+    if (!other || PRECEDENCE.indexOf(state.status) < PRECEDENCE.indexOf(other.status)) byMatch.set(state.matchId, state);
+  }
+  return [...fromStreams, ...byMatch.values(), ...announcements.values()];
 }
 
 /** The installation's status, derived from every match. */
 export function getBroadcastState(streams: Iterable<StreamStatusSource>): BroadcastState {
   const matches = matchStates(streams);
+  // Two cameras announcing the same match show it once, as the first one did.
+  const announced = new Set<string>();
   const upcoming = matches
     .filter((m) => m.status === "upcoming")
-    .map(({ message, updatedAt }) => ({ message, updatedAt }));
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+    .filter((m) => !m.matchId || (!announced.has(m.matchId) && !!announced.add(m.matchId)))
+    .map(({ message, updatedAt, matchId }) => ({ message, updatedAt, ...(matchId && { matchId }) }));
 
   for (const status of PRECEDENCE) {
     const same = matches.filter((m) => m.status === status);
@@ -112,23 +138,38 @@ export function getBroadcastState(streams: Iterable<StreamStatusSource>): Broadc
  *   the caller's announcement
  * - "idle" withdraws it too; the API key, for the whole installation, also
  *   clears every other announcement and recent end
+ *
+ * `matchId` names the match in the schedule the report is about (ABL-048).
  */
-export function reportStatus(caller: string, status: BroadcastStatus, message?: string): void {
+export function reportStatus(caller: string, status: BroadcastStatus, message?: string, matchId?: string): void {
   const now = new Date().toISOString();
   lastChange = now;
   announcements.delete(caller);
 
   if (status === "upcoming" || status === "ended") {
-    announcements.set(caller, { status, ...(message ? { message } : {}), updatedAt: now });
+    announcements.set(caller, { status, ...(message ? { message } : {}), updatedAt: now, ...(matchId ? { matchId } : {}) });
   } else if (status === "idle" && caller === API_KEY_CALLER) {
     announcements.clear();
     dismissedBefore = Date.now();
   }
 }
 
-/** The caller started its stream: its announcement has become that match. */
-export function streamStartedBy(caller: string): void {
-  if (announcements.delete(caller)) lastChange = new Date().toISOString();
+/**
+ * The caller started its stream: its announcement has become that match.
+ * Once a match in the schedule has started, every camera's announcement of it
+ * is done with too.
+ */
+export function streamStartedBy(caller: string, matchId?: string): void {
+  let changed = announcements.delete(caller);
+  if (matchId) {
+    for (const [other, state] of announcements) {
+      if (state.status === "upcoming" && state.matchId === matchId) {
+        announcements.delete(other);
+        changed = true;
+      }
+    }
+  }
+  if (changed) lastChange = new Date().toISOString();
 }
 
 /** Forget every announcement and dismissal (tests). */

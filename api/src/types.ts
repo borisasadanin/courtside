@@ -7,6 +7,8 @@ export interface StreamInfo {
   /** The teams as the recording's card shows them, so the camera asks for the result with the same names. */
   homeTeam?: string;
   awayTeam?: string;
+  /** The match the recording belongs to (ABL-048). */
+  matchId?: string;
 }
 
 export interface StreamPublicInfo {
@@ -24,6 +26,8 @@ export interface StreamPublicInfo {
   viewers: number;
   /** A recent frame of the stream, behind the viewer PIN (ABL-045). */
   posterUrl?: string;
+  /** The match the stream belongs to (ABL-048). Missing on streams started before it. */
+  matchId?: string;
 }
 
 export interface CreateStreamBody {
@@ -31,6 +35,8 @@ export interface CreateStreamBody {
   deviceId?: string;
   opponent?: string;
   team?: string;
+  /** A match from the schedule (ABL-048). Its teams and venue then win over team and opponent. */
+  matchId?: string;
 }
 
 export interface RestreamerProcess {
@@ -106,4 +112,6 @@ export interface VodEntry {
   frameCover?: boolean;
   /** Every pause in order, so the replay can tell period breaks from timeouts. Missing on older recordings. */
   pauses?: RecordedPause[];
+  /** The match in the schedule (ABL-048). Missing on recordings made before it. */
+  matchId?: string;
 }

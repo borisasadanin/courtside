@@ -4,8 +4,8 @@ import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 
 import { config, validateConfig } from "./config.js";
-import { clubManifest } from "./club-config.js";
-import { initServices, streamMeta, collectors } from "./state.js";
+import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "./club-config.js";
+import { initServices, streamMeta, collectors, teams } from "./state.js";
 import { restoreStreamMeta } from "./stream-meta-store.js";
 import { SegmentCollector } from "./segment-collector.js";
 import { RestreamerClient } from "./restreamer.js";
@@ -27,10 +27,12 @@ import dvrRoutes from "./routes/dvr.js";
 import webRoutes, { webDistDir } from "./routes/web.js";
 import setupRoutes from "./routes/setup-routes.js";
 import teamRoutes from "./routes/team-routes.js";
+import matchRoutes from "./routes/match-routes.js";
 import { Setup } from "./setup.js";
 import { Branding } from "./club-branding.js";
 import { VERSION } from "./version.js";
 import { startLivePictures } from "./match-images.js";
+import { backfillTeams } from "./team-backfill.js";
 
 // --- Validate required env vars (exits on failure) ---
 validateConfig();
@@ -104,6 +106,7 @@ await app.register(deviceRoutes);
 await app.register(dvrRoutes);
 await app.register(setupRoutes, { setup });
 await app.register(teamRoutes);
+await app.register(matchRoutes);
 
 const webRoot = webDistDir();
 if (webRoot) {
@@ -165,6 +168,12 @@ try {
 } catch (err) {
   console.error("Could not read club branding:", err);
 }
+
+// Teams named on recordings made before the registry join it, once (ABL-048).
+// In the background: nothing waits for it, and a failure is tried again next start.
+backfillTeams(minio, teams, [defaultHomeTeam, defaultAwayTeam])
+  .then((added) => { if (added > 0) console.log(`Added ${added} team(s) from earlier recordings to the registry`); })
+  .catch((err) => console.error("Could not add teams from earlier recordings:", err));
 
 // Start background health polling for Restreamer
 oscManager.startBackgroundPolling();
