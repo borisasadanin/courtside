@@ -3127,3 +3127,16 @@ footer a:hover { color: var(--accent-ink); }
   border-radius: 12px; padding: 10px 14px; font-family: inherit; font-size: 1rem; min-height: 46px;
 }
 .team-merge button:disabled { opacity: 0.5; cursor: default; }
+/* ABL-051: a match announced from a camera while another is on shows as its own card. */
+.stream-card.upcoming {
+  cursor: default;
+  border-style: dashed;
+}
+.stream-card.upcoming:hover {
+  background: var(--surface);
+  border-color: var(--line);
+}
+.stream-card-badge.upcoming {
+  background: var(--accent);
+  color: var(--on-accent);
+}

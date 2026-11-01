@@ -129,6 +129,8 @@ app.get("/health", async () => {
       minio: minioReachable ? "ok" : "unreachable",
     },
     activeStreams: oscManager.getActiveStreamCount(),
+    // Resident memory of this process, for the capacity test (ABL-051)
+    memoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
     uptime: process.uptime(),
   };
 });

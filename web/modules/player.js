@@ -798,14 +798,16 @@ function scheduleCarouselRetry(delayMs) {
 }
 
 async function startHighlightCarousel() {
-  if (!state.currentStreamId) return;
+  const streamId = state.currentStreamId;
+  if (!streamId) return;
 
-  console.info(`[carousel] Fetching clips for stream ${state.currentStreamId}…`);
-  const clips = await fetchClipsForStream(state.currentStreamId);
+  console.info(`[carousel] Fetching clips for stream ${streamId}…`);
+  const clips = await fetchClipsForStream(streamId);
 
-  // Guard: status may have changed while fetching (e.g. broadcaster already resumed)
-  if (state.currentStatus !== "paused") {
-    console.info("[carousel] Status changed during fetch — aborting");
+  // Guard: status may have changed while fetching (e.g. broadcaster already resumed),
+  // or the viewer switched to another match that is paused too (ABL-051)
+  if (state.currentStatus !== "paused" || state.currentStreamId !== streamId) {
+    console.info("[carousel] Status or stream changed during fetch — aborting");
     return;
   }
 
