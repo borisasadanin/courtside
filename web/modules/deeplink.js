@@ -71,3 +71,16 @@ export async function copyClipLink(clipId) {
     return false;
   }
 }
+
+/**
+ * Copy a link to a match. Returns true on success, false on failure.
+ */
+// Replaced by ABL-050
+export async function copyMatchLink(matchId) {
+  try {
+    await navigator.clipboard.writeText(`${location.origin}/match/${encodeURIComponent(matchId)}`);
+    return true;
+  } catch {
+    return false;
+  }
+}

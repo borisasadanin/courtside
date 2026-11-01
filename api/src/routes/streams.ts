@@ -29,16 +29,22 @@ function dvrUrl(id: string): string {
  * Match fields for the public API: the match in the schedule, the current
  * period, and the pause type while paused.
  */
-function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["status"]): Pick<StreamPublicInfo, "pauseType" | "period" | "matchId"> {
+function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["status"]): Pick<StreamPublicInfo, "pauseType" | "period" | "matchId" | "homeTeam" | "awayTeam"> {
   if (!meta) return {};
-  const info: Pick<StreamPublicInfo, "pauseType" | "period" | "matchId"> = { ...ofMatch(meta), period: meta.periodNumber };
+  const info: Pick<StreamPublicInfo, "pauseType" | "period" | "matchId" | "homeTeam" | "awayTeam"> = { ...ofMatch(meta), period: meta.periodNumber };
   if (status === "paused") info.pauseType = meta.pauseType ?? "period";
   return info;
 }
 
-/** The stream's match id, when it has one (ABL-048). */
-function ofMatch(meta: StreamMeta | undefined): Pick<StreamPublicInfo, "matchId"> {
-  return meta?.matchId ? { matchId: meta.matchId } : {};
+/**
+ * The stream's match id, when it has one (ABL-048), and its teams as recorded,
+ * so a live card can name them without the schedule (ABL-049).
+ */
+function ofMatch(meta: StreamMeta | undefined): Pick<StreamPublicInfo, "matchId" | "homeTeam" | "awayTeam"> {
+  return {
+    ...(meta?.matchId && { matchId: meta.matchId }),
+    ...(meta?.homeTeam && meta.awayTeam && { homeTeam: meta.homeTeam, awayTeam: meta.awayTeam }),
+  };
 }
 
 /** A typed team name, trimmed, or "" when none was typed. */
@@ -143,9 +149,10 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           rtmpUrl: restreamer.rtmpUrl(existingId),
           hlsUrl: restreamer.hlsUrl(existingId),
           createdAt: meta.createdAt,
-          homeTeam: vod?.homeTeam,
-          awayTeam: vod?.awayTeam,
           ...ofMatch(meta),
+          // The recording follows a change to its match; the stream's own copy does not
+          homeTeam: vod?.homeTeam ?? meta.homeTeam,
+          awayTeam: vod?.awayTeam ?? meta.awayTeam,
         };
         return reply.code(200).send(info);
       }
@@ -193,6 +200,10 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         }
       }
 
+      // The match's teams, or the ones typed in the app
+      const homeTeam = match?.ownTeam.name ?? (typedTeam || defaultHomeTeam);
+      const awayTeam = match?.opponent.name ?? (typedOpponent || defaultAwayTeam);
+
       streamMeta.set(streamId, {
         name: displayName,
         createdAt: info.createdAt,
@@ -201,6 +212,8 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         periodNumber: 1,
         completedParts: [],
         ...(match && { matchId: match.id }),
+        homeTeam,
+        awayTeam,
       });
       saveStreamMetaSoon(minio, request.log);
 
@@ -208,9 +221,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       // follows the stream itself (ABL-051).
       streamStartedBy(await broadcasterOf(request), match?.id);
 
-      // Create VOD entry with the match's teams, or the ones typed in the app
-      const homeTeam = match?.ownTeam.name ?? (typedTeam || defaultHomeTeam);
-      const awayTeam = match?.opponent.name ?? (typedOpponent || defaultAwayTeam);
+      // Create VOD entry with the same teams
       const vodEntry: VodEntry = {
         id: streamId,
         matchTitle: `${homeTeam} vs ${awayTeam}`,

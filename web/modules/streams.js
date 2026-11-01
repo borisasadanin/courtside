@@ -8,7 +8,9 @@ import { authHeaders, showPinScreen } from "./auth.js";
 import { openPlayer, pauseLabel } from "./player.js";
 import { showImage } from "./images.js";
 import { club } from "./club.js";
-import { loadMatches, findMatch, upcomingMatches, describeMatch, severalOwnTeams, downloadIcs } from "./matches.js";
+import { loadMatches, findMatch, upcomingMatches, describeMatch, downloadIcs } from "./matches.js";
+import { loadTeams } from "./teams.js";
+import { matchTeams, matchHead, matchName, spokenTeams, upcomingHead, teamFilter, focusedTeamFilter, focusTeamFilter } from "./match-card.js";
 
 // ============================
 // Fetch & render
@@ -101,32 +103,45 @@ function updateEmptyState(broadcastState) {
 
 /** What the schedule block shows now, so a poll that changes nothing leaves it (and focus) alone. */
 let scheduleShown = "";
+/** The arguments it was last drawn with, to draw it again when the team filter changes. */
+let scheduleArgs = ["idle", []];
 
 /**
- * "Nästa match: lör 8 nov 14:00 mot Hornets, Sporthallen" and a few after it,
- * each with "Lägg till i kalendern". A match a camera has announced already
- * shows above as starting soon, so it is left out here.
+ * "Nästa match" as a match card, and a few after it, each with "Lägg till i
+ * kalendern". A match a camera has announced already shows above as starting
+ * soon, so it is left out here. With several of the club's teams in the list,
+ * the team filter goes on top (ABL-049).
  */
 function renderSchedule(status, announced) {
   const el = dom.emptySchedule;
   if (!el) return;
+  scheduleArgs = [status, announced];
   const skip = new Set(announced.map((u) => u.matchId).filter(Boolean));
-  const list = upcomingMatches().filter((m) => !skip.has(m.id));
-  const withOwnTeam = severalOwnTeams(list);
+  const filter = teamFilter(
+    upcomingMatches().filter((m) => !skip.has(m.id)),
+    (m) => m.ownTeam,
+    () => {
+      scheduleShown = "";
+      renderSchedule(...scheduleArgs);
+    },
+  );
+  const list = filter.shown;
   const headline = status === "idle" ? list[0] : null;
   const later = (headline ? list.slice(1) : list).slice(0, headline ? 3 : 4);
 
-  const shown = JSON.stringify([status, withOwnTeam, headline, later]);
+  const shown = JSON.stringify([status, filter.keys, filter.chosen, headline, later]);
   if (shown === scheduleShown) return;
   scheduleShown = shown;
+  const focusedFilter = focusedTeamFilter();
 
   el.replaceChildren();
   el.classList.toggle("hidden", list.length === 0);
+  if (filter.row) el.append(filter.row);
   if (headline) {
     const next = document.createElement("div");
-    next.className = "empty-next";
-    next.textContent = `Nästa match: ${describeMatch(headline, { withOwnTeam })}`;
-    el.append(next, calendarButton(headline));
+    next.className = "empty-schedule-title";
+    next.textContent = "Nästa match";
+    el.append(next, upcomingCard(headline));
   }
   if (later.length > 0) {
     const title = document.createElement("div");
@@ -136,13 +151,21 @@ function renderSchedule(status, announced) {
     items.className = "empty-schedule-list";
     for (const match of later) {
       const li = document.createElement("li");
-      const text = document.createElement("span");
-      text.textContent = describeMatch(match, { withOwnTeam });
-      li.append(text, calendarButton(match));
+      li.append(upcomingCard(match));
       items.append(li);
     }
     el.append(title, items);
   }
+  focusTeamFilter(el, focusedFilter);
+}
+
+/** A match still to be played: its card and "Lägg till i kalendern". */
+function upcomingCard(match) {
+  const card = document.createElement("div");
+  card.className = "match-card";
+  card.dataset.matchId = match.id;
+  card.append(upcomingHead(match), calendarButton(match));
+  return card;
 }
 
 function calendarButton(match) {
@@ -171,10 +194,21 @@ function updateHeaderStatus(streams, broadcastState) {
 }
 
 /** A card per match announced from a camera but not started yet. */
-function upcomingCards(broadcastState) {
-  return (broadcastState?.upcoming ?? [])
-    .map((u) => `
-    <div class="stream-card upcoming">
+function announcedCard(u) {
+  const match = findMatch(u.matchId);
+  const pill = { cls: "upcoming", text: "SNART", spoken: "startar snart" };
+  const card = document.createElement("div");
+  card.className = "stream-card upcoming";
+  if (match) {
+    card.dataset.matchId = match.id;
+    const body = document.createElement("span");
+    body.className = "stream-card-body";
+    body.append(upcomingHead(match, { pill }));
+    card.append(body);
+    return card;
+  }
+  // Announced from an older app, by name only
+  card.innerHTML = `
       <span class="stream-card-poster">
         <span class="stream-card-top">
           <span class="stream-card-badge upcoming">SNART</span>
@@ -182,9 +216,71 @@ function upcomingCards(broadcastState) {
       </span>
       <span class="stream-card-body">
         <span class="stream-card-name">${escapeHtml(u.message || "Nästa match")}</span>
+      </span>`;
+  return card;
+}
+
+/** What a stream's status line starts with, and how a screen reader says it. */
+const STREAM_STATUS = {
+  live: { cls: "live", text: "LIVE", spoken: "live" },
+  waiting: { cls: "waiting", text: "STARTAR", spoken: "startar" },
+  stopped: { cls: "stopped", text: "AVBRUTEN", spoken: "avbruten" },
+  paused: { cls: "paused", text: "PAUS", spoken: "paus" },
+};
+
+/**
+ * A live card: the live picture, then the match as on every other card,
+ * "LIVE  Period 2 · 14 tittare" (ABL-049). A stream with no teams known (one
+ * started before the names were kept) is shown by its name, as before.
+ * With several cameras on one match, each card also names its camera.
+ */
+function streamCard(s, { withCamera }) {
+  const status = s.status === "paused" && s.pauseType
+    ? { cls: "paused", text: pauseLabel(s.pauseType), spoken: pauseLabel(s.pauseType).toLowerCase() }
+    : STREAM_STATUS[s.status] || STREAM_STATUS.waiting;
+  const isStopped = s.status === "stopped";
+  const isPaused = s.status === "paused";
+  const teams = matchTeams(findMatch(s.matchId), s.homeTeam, s.awayTeam);
+  const name = teams ? matchName(teams) + (withCamera ? ` \u00b7 ${s.name}` : "") : s.name;
+
+  const card = document.createElement("button");
+  card.className = `stream-card${isStopped ? " stopped" : ""}${isPaused ? " paused" : ""}`;
+  card.dataset.hls = s.hlsUrl;
+  card.dataset.dvr = s.dvrUrl || "";
+  card.dataset.name = name;
+  card.dataset.id = s.id;
+  if (s.matchId) card.dataset.matchId = s.matchId;
+  card.disabled = isStopped;
+  card.innerHTML = `
+      <span class="stream-card-poster">
+        ${s.posterUrl ? `<img class="stream-card-image" alt="" data-poster="${escapeHtml(s.posterUrl)}">` : ""}
+        ${teams ? "" : `<span class="stream-card-top">
+          <span class="stream-card-badge ${status.cls}">${escapeHtml(status.text)}</span>
+          ${s.viewers > 0 ? `<span class="stream-card-viewers">${escapeHtml(String(s.viewers))} tittare</span>` : ""}
+        </span>`}
+        ${isStopped ? "" : `<span class="stream-card-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg></span>`}
       </span>
-    </div>`)
-    .join("");
+      <span class="stream-card-body">
+        ${teams ? "" : `<span class="stream-card-name">${escapeHtml(s.name)}</span>`}
+        ${isStopped ? "" : `<span class="stream-card-cta">Titta${s.status === "live" ? " live" : ""}</span>`}
+      </span>`;
+
+  if (teams) {
+    const period = (s.status === "live" || isPaused) && s.period ? `Period ${s.period}` : "";
+    const viewers = s.viewers > 0 ? `${s.viewers} tittare` : "";
+    const spoken = [spokenTeams(teams), status.spoken, period.toLowerCase(), viewers, withCamera && s.name]
+      .filter(Boolean).join(", ");
+    const head = matchHead(teams, { tag: "span", pill: status, parts: [period, viewers], spoken });
+    if (withCamera) {
+      const camera = document.createElement("span");
+      camera.className = "mc-camera";
+      camera.setAttribute("aria-hidden", "true");
+      camera.textContent = s.name;
+      head.append(camera);
+    }
+    card.querySelector(".stream-card-body").prepend(head);
+  }
+  return card;
 }
 
 function renderStreamList(streams, broadcastState) {
@@ -211,37 +307,16 @@ function renderStreamList(streams, broadcastState) {
   dom.emptyState.classList.add("hidden");
   dom.streamGrid.classList.remove("hidden");
 
-  const badgeMap = {
-    live: { cls: "live", text: "S\u00c4NDER LIVE" },
-    waiting: { cls: "waiting", text: "STARTAR..." },
-    stopped: { cls: "stopped", text: "AVBRUTEN" },
-    paused: { cls: "paused", text: "PAUSAD" },
-  };
+  // Matches with more than one camera on the list
+  const perMatch = new Map();
+  for (const s of streams) {
+    if (s.matchId) perMatch.set(s.matchId, (perMatch.get(s.matchId) || 0) + 1);
+  }
 
-  dom.streamGrid.innerHTML = streams
-    .map((s) => {
-      const badge = s.status === "paused" && s.pauseType
-        ? { cls: "paused", text: pauseLabel(s.pauseType) }
-        : badgeMap[s.status] || badgeMap.waiting;
-      const isStopped = s.status === "stopped";
-      const isPaused = s.status === "paused";
-      return `
-    <button class="stream-card ${isStopped ? "stopped" : ""}${isPaused ? " paused" : ""}" data-hls="${escapeHtml(s.hlsUrl)}" data-dvr="${s.dvrUrl ? escapeHtml(s.dvrUrl) : ""}" data-name="${escapeHtml(s.name)}" data-id="${escapeHtml(s.id)}" ${isStopped ? "disabled" : ""}>
-      <span class="stream-card-poster">
-        ${s.posterUrl ? `<img class="stream-card-image" alt="" data-poster="${escapeHtml(s.posterUrl)}">` : ""}
-        <span class="stream-card-top">
-          <span class="stream-card-badge ${badge.cls}">${escapeHtml(badge.text)}</span>
-          ${s.viewers > 0 ? `<span class="stream-card-viewers">${escapeHtml(String(s.viewers))} tittare</span>` : ""}
-        </span>
-        ${isStopped ? "" : `<span class="stream-card-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg></span>`}
-      </span>
-      <span class="stream-card-body">
-        <span class="stream-card-name">${escapeHtml(s.name)}</span>
-        ${isStopped ? "" : `<span class="stream-card-cta">Titta${s.status === "live" ? " live" : ""}</span>`}
-      </span>
-    </button>`;
-    })
-    .join("") + upcomingCards(broadcastState);
+  dom.streamGrid.replaceChildren(
+    ...streams.map((s) => streamCard(s, { withCamera: perMatch.get(s.matchId) > 1 })),
+    ...(broadcastState?.upcoming ?? []).map(announcedCard),
+  );
 
   // The live picture, renewed about once a minute (ABL-045)
   dom.streamGrid.querySelectorAll("img[data-poster]").forEach((img) => {
@@ -262,11 +337,12 @@ function renderStreamList(streams, broadcastState) {
 // ============================
 
 async function pollStreamList() {
-  // The schedule is fetched at most once a minute (matches.js).
+  // The schedule is fetched at most once a minute (matches.js), the teams once.
   const [streams, broadcastState] = await Promise.all([
     fetchStreams(),
     fetchBroadcastState(),
     loadMatches(),
+    loadTeams(),
   ]);
   if (streams !== null) {
     renderStreamList(streams, broadcastState);

@@ -5,13 +5,15 @@
 
 import { CONFIG } from "./config.js";
 import { state, dom } from "./state.js";
-import { escapeHtml, formatDuration, formatDateFull, mediaUrl } from "./utils.js";
+import { escapeHtml, formatDuration, mediaUrl } from "./utils.js";
 import { authHeaders, showPinScreen } from "./auth.js";
 import { openVodPlayer } from "./player.js";
 import { fetchAllClips, playClip } from "./highlights.js";
-import { copyClipLink, setClipHash } from "./deeplink.js";
+import { copyClipLink, copyMatchLink, setClipHash } from "./deeplink.js";
 import { showImage } from "./images.js";
 import { loadMatches, findMatch } from "./matches.js";
+import { loadTeams, teamBadge } from "./teams.js";
+import { matchTeams, matchHead, spokenTeams, playedOn, teamFilter, focusedTeamFilter, focusTeamFilter } from "./match-card.js";
 
 // ============================
 // Fetch
@@ -172,7 +174,7 @@ const COVER_RANK = { chosen: 0, highlight: 1, frame: 2 };
 
 /**
  * The match's cover: the best one any of its recordings has, the first camera's
- * on a tie. Without one the card shows no picture (ABL-049 will draw one).
+ * on a tie. Without one the card draws the two teams' badges instead.
  */
 function matchCover(recordings) {
   const covers = recordings.map((r) => r.cover).filter((c) => c && c.source in COVER_RANK);
@@ -214,8 +216,10 @@ function highlightsOpen(group, streamIds) {
 
 function renderVodList(vods, clips) {
   const groups = groupByMatch(vods, clips ?? []);
-  // Polling rebuilds the list; a viewer on a highlights toggle keeps their place.
+  // Polling rebuilds the list; a viewer on a highlights toggle or the team
+  // filter keeps their place.
   const focused = document.activeElement?.dataset?.highlightsFor;
+  const focusedFilter = focusedTeamFilter();
 
   if (groups.length === 0) {
     dom.vodGrid.innerHTML = "";
@@ -224,20 +228,28 @@ function renderVodList(vods, clips) {
     return;
   }
 
+  // "Alla · P12 · F14" when the club has more than one team in the list
+  for (const group of groups) {
+    group.teams = group.key === "__orphan__" ? null : matchTeams(group.match, group.homeTeam, group.awayTeam);
+  }
+  const filter = teamFilter(groups, (g) => g.teams?.own, () => renderVodList(vods, clips));
+
   dom.vodEmptyState.classList.add("hidden");
   dom.vodGrid.classList.remove("hidden");
   dom.vodGrid.replaceChildren();
+  if (filter.row) dom.vodGrid.appendChild(filter.row);
 
-  for (let i = 0; i < groups.length; i++) {
+  filter.shown.forEach((group, i) => {
     if (i > 0) {
       dom.vodGrid.appendChild(createMatchSeparator());
     }
-    dom.vodGrid.appendChild(createMatchGroup(groups[i]));
-  }
+    dom.vodGrid.appendChild(createMatchGroup(group));
+  });
 
   if (focused) {
     dom.vodGrid.querySelector(`[data-highlights-for="${focused}"]`)?.focus();
   }
+  focusTeamFilter(dom.vodGrid, focusedFilter);
 }
 
 /** Thin gold line between match sections */
@@ -250,56 +262,51 @@ function createMatchSeparator() {
 function createMatchGroup(group) {
   const el = document.createElement("div");
   el.className = "match-group";
+  if (group.matchId) el.dataset.matchId = group.matchId;
+  const teams = group.teams;
 
-  if (group.cover && group.recordings.length > 0) {
-    el.appendChild(createCover(group));
+  if (group.recordings.length > 0) {
+    if (group.cover) el.appendChild(createCover(group));
+    else if (teams) el.appendChild(createTeamsCover(group, teams));
   }
 
   // ── Header ──────────────────────────────────────────────
   const header = document.createElement("div");
   header.className = "match-group-header";
+  const heading = document.createElement("div");
+  heading.className = "match-group-heading";
+  header.appendChild(heading);
 
-  // "MATCH" eyebrow label (not shown for orphan group)
-  if (group.key !== "__orphan__") {
-    const eyebrow = document.createElement("span");
-    eyebrow.className = "match-eyebrow";
-    eyebrow.textContent = "MATCH";
-    header.appendChild(eyebrow);
-  }
-
-  const title = document.createElement("h3");
-  title.className = "match-group-title";
-  const result = group.result;
-  // The score takes the place of "vs" — unless the title was changed to
-  // something other than the teams, and then it gets a line of its own.
+  // A title written by hand ("Seriefinal") is kept above the teams.
   const titleIsTeams = group.homeTeam && group.awayTeam &&
     group.matchTitle === `${group.homeTeam} vs ${group.awayTeam}`;
-  if (result && titleIsTeams) {
-    title.setAttribute("aria-label",
-      `${group.homeTeam} ${result.home}, ${group.awayTeam} ${result.away}`);
-    title.append(group.homeTeam, " ", createScore(result), " ", group.awayTeam);
+
+  if (teams) {
+    if (!titleIsTeams && group.matchTitle) {
+      const eyebrow = document.createElement("span");
+      eyebrow.className = "match-eyebrow";
+      eyebrow.textContent = group.matchTitle;
+      heading.appendChild(eyebrow);
+    }
+    heading.appendChild(createReplayHead(group, teams));
   } else {
+    // No teams to show: the orphan group, or a recording without names
+    const title = document.createElement("h3");
+    title.className = "match-group-title";
     title.textContent = group.matchTitle;
+    heading.appendChild(title);
+    const subtitleParts = [];
+    if (group.matchDate) subtitleParts.push(playedOn(group.matchDate));
+    if (group.location) subtitleParts.push(group.location);
+    if (subtitleParts.length > 0) {
+      const sub = document.createElement("p");
+      sub.className = "match-group-date";
+      sub.textContent = subtitleParts.join(" · ");
+      heading.appendChild(sub);
+    }
   }
-  header.appendChild(title);
 
-  if (result && !titleIsTeams) {
-    const line = document.createElement("p");
-    line.className = "match-group-result";
-    line.append("Resultat ", createScore(result));
-    header.appendChild(line);
-  }
-
-  // Date + location subtitle
-  const subtitleParts = [];
-  if (group.matchDate) subtitleParts.push(formatDateFull(group.matchDate));
-  if (group.location)  subtitleParts.push(escapeHtml(group.location));
-  if (subtitleParts.length > 0) {
-    const sub = document.createElement("p");
-    sub.className = "match-group-date";
-    sub.textContent = subtitleParts.join(" · ");
-    header.appendChild(sub);
-  }
+  if (group.matchId && teams) header.appendChild(createMatchShare(group, teams));
 
   el.appendChild(header);
 
@@ -339,6 +346,67 @@ function createCover(group) {
   });
   showImage(img, group.cover.url, { onFail: () => cover.remove() });
   return cover;
+}
+
+/**
+ * The teams, then "72 – 65 · lör 1 nov · Sporthallen". The score is the
+ * newest one reported for the match (ABL-041), in the club's tone win or lose.
+ */
+function createReplayHead(group, teams) {
+  const result = group.result;
+  const spoken = [
+    spokenTeams(teams),
+    result && `resultat ${result.home} mot ${result.away}`,
+    group.matchDate && new Date(`${group.matchDate}T12:00:00`)
+      .toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+    group.location,
+  ].filter(Boolean).join(", ");
+  return matchHead(teams, {
+    parts: [result && createScore(result), group.matchDate && playedOn(group.matchDate), group.location],
+    spoken,
+  });
+}
+
+/**
+ * In place of a cover: the two teams' badges on the drawn court. Like a cover,
+ * tapping it plays the first recording, and screen readers skip it.
+ */
+function createTeamsCover(group, teams) {
+  const cover = document.createElement("div");
+  cover.className = "match-cover match-cover-teams";
+  cover.setAttribute("aria-hidden", "true");
+  const dash = document.createElement("span");
+  dash.className = "match-cover-dash";
+  dash.textContent = "\u2013";
+  cover.append(teamBadge(teams.own, { size: "lg" }), dash, teamBadge(teams.opponent, { size: "lg" }));
+
+  const first = group.recordings[0];
+  cover.addEventListener("click", () => {
+    openVodPlayer(first.hlsUrl, first.matchTitle, first.id);
+  });
+  return cover;
+}
+
+/** Copies a link to the match, like a highlight's share button (the page behind it is ABL-050's). */
+function createMatchShare(group, teams) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "clip-share-btn match-share-btn";
+  btn.setAttribute("aria-label", `Dela ${spokenTeams(teams)}`);
+  btn.title = "Kopiera länk";
+  btn.innerHTML = SHARE_SVG;
+  btn.addEventListener("click", async () => {
+    const ok = await copyMatchLink(group.matchId);
+    if (ok) {
+      btn.classList.add("clip-share-copied");
+      btn.innerHTML = "&#10003;";
+      setTimeout(() => {
+        btn.classList.remove("clip-share-copied");
+        btn.innerHTML = SHARE_SVG;
+      }, 1500);
+    }
+  });
+  return btn;
 }
 
 /** "★ HÖJDPUNKTER 7 ›" — a toggle over the match's highlight chips. */
@@ -560,8 +628,9 @@ function formatClipTime(isoString) {
 // ============================
 
 async function pollVodList() {
-  // The schedule only names the matches: without it the list still groups by match id.
-  const [vods, clips] = await Promise.all([fetchVod(), fetchAllClips(), loadMatches()]);
+  // The schedule and the teams only name the matches: without them the list
+  // still groups by match id, with the names the recordings carry.
+  const [vods, clips] = await Promise.all([fetchVod(), fetchAllClips(), loadMatches(), loadTeams()]);
   if (vods !== null) {
     renderVodList(vods, clips ?? []);
   }
