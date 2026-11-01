@@ -371,6 +371,9 @@ struct StartView: View {
                     Label("Koppla bort från \(club.name)",
                           systemImage: "link.badge.minus")
                 }
+                Section {
+                    Text("Courtside Kamera \(AppVersion.display)")
+                }
             } label: {
                 Image(systemName: "gearshape")
                     .font(.title3)
@@ -567,7 +570,11 @@ struct StartView: View {
         case .refused(let message):
             errorMessage = message
         case .failed:
-            errorMessage = "Kunde inte stänga av sändningsmotorn"
+            // A lost answer does not mean the stop failed: ask what it is now.
+            await checkRestreamer()
+            if restreamerStatus == .healthy {
+                errorMessage = "Kunde inte stänga av sändningsmotorn"
+            }
         }
     }
 

@@ -96,6 +96,23 @@ describe("DeviceRegistry", () => {
     expect(await registry.verify(b.token)).not.toBeNull();
   });
 
+  it("records the camera app's version, and a new one at once", async () => {
+    const { token } = (await registry.pair(registry.createPairingCode().code, "Kamera"))!;
+    const device = (await registry.verify(token))!;
+
+    await registry.touch(device, "1.1.0");
+    expect((await registry.list())[0].appVersion).toBe("1.1.0");
+
+    // Within the minute, but a new version is worth the write.
+    await registry.touch(device, "1.2.0");
+    expect((await registry.list())[0].appVersion).toBe("1.2.0");
+
+    // No header, or rubbish, leaves what is known.
+    await registry.touch(device);
+    await registry.touch(device, "<script>");
+    expect((await registry.list())[0].appVersion).toBe("1.2.0");
+  });
+
   it("reports an unknown id rather than silently succeeding", async () => {
     expect(await registry.revoke("nosuchdevice")).toBe(false);
   });
