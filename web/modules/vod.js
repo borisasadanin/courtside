@@ -133,11 +133,41 @@ function groupByMatch(vods, clips) {
 }
 
 // ============================
+// Highlights open or folded
+// ============================
+//
+// The list is rebuilt on every poll, so whether a match's highlights are open
+// is kept here rather than in the DOM. It is keyed by stream id: a match in
+// progress is the "Pågående match" group and gets its real key only when it
+// stops, but its streams stay the same.
+
+/** streamId → true (open) / false (folded), for matches the viewer toggled. */
+const highlightsChoice = new Map();
+/** Streams seen live on this page, so their match stays open after it ends. */
+const seenLive = new Set();
+
+function groupStreamIds(group) {
+  const ids = new Set(group.recordings.map((r) => r.id));
+  for (const clip of group.clips) ids.add(clip.streamId);
+  return [...ids];
+}
+
+/** A match in progress is open; a finished one is folded, unless the viewer said otherwise. */
+function highlightsOpen(group, streamIds) {
+  for (const id of streamIds) {
+    if (highlightsChoice.has(id)) return highlightsChoice.get(id);
+  }
+  return group.key === "__orphan__" || streamIds.some((id) => seenLive.has(id));
+}
+
+// ============================
 // Rendering
 // ============================
 
 function renderVodList(vods, clips) {
   const groups = groupByMatch(vods, clips ?? []);
+  // Polling rebuilds the list; a viewer on a highlights toggle keeps their place.
+  const focused = document.activeElement?.dataset?.highlightsFor;
 
   if (groups.length === 0) {
     dom.vodGrid.innerHTML = "";
@@ -155,6 +185,10 @@ function renderVodList(vods, clips) {
       dom.vodGrid.appendChild(createMatchSeparator());
     }
     dom.vodGrid.appendChild(createMatchGroup(groups[i]));
+  }
+
+  if (focused) {
+    dom.vodGrid.querySelector(`[data-highlights-for="${focused}"]`)?.focus();
   }
 }
 
@@ -229,29 +263,58 @@ function createMatchGroup(group) {
 
   // ── Highlights ──────────────────────────────────────────
   if (group.clips.length > 0) {
-    const hlSection = document.createElement("div");
-    hlSection.className = "match-highlights";
-
-    const labelEl = document.createElement("div");
-    labelEl.className = "match-highlights-label";
-    labelEl.innerHTML =
-      `<svg width="11" height="11" viewBox="0 0 24 24" fill="var(--accent-ink)" aria-hidden="true">` +
-      `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>` +
-      `</svg> HÖJDPUNKTER ` +
-      `<span class="match-highlights-count">${group.clips.length}</span>`;
-    hlSection.appendChild(labelEl);
-
-    const chips = document.createElement("div");
-    chips.className = "match-highlights-chips";
-    group.clips.forEach((clip, i) => {
-      chips.appendChild(createClipCard(clip, i));
-    });
-    hlSection.appendChild(chips);
-
-    el.appendChild(hlSection);
+    el.appendChild(createHighlightsSection(group));
   }
 
   return el;
+}
+
+/** "★ HÖJDPUNKTER 7 ›" — a toggle over the match's highlight chips. */
+function createHighlightsSection(group) {
+  const hlSection = document.createElement("div");
+  hlSection.className = "match-highlights";
+
+  const streamIds = groupStreamIds(group);
+  if (group.key === "__orphan__") streamIds.forEach((id) => seenLive.add(id));
+  // Stream ids are hex, so the first one makes a safe element id.
+  const key = group.key === "__orphan__" ? "live" : streamIds[0];
+  const open = highlightsOpen(group, streamIds);
+  const count = group.clips.length;
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "match-highlights-label";
+  toggle.dataset.highlightsFor = key;
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.setAttribute("aria-controls", `highlights-${key}`);
+  toggle.setAttribute("aria-label", count === 1 ? "1 höjdpunkt" : `${count} höjdpunkter`);
+  toggle.innerHTML =
+    `<svg width="11" height="11" viewBox="0 0 24 24" fill="var(--accent-ink)" aria-hidden="true">` +
+    `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>` +
+    `</svg> HÖJDPUNKTER ` +
+    `<span class="match-highlights-count">${count}</span>` +
+    `<svg class="match-highlights-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" ` +
+    `stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">` +
+    `<polyline points="9 18 15 12 9 6"/></svg>`;
+  hlSection.appendChild(toggle);
+
+  const chips = document.createElement("div");
+  chips.className = "match-highlights-chips";
+  chips.id = `highlights-${key}`;
+  chips.hidden = !open;
+  group.clips.forEach((clip, i) => {
+    chips.appendChild(createClipCard(clip, i));
+  });
+  hlSection.appendChild(chips);
+
+  toggle.addEventListener("click", () => {
+    const nowOpen = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(nowOpen));
+    chips.hidden = !nowOpen;
+    streamIds.forEach((id) => highlightsChoice.set(id, nowOpen));
+  });
+
+  return hlSection;
 }
 
 /** "72 – 65", own team first. */
