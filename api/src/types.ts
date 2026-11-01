@@ -22,6 +22,8 @@ export interface StreamPublicInfo {
   /** Current match period (1-based) */
   period?: number;
   viewers: number;
+  /** A recent frame of the stream, behind the viewer PIN (ABL-045). */
+  posterUrl?: string;
 }
 
 export interface CreateStreamBody {
@@ -87,4 +89,8 @@ export interface VodEntry {
   stoppedAt?: string;
   durationSeconds?: number;
   result?: MatchResult;
+  /** The highlight the admin chose as the match's cover (ABL-045). */
+  coverClipId?: string;
+  /** A frame of the recording is stored as <id>/cover.jpg (ABL-045). */
+  frameCover?: boolean;
 }

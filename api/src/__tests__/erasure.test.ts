@@ -6,9 +6,10 @@
  * These tests run the real routes against an in-memory bucket and check what a
  * stranger holding the old link gets afterwards.
  */
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
-import { initServices, clipsByStream } from "../state.js";
+import { initServices, clipsByStream, collectors } from "../state.js";
+import { takeLivePictures, livePictureUrl } from "../match-images.js";
 import type { HighlightClip, VodEntry } from "../types.js";
 
 const ADMIN = { "x-api-key": "test-api-key" };
@@ -79,6 +80,7 @@ function fakeMinio() {
     deletePrefix,
     deleteVodFiles: (streamId: string) => deletePrefix(`${streamId}/`),
     readFile: async (key: string) => objects.get(key) ?? null,
+    downloadBuffer: async (key: string) => Buffer.from(objects.get(key) ?? ""),
     readFileIfExists: async (key: string) => objects.get(key) ?? null,
     uploadBuffer: async (key: string, body: string) => { objects.set(key, String(body)); },
     presignGet: async (key: string) => `https://storage.example.com/${key}?sig=x`,
@@ -143,6 +145,30 @@ describe("deleting a match", () => {
   it("404s when there is nothing by that id", async () => {
     const res = await app.inject({ method: "DELETE", url: "/api/vod/nosuchmatch", headers: ADMIN });
     expect(res.statusCode).toBe(404);
+  });
+});
+
+describe("deleting a match with pictures (ABL-045)", () => {
+  it("removes its cover frame and live picture, and its card stops showing one", async () => {
+    minio.objects.set("match1/cover.jpg", "jpg");
+    collectors.set("match1", { getSegmentTimeline: () => [{ key: "match1/p1_seg1.ts" }] } as never);
+    await takeLivePictures({ warn: vi.fn() } as never, async (ts) => ts);
+    collectors.delete("match1");
+    expect(minio.objects.has("match1/live.jpg")).toBe(true);
+    expect(livePictureUrl("match1")).toBeDefined();
+
+    await app.inject({ method: "DELETE", url: "/api/vod/match1", headers: ADMIN });
+
+    expect(minio.objects.has("match1/cover.jpg")).toBe(false);
+    expect(minio.objects.has("match1/live.jpg")).toBe(false);
+    expect(livePictureUrl("match1")).toBeUndefined();
+  });
+
+  it("deleting the highlight chosen as cover moves the cover to the next one", async () => {
+    minio.vods[0].coverClipId = "aaaa000000000001";
+    await app.inject({ method: "DELETE", url: "/api/clips/aaaa000000000001", headers: ADMIN });
+    const list = (await app.inject({ url: "/api/vod", headers: ADMIN })).json();
+    expect(list.find((v: { id: string }) => v.id === "match1").cover.url).toBe("/api/clips/aaaa000000000002/media/aaaa000000000002.jpg");
   });
 });
 

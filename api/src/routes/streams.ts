@@ -16,6 +16,7 @@ import type { CreateStreamBody, StreamInfo, StreamPublicInfo, VodEntry } from ".
 import { getBroadcastState, setBroadcastState } from "../broadcast-state.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "../club-config.js";
 import { saveStreamMetaSoon } from "../stream-meta-store.js";
+import { recordingStopped, withLivePictures } from "../match-images.js";
 
 /** DVR playlist URL for a stream (relative path — frontend prepends API base). */
 function dvrUrl(id: string): string {
@@ -365,7 +366,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
 
     // If Restreamer is not running, return metadata-only list
     if (!restreamerAvailable) {
-      return reply.send(metadataOnlyStreams());
+      return reply.send(withLivePictures(metadataOnlyStreams()));
     }
 
     try {
@@ -466,11 +467,11 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         });
       }
 
-      return reply.send(streams);
+      return reply.send(withLivePictures(streams));
     } catch (err) {
       // Restreamer API failed (crashed/503/504) — fall back to metadata
       _request.log.error(err, "Restreamer API unavailable, falling back to cached metadata");
-      return reply.send(metadataOnlyStreams());
+      return reply.send(withLivePictures(metadataOnlyStreams()));
     }
   });
 
@@ -634,6 +635,9 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         collectors.delete(id);
       }
 
+      // A cover frame from the first period; the live picture goes (ABL-045)
+      void recordingStopped(id, meta?.partNumber ?? 1, request.log);
+
       // Delete the Restreamer process in the background (fire-and-forget).
       // Metadata is already updated, so the response returns instantly.
       // The cleanup timer will catch any stragglers.
@@ -728,6 +732,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             meta.stoppedAt = new Date().toISOString();
             const dur = Math.round((new Date(meta.stoppedAt).getTime() - new Date(meta.createdAt).getTime()) / 1000);
             minio.updateVodEntry(streamId, { stoppedAt: meta.stoppedAt, durationSeconds: dur }).catch(() => {});
+            void recordingStopped(streamId, meta.partNumber, app.log);
           }
           viewers.delete(streamId);
         }
@@ -739,6 +744,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             meta.stoppedAt = new Date().toISOString();
             const dur = Math.round((new Date(meta.stoppedAt).getTime() - new Date(meta.createdAt).getTime()) / 1000);
             minio.updateVodEntry(streamId, { stoppedAt: meta.stoppedAt, durationSeconds: dur }).catch(() => {});
+            void recordingStopped(streamId, meta.partNumber, app.log);
           }
           viewers.delete(streamId);
         } else {

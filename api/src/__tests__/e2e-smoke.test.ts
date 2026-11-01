@@ -79,6 +79,7 @@ function createMockMinio() {
       }
     }),
     readVodIndex: vi.fn(async () => [...vodIndex]),
+    readClipsIndex: vi.fn(async () => []),
     writeVodIndex: vi.fn().mockResolvedValue(undefined),
     removeVodEntry: vi.fn().mockResolvedValue(true),
     deleteVodFiles: vi.fn().mockResolvedValue(0),

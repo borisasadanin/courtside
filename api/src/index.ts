@@ -29,6 +29,7 @@ import setupRoutes from "./routes/setup-routes.js";
 import { Setup } from "./setup.js";
 import { Branding } from "./club-branding.js";
 import { VERSION } from "./version.js";
+import { startLivePictures } from "./match-images.js";
 
 // --- Validate required env vars (exits on failure) ---
 validateConfig();
@@ -163,6 +164,9 @@ try {
 
 // Start background health polling for Restreamer
 oscManager.startBackgroundPolling();
+
+// A picture of each live stream about once a minute, for its card (ABL-045)
+startLivePictures(app.log);
 
 // --- Recover streams that were running when this process last stopped ---
 //

@@ -8,7 +8,11 @@ annan kan ta fram dem om de försvinner. Den här sidan säger vad som krävs f�
 
 I en lagringstjänst i ert OSC-konto, som heter `<klubbnamn>storage`. Den skapades när ni startade Courtside.
 Där finns hela matcher, klipp, miniatyrbilder och er logotyp, och varje matchs lag, datum och resultat.
-Tas en match bort försvinner resultatet med den. Inställningar och koder ligger i `<klubbnamn>config`.
+Varje match får en omslagsbild: miniatyren från matchens första klipp, eller annars en bild ur inspelningen som
+tas när den stoppas. Medan en match sänds sparas en bild ur sändningen ungefär varje minut, så att livekortet
+visar vad som händer. Den bilden tas bort när sändningen slutar. Bilderna ur inspelningen syns bara med
+tittarkoden, precis som videon.
+Tas en match bort försvinner resultatet och bilderna med den. Inställningar och koder ligger i `<klubbnamn>config`.
 
 ## Vad får videon att försvinna?
 

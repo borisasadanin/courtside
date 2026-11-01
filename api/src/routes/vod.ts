@@ -7,6 +7,7 @@ import { config } from "../config.js";
 import { minio } from "../state.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { deleteMatch, logDeletion } from "../erasure.js";
+import { matchCover } from "../match-images.js";
 import type { MatchResult, VodEntry } from "../types.js";
 
 /** How long after a match the camera may still report its result. After that, only the admin. */
@@ -64,13 +65,13 @@ export default async function vodRoutes(app: FastifyInstance): Promise<void> {
     if (!requireViewerAuth(request, reply)) return;
 
     try {
-      const entries = await minio.readVodIndex();
+      const [entries, clips] = await Promise.all([minio.readVodIndex(), minio.readClipsIndex()]);
       // Sort by date descending (newest first), only return completed recordings
       // Filter out entries shorter than 10s (likely no actual recording data)
       const sorted = entries
         .filter((e) => e.stoppedAt && (e.durationSeconds === undefined || e.durationSeconds >= 10))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      return reply.send(sorted);
+      return reply.send(sorted.map((e) => ({ ...e, cover: matchCover(e, clips) })));
     } catch (err) {
       request.log.error(err, "Failed to read VOD index");
       return reply.code(500).send({ error: "Failed to load recordings" });
@@ -83,12 +84,12 @@ export default async function vodRoutes(app: FastifyInstance): Promise<void> {
 
     const { id } = request.params;
     try {
-      const entries = await minio.readVodIndex();
+      const [entries, clips] = await Promise.all([minio.readVodIndex(), minio.readClipsIndex()]);
       const entry = entries.find((e) => e.id === id);
       if (!entry) {
         return reply.code(404).send({ error: "Recording not found" });
       }
-      return reply.send(entry);
+      return reply.send({ ...entry, cover: matchCover(entry, clips) });
     } catch (err) {
       request.log.error(err, "Failed to read VOD entry");
       return reply.code(500).send({ error: "Failed to load recording" });
@@ -156,6 +157,38 @@ export default async function vodRoutes(app: FastifyInstance): Promise<void> {
       } catch (err) {
         request.log.error(err, "Failed to save result");
         return reply.code(500).send({ error: "save_failed", message: "Kunde inte spara resultatet" });
+      }
+    }
+  );
+
+  // PUT /api/vod/:id/cover — Choose one of the match's highlights as its cover (admin).
+  // { clipId: null } goes back to the automatic choice.
+  app.put<{ Params: { id: string }; Body: { clipId?: unknown } | undefined }>(
+    "/api/vod/:id/cover",
+    async (request, reply) => {
+      if (!requireAdminAuth(request, reply)) return;
+
+      const { id } = request.params;
+      const clipId = request.body?.clipId;
+      if (clipId !== null && typeof clipId !== "string") {
+        return reply.code(400).send({ error: "invalid_clip", message: "Välj ett klipp" });
+      }
+      try {
+        const [entries, clips] = await Promise.all([minio.readVodIndex(), minio.readClipsIndex()]);
+        const entry = entries.find((e) => e.id === id);
+        if (!entry) {
+          return reply.code(404).send({ error: "not_found", message: "Inspelningen hittades inte" });
+        }
+        // Only a highlight of this match, and one that has a picture.
+        if (clipId !== null && !clips.some((c) => c.id === clipId && c.streamId === id && c.thumbnailUrl)) {
+          return reply.code(400).send({ error: "invalid_clip", message: "Klippet har ingen bild från den här matchen" });
+        }
+        const coverClipId = clipId ?? undefined;
+        await minio.updateVodEntry(id, { coverClipId });
+        return reply.send({ cover: matchCover({ ...entry, coverClipId }, clips) ?? null });
+      } catch (err) {
+        request.log.error(err, "Failed to save cover");
+        return reply.code(500).send({ error: "save_failed", message: "Kunde inte spara omslagsbilden" });
       }
     }
   );

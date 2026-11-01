@@ -128,6 +128,37 @@ export async function extractThumbnail(
 }
 
 /**
+ * The first frame of one .ts segment as a JPEG, at most `maxWidth` wide.
+ *
+ * For match covers and live pictures, which are shown on the site itself, so
+ * unlike a clip thumbnail they carry no logo. A segment starts on a keyframe,
+ * so only one frame is decoded: cheap enough to run every minute during a match.
+ */
+export async function extractSegmentFrame(segment: Buffer, maxWidth = 1280): Promise<Buffer> {
+  const workDir = join(tmpdir(), `frame-${crypto.randomUUID().slice(0, 8)}`);
+  await mkdir(workDir, { recursive: true });
+
+  try {
+    const inputPath = join(workDir, "input.ts");
+    const outputPath = join(workDir, "frame.jpg");
+    await writeFile(inputPath, segment);
+
+    await execFileAsync(ffmpegPath!, [
+      "-y",
+      "-i", inputPath,
+      "-frames:v", "1",
+      "-vf", `scale='min(${maxWidth},iw)':-2`,
+      "-q:v", "4",
+      outputPath,
+    ], { timeout: 10_000 });
+
+    return await readFile(outputPath);
+  } finally {
+    await rm(workDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+/**
  * Convert an ordered list of .ts segment buffers into a single MP4 buffer.
  * Uses ffmpeg concat demuxer with -c copy (remux, no re-encoding).
  */
