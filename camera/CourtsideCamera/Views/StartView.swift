@@ -454,6 +454,7 @@ struct StartView: View {
         let health = await APIService.shared.checkBackendHealth()
         guard !Task.isCancelled else { return }
         platformVersion = health?.version
+        if health != nil { club.platformVersion = health?.version }
         if health == nil {
             backendStatus = .unhealthy("Ej nåbar")
         } else if !Club.supports(platformVersion: health?.version) {

@@ -36,7 +36,18 @@ final class Club: ObservableObject {
     /// camera could not start the broadcast engine.
     static let minimumPlatformVersion = "0.3.0"
 
+    /// First platform release that stores a match result.
+    static let matchResultPlatformVersion = "0.5.0"
+
     @Published private(set) var manifest: ClubManifest?
+
+    /// What the platform last reported in its health check.
+    @Published var platformVersion: String?
+
+    /// Whether to ask for the result after a match. An older platform has nowhere to keep it.
+    var supportsMatchResult: Bool {
+        Self.supports(platformVersion: platformVersion, minimum: Self.matchResultPlatformVersion)
+    }
 
     private let cacheKey = "courtside_club_manifest"
 
@@ -95,12 +106,12 @@ final class Club: ObservableObject {
     /// Whether a platform reporting `version` is new enough. Releases before
     /// v0.2.0 did not report one. A version that is not a number (a local
     /// build reports "unknown") gets the benefit of the doubt.
-    static func supports(platformVersion version: String?) -> Bool {
+    static func supports(platformVersion version: String?, minimum: String = minimumPlatformVersion) -> Bool {
         guard let version else { return false }
         guard version.trimmingCharacters(in: CharacterSet(charactersIn: "v")).first?.isNumber == true else {
             return true
         }
-        return compare(version, minimumPlatformVersion) != .orderedAscending
+        return compare(version, minimum) != .orderedAscending
     }
 
     private static func compare(_ a: String, _ b: String) -> ComparisonResult {

@@ -178,6 +178,8 @@ describe("E2E Smoke Tests: Recording → VOD flow", () => {
       expect(createRes.statusCode).toBe(201);
       const { id: streamId } = createRes.json();
       expect(streamId).toBeTruthy();
+      // The camera asks for the result with the names on the recording's card.
+      expect(createRes.json()).toMatchObject({ homeTeam: "Test IF", awayTeam: "AIK" });
 
       // Verify stream metadata was created with partNumber: 1
       const meta = streamMeta.get(streamId);
@@ -463,6 +465,9 @@ describe("E2E Smoke Tests: Recording → VOD flow", () => {
       const createRes = await createStream(app, { name: "Kamera 1" });
       expect(createRes.statusCode).toBe(201);
       const { id: streamId } = createRes.json();
+      // With no teams given, the club's defaults — the same ones the card shows.
+      expect(createRes.json().homeTeam).toBeTruthy();
+      expect(createRes.json().awayTeam).toBeTruthy();
 
       // When Restreamer reports processes, the stream status depends on HLS liveness.
       // Simulate: Restreamer returns the process, but HLS is not live yet -> "waiting"

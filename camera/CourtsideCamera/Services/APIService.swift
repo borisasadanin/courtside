@@ -125,6 +125,24 @@ final class APIService {
         }
     }
 
+    // MARK: - Match result
+
+    /// Reports how the match finished: the own team's score first, then the opponent's.
+    func setResult(streamId: String, home: Int, away: Int) async throws {
+        let url = URL(string: "\(baseURL)/api/vod/\(streamId)/result")!
+        var request = URLRequest(url: url, timeoutInterval: 15)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
+        request.httpBody = try JSONEncoder().encode(["home": home, "away": away])
+
+        let (data, http) = try await send(request)
+        guard (200...299).contains(http.statusCode) else {
+            let message = (try? JSONDecoder().decode(APIErrorResponse.self, from: data))?.message
+            throw APIError.serverError(http.statusCode, message)
+        }
+    }
+
     // MARK: - Pause / Resume
 
     struct PauseResponse: Decodable {

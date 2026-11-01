@@ -6,6 +6,9 @@ struct StreamInfo: Decodable {
     let rtmpUrl: String
     let hlsUrl: String
     let createdAt: String
+    /// The teams as the recording's card shows them. Missing before platform v0.5.0.
+    let homeTeam: String?
+    let awayTeam: String?
 }
 
 struct StreamStatus: Decodable {

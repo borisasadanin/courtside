@@ -2,11 +2,27 @@
  * VOD routes: list, get, update, delete recorded matches.
  */
 import type { FastifyInstance } from "fastify";
-import { requireApiKey, requireViewerAuth, requireAdminAuth } from "../auth.js";
+import { requireApiKey, requireViewerAuth, requireAdminAuth, requireBroadcasterAuth, isValidAdminToken } from "../auth.js";
+import { config } from "../config.js";
 import { minio } from "../state.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { deleteMatch, logDeletion } from "../erasure.js";
-import type { VodEntry } from "../types.js";
+import type { MatchResult, VodEntry } from "../types.js";
+
+/** How long after a match the camera may still report its result. After that, only the admin. */
+export const CAMERA_RESULT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** A score is a whole number of points, 0–999, whatever the sport. */
+function isScore(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 999;
+}
+
+/** Whether the request carries the admin's own credentials (session or API key). */
+function isAdminRequest(headers: Record<string, string | string[] | undefined>): boolean {
+  const token = headers["x-admin-token"];
+  if (typeof token === "string" && isValidAdminToken(token)) return true;
+  return !!config.API_KEY && headers["x-api-key"] === config.API_KEY;
+}
 
 export default async function vodRoutes(app: FastifyInstance): Promise<void> {
   /**
@@ -106,6 +122,58 @@ export default async function vodRoutes(app: FastifyInstance): Promise<void> {
       }
     }
   );
+
+  // PUT /api/vod/:id/result — Set the final score { home, away }.
+  // The camera reports it right after the match; the admin can set or correct it any time.
+  app.put<{ Params: { id: string }; Body: { home?: unknown; away?: unknown } | undefined }>(
+    "/api/vod/:id/result",
+    async (request, reply) => {
+      const asAdmin = isAdminRequest(request.headers);
+      if (!asAdmin && !(await requireBroadcasterAuth(request, reply))) return;
+
+      const { home, away } = request.body ?? {};
+      if (!isScore(home) || !isScore(away)) {
+        return reply.code(400).send({ error: "invalid_result", message: "Resultatet ska vara två heltal mellan 0 och 999" });
+      }
+
+      const { id } = request.params;
+      try {
+        const entry = (await minio.readVodIndex()).find((v) => v.id === id);
+        if (!entry) {
+          return reply.code(404).send({ error: "not_found", message: "Inspelningen hittades inte" });
+        }
+        // A camera reporting late must never overwrite what the admin corrected since.
+        if (!asAdmin && entry.stoppedAt && Date.now() - new Date(entry.stoppedAt).getTime() > CAMERA_RESULT_WINDOW_MS) {
+          return reply.code(403).send({ error: "result_locked", message: "Resultatet kan nu bara ändras av admin i Hantera" });
+        }
+
+        const result: MatchResult = { home, away, setBy: asAdmin ? "admin" : "camera", setAt: new Date().toISOString() };
+        if (!(await minio.updateVodEntry(id, { result }))) {
+          return reply.code(404).send({ error: "not_found", message: "Inspelningen hittades inte" });
+        }
+        request.log.info(`Result for ${id}: ${home}–${away} (${result.setBy})`);
+        return reply.send(result);
+      } catch (err) {
+        request.log.error(err, "Failed to save result");
+        return reply.code(500).send({ error: "save_failed", message: "Kunde inte spara resultatet" });
+      }
+    }
+  );
+
+  // DELETE /api/vod/:id/result — Remove the score (admin).
+  app.delete<{ Params: { id: string } }>("/api/vod/:id/result", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+
+    try {
+      if (!(await minio.updateVodEntry(request.params.id, { result: undefined }))) {
+        return reply.code(404).send({ error: "not_found", message: "Inspelningen hittades inte" });
+      }
+      return reply.code(204).send();
+    } catch (err) {
+      request.log.error(err, "Failed to remove result");
+      return reply.code(500).send({ error: "save_failed", message: "Kunde inte ta bort resultatet" });
+    }
+  });
 
   // DELETE /api/vod/:id — Delete a match, its files and its clips (admin).
   // ?onRequest=1 notes in the deletion log that someone asked for it.

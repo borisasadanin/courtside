@@ -7,8 +7,8 @@ annan kan ta fram dem om de försvinner. Den här sidan säger vad som krävs f�
 ## Var ligger videon?
 
 I en lagringstjänst i ert OSC-konto, som heter `<klubbnamn>storage`. Den skapades när ni startade Courtside.
-Där finns hela matcher, klipp, miniatyrbilder och er logotyp. Inställningar och koder ligger i
-`<klubbnamn>config`.
+Där finns hela matcher, klipp, miniatyrbilder och er logotyp, och varje matchs lag, datum och resultat.
+Tas en match bort försvinner resultatet med den. Inställningar och koder ligger i `<klubbnamn>config`.
 
 ## Vad får videon att försvinna?
 

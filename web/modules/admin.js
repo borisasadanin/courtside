@@ -149,6 +149,7 @@ export async function loadAdminStorage() {
             ${date ? `<span>${escapeHtml(date)}</span>` : ""}
             ${duration ? `<span>${escapeHtml(duration)}</span>` : ""}
           </div>
+          <div class="admin-vod-result" data-result="${escapeHtml(v.id)}"></div>
           ${renderClipList(v.clips || [], `${(v.clips || []).length} klipp`)}
         </div>
         <div class="admin-vod-size">${escapeHtml(size)}</div>
@@ -167,6 +168,12 @@ export async function loadAdminStorage() {
       </div>`
         : "");
 
+    // Each recording's result, editable in place
+    const vodsById = new Map(data.vods.map((v) => [v.id, v]));
+    dom.adminVodList.querySelectorAll("[data-result]").forEach((el) => {
+      renderResult(el, vodsById.get(el.dataset.result));
+    });
+
     // Bind delete buttons
     dom.adminVodList.querySelectorAll(".admin-vod-delete[data-id]").forEach((btn) => {
       btn.addEventListener("click", () =>
@@ -180,6 +187,121 @@ export async function loadAdminStorage() {
     dom.adminStorageSummary.innerHTML =
       '<p style="color: var(--red);">Kunde inte ladda lagringsinformation</p>';
   }
+}
+
+// ============================
+// Match result
+// ============================
+
+/**
+ * A recording's result, with a form to set, change or remove it. This is the
+ * fallback for when nobody entered it in the camera app, or got it wrong.
+ */
+function renderResult(el, vod) {
+  const result = vod.result;
+  const home = vod.homeTeam || "Eget lag";
+  const away = vod.awayTeam || "Motståndare";
+
+  const summary = document.createElement("div");
+  summary.className = "admin-result-summary";
+  const value = document.createElement("span");
+  if (result) {
+    value.append("Resultat ");
+    const score = document.createElement("b");
+    score.className = "admin-result-score";
+    score.textContent = `${result.home}\u2009\u2013\u2009${result.away}`;
+    value.append(score);
+    const by = document.createElement("span");
+    by.className = "admin-result-by";
+    by.textContent = result.setBy === "admin" ? " · ändrat i Hantera" : " · satt av kameran";
+    value.append(by);
+  } else {
+    value.className = "admin-result-none";
+    value.textContent = "Inget resultat";
+  }
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.className = "branding-link";
+  edit.textContent = result ? "Ändra resultat" : "Lägg till resultat";
+  summary.append(value, edit);
+
+  const form = document.createElement("form");
+  form.className = "admin-result-form hidden";
+  form.innerHTML = `
+    <div class="admin-result-fields">
+      <label class="branding-field">${escapeHtml(home)}
+        <input type="tel" name="home" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off">
+      </label>
+      <label class="branding-field">${escapeHtml(away)}
+        <input type="tel" name="away" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off">
+      </label>
+    </div>
+    <div class="branding-save-row">
+      <button class="admin-pair-btn" type="submit">Spara</button>
+      <button class="branding-link" type="button" data-action="cancel">Avbryt</button>
+      ${result ? '<button class="branding-link" type="button" data-action="remove">Ta bort resultat</button>' : ""}
+      <span class="branding-status" role="status"></span>
+    </div>`;
+
+  const inputs = [form.elements.home, form.elements.away];
+  const save = form.querySelector('[type="submit"]');
+  const status = form.querySelector(".branding-status");
+  const isScore = (v) => /^\d{1,3}$/.test(v.trim());
+  const refresh = () => { save.disabled = !inputs.every((i) => isScore(i.value)); };
+  inputs.forEach((i) => i.addEventListener("input", refresh));
+
+  const say = (text) => { status.textContent = text; status.classList.toggle("error", !!text); };
+
+  edit.addEventListener("click", () => {
+    inputs[0].value = result ? String(result.home) : "";
+    inputs[1].value = result ? String(result.away) : "";
+    say("");
+    refresh();
+    summary.classList.add("hidden");
+    form.classList.remove("hidden");
+    inputs[0].focus();
+  });
+  form.querySelector('[data-action="cancel"]').addEventListener("click", () => {
+    form.classList.add("hidden");
+    summary.classList.remove("hidden");
+  });
+
+  /** Send the change; on success show the recording with its new result. */
+  async function send(method, body) {
+    say("");
+    form.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+    try {
+      const res = await fetch(`${CONFIG.API_URL}/api/vod/${encodeURIComponent(vod.id)}/result`, {
+        method,
+        headers: body ? { ...adminHeaders(), "Content-Type": "application/json" } : adminHeaders(),
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) {
+        deactivateAdmin();
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Kunde inte spara resultatet");
+      }
+      const updated = { ...vod, result: method === "PUT" ? await res.json() : undefined };
+      el.replaceChildren();
+      renderResult(el, updated);
+    } catch (e) {
+      say(e.message || "Kunde inte spara resultatet");
+      form.querySelectorAll("button").forEach((b) => { b.disabled = false; });
+      refresh();
+    }
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (save.disabled) return;
+    send("PUT", { home: Number(inputs[0].value), away: Number(inputs[1].value) });
+  });
+  form.querySelector('[data-action="remove"]')?.addEventListener("click", () => send("DELETE"));
+
+  el.append(summary, form);
 }
 
 /** A match's clips, each removable on its own: removing one ends its shared link. */

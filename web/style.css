@@ -801,6 +801,21 @@ main {
   margin: 0;
 }
 
+/* Final score, in place of "vs" in the title. Neutral: the same colour win or lose. */
+.match-score {
+  color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.match-group-result {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+
 /* ── Recording cards: one per camera angle ── */
 
 .match-recordings {
@@ -2028,6 +2043,46 @@ footer {
 .admin-vod-clips {
   margin-top: 8px;
   font-size: 0.8rem;
+}
+
+.admin-vod-result {
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
+
+.admin-result-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+}
+
+.admin-result-score {
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-result-by,
+.admin-result-none {
+  color: var(--text-muted);
+}
+
+.admin-result-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.admin-result-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-result-fields .branding-field {
+  flex: 1 1 8rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .admin-vod-clips summary {

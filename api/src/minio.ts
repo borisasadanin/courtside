@@ -157,18 +157,21 @@ export class MinioClient {
     });
   }
 
-  /** Update an existing VOD entry (by id) and persist (mutex-protected). */
+  /**
+   * Update an existing VOD entry (by id) and persist (mutex-protected).
+   * Returns false when there is no such entry. A field set to undefined is removed.
+   */
   async updateVodEntry(
     id: string,
     update: Partial<VodEntry>
-  ): Promise<void> {
+  ): Promise<boolean> {
     return this.withLock(async () => {
       const entries = await this.readVodIndex();
       const idx = entries.findIndex((e) => e.id === id);
-      if (idx !== -1) {
-        entries[idx] = { ...entries[idx], ...update };
-        await this.writeVodIndex(entries);
-      }
+      if (idx === -1) return false;
+      entries[idx] = { ...entries[idx], ...update };
+      await this.writeVodIndex(entries);
+      return true;
     });
   }
 
