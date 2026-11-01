@@ -1362,17 +1362,6 @@ main {
   transition: none;
 }
 
-.pause-marker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 1px;
-  background: rgba(255, 255, 255, 0.8);
-  z-index: 2;
-  pointer-events: none;
-}
-
 .control-btn {
   background: none;
   border: none;
@@ -2766,3 +2755,189 @@ footer a:hover { color: var(--accent-ink); }
 }
 .admin-page .admin-on-request input { width: 18px; height: 18px; flex-shrink: 0; }
 .admin-deletions-card { margin-top: 16px; }
+
+/* ABL-046: replay markers and the jump row under the player.
+   Told apart by shape, not only by colour: a star above the bar is a highlight,
+   a tall line through it a period break, a short line a timeout. */
+.replay-marker {
+  position: absolute;
+  top: 50%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+/* The button is wider than the line it draws, to be easier to hit */
+.replay-marker-period,
+.replay-marker-timeout {
+  width: 12px;
+}
+.replay-marker-period { height: 18px; }
+.replay-marker-timeout { height: 8px; }
+
+.replay-marker-period::after,
+.replay-marker-timeout::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+.replay-marker-period::after {
+  width: 3px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+.replay-marker-timeout::after {
+  width: 2px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.replay-marker-highlight {
+  top: auto;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-ink);
+}
+.replay-marker-highlight svg {
+  width: 12px;
+  height: 12px;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+  transition: transform 0.1s;
+}
+.replay-marker-highlight:hover svg { transform: scale(1.3); }
+
+.replay-marker-tip {
+  position: absolute;
+  bottom: calc(100% + 26px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 180px;
+  padding: 6px 8px;
+  background: rgba(10, 10, 10, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+.replay-marker-tip[hidden] { display: none; }
+.replay-marker-tip[data-edge="start"] { transform: none; }
+.replay-marker-tip[data-edge="end"] { transform: translateX(-100%); }
+.replay-marker-tip img {
+  width: 160px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 2px;
+}
+.replay-marker-tip span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.replay-marker-tip-time {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* P1 · P2 · P3 · P4 · ★ 7 — big enough to tap on a phone */
+.replay-nav {
+  margin-top: 12px;
+  padding: 0 4px;
+}
+.replay-nav-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0;
+}
+.replay-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 44px;
+  min-height: 40px;
+  padding: 0 10px;
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.replay-nav-btn:hover { background: var(--surface-hover); }
+.replay-nav-btn:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+.replay-nav-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.replay-nav-row > .replay-nav-btn + .replay-nav-btn { margin-left: 12px; position: relative; }
+.replay-nav-row > .replay-nav-btn + .replay-nav-btn::before {
+  content: "·";
+  position: absolute;
+  left: -9px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+/* The ring, not only the tint, says which period is playing: a dark club colour gives a faint tint */
+.replay-nav-period[aria-current="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-ink);
+  color: var(--accent-ink);
+}
+.replay-nav-star { color: var(--accent-ink); }
+
+.replay-highlights {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 4px;
+  margin-top: 8px;
+}
+.replay-highlights[hidden] { display: none; }
+.replay-highlights .replay-nav-btn {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  font-weight: 500;
+  text-align: left;
+}
+.replay-highlights .replay-nav-btn:hover { background: var(--surface-hover); }
+.replay-highlights-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 2.6em;
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+.replay-highlights-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.replay-highlights-time { color: var(--text-muted); }

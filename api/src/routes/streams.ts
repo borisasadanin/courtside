@@ -209,7 +209,12 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     meta.pausedAt = new Date().toISOString();
     meta.pauseType = pauseType;
     meta.completedParts.push(meta.partNumber);
+    // The pause segments only say "pause N"; the replay needs to know which kind it was.
+    meta.pauses = [...(meta.pauses ?? []), { n: meta.partNumber, type: pauseType }];
     saveStreamMetaSoon(minio, request.log);
+    minio.updateVodEntry(id, { pauses: meta.pauses }).catch((err) => {
+      request.log.error(err, `Failed to save pause type for ${id}`);
+    });
 
     // Upload pause marker segments (fire-and-forget, with logging)
     const pauseNumber = meta.partNumber;

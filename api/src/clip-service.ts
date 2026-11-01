@@ -156,6 +156,9 @@ export async function createClip(
     durationSeconds: Math.round(actualDuration * 10) / 10,
     createdAt: new Date().toISOString(),
     label,
+    // The recording names its segments like the clip manifest does, so the
+    // replay can find the exact moment the clip starts.
+    startSegment: clipSegments[0].key.split("/").pop(),
   };
 }
 
