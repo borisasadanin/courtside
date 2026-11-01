@@ -11,6 +11,7 @@ import { renderTeardown } from "./teardown.js";
 import { renderPins } from "./pins.js";
 import { renderUpdate } from "./update.js";
 import { showImage } from "./images.js";
+import { renderTeamsAdmin } from "./team-admin.js";
 
 // Callback injected by the orchestrator
 let onSwitchTab = null;
@@ -86,6 +87,7 @@ export async function loadAdminStorage() {
   renderPins();
   renderUpdate();
   renderDeletions();
+  renderTeamsAdmin();
 
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/admin/storage`, {

@@ -251,6 +251,11 @@
             <span class="admin-row-text"><span class="admin-row-title">Utseende</span><span class="admin-row-sub">Logotyp, namn och klubbfärg</span></span>
             <svg class="admin-row-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
+          <button class="admin-row" type="button" data-admin-open="teams">
+            <svg class="admin-row-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></svg>
+            <span class="admin-row-text"><span class="admin-row-title">Lag</span><span class="admin-row-sub" id="adminRowTeamsSub">Egna lag och motståndare</span></span>
+            <svg class="admin-row-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
           <button class="admin-row" type="button" data-admin-open="pins">
             <svg class="admin-row-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
             <span class="admin-row-text"><span class="admin-row-title">Koder</span><span class="admin-row-sub">Tittarkod och admin-kod</span></span>
@@ -289,6 +294,16 @@
         <button class="back-btn" type="button" data-admin-back><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Hantera</button>
         <h2 class="admin-page-title">Utseende</h2>
         <div class="admin-branding" id="adminBranding"></div>
+      </div>
+
+      <div class="admin-page hidden" data-admin-page="teams">
+        <button class="back-btn" type="button" data-admin-back><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Hantera</button>
+        <div class="admin-section-head">
+          <h2 class="admin-page-title">Lag</h2>
+          <button class="admin-pair-btn" id="adminTeamAdd" type="button">Lägg till lag</button>
+        </div>
+        <div class="admin-pair-panel team-add-panel hidden" id="adminTeamAddPanel"></div>
+        <div class="team-list" id="adminTeamList"></div>
       </div>
 
       <div class="admin-page hidden" data-admin-page="pins">

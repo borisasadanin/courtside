@@ -16,6 +16,11 @@ Till varje match sparas också om varje paus var en periodvila eller en timeout,
 matchen det börjar, så att reprisen kan hoppa dit.
 Tas en match bort försvinner resultatet och bilderna med den. Inställningar och koder ligger i `<klubbnamn>config`.
 
+Lagen under *Hantera → Lag* ligger i samma lagring: listan i `config/teams.json` och varje lags logga i
+`config/teams/<id>`. Ett lag har namn, kortnamn, färg och eventuellt en logga. Matcherna sparar lagens namn
+som text och hittar sitt lag via namnet. Tar ni bort ett lag finns matcherna kvar. Loggorna visar
+inga personer och kan ses utan kod, som klubbens logotyp. Tas Courtside bort följer lagen och loggorna med.
+
 ## Vad får videon att försvinna?
 
 | Det här | Händer med videon |
