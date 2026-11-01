@@ -9,6 +9,8 @@ struct StreamInfo: Decodable {
     /// The teams as the recording's card shows them. Missing before platform v0.5.0.
     let homeTeam: String?
     let awayTeam: String?
+    /// The scheduled match this recording belongs to. Missing before ABL-048.
+    let matchId: String?
 }
 
 struct StreamStatus: Decodable {
