@@ -53,7 +53,8 @@ struct CameraPreview: UIViewRepresentable {
 
 struct StreamView: View {
     let streamInfo: StreamInfo
-    let onStop: () -> Void
+    /// Called once the broadcast has ended, with the match when its result should be asked for.
+    let onStop: (FinishedMatch?) -> Void
 
     @StateObject private var service = StreamService()
     @State private var isStopping = false
@@ -424,10 +425,27 @@ struct StreamView: View {
             OrientationManager.shared.lockPortrait()
 
             // 3. Navigate back. RTMP cleanup happens via onDisappear → cleanup()
-            //    which has a 3-second timeout so it won't hang.
+            //    which has a 3-second timeout so it won't hang. The result is
+            //    asked for after that, on the start screen in portrait.
             isStopping = false
-            onStop()
+            onStop(finishedMatch())
         }
+    }
+
+    /// The match to ask the result for, or nil when there is no point: the
+    /// platform cannot keep one, or the recording is too short to be listed.
+    private func finishedMatch() -> FinishedMatch? {
+        guard club.supportsMatchResult, elapsedTime >= 10 else { return nil }
+        let defaults = UserDefaults.standard
+        let nonEmpty = { (s: String?) -> String? in
+            guard let s = s?.trimmingCharacters(in: .whitespaces), !s.isEmpty else { return nil }
+            return s
+        }
+        return FinishedMatch(
+            id: streamInfo.id,
+            homeTeam: nonEmpty(streamInfo.homeTeam) ?? nonEmpty(defaults.string(forKey: "courtside_last_team")) ?? club.homeTeam,
+            awayTeam: nonEmpty(streamInfo.awayTeam) ?? nonEmpty(defaults.string(forKey: "courtside_last_opponent")) ?? "Motståndare"
+        )
     }
 
     private func pauseColor(_ type: PauseType) -> Color {

@@ -100,12 +100,15 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
 
         oscManager.streamStarted();
 
+        const vod = (await minio.readVodIndex().catch(() => [])).find((v) => v.id === existingId);
         const info: StreamInfo = {
           id: existingId,
           name: meta.name,
           rtmpUrl: restreamer.rtmpUrl(existingId),
           hlsUrl: restreamer.hlsUrl(existingId),
           createdAt: meta.createdAt,
+          homeTeam: vod?.homeTeam,
+          awayTeam: vod?.awayTeam,
         };
         return reply.code(200).send(info);
       }
@@ -161,7 +164,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         request.log.error(err, "Failed to save VOD entry");
       });
 
-      return reply.code(201).send(info);
+      return reply.code(201).send({ ...info, homeTeam, awayTeam });
     } catch (err) {
       request.log.error(err, "Failed to create stream");
       return reply.code(500).send({

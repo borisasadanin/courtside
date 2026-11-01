@@ -75,9 +75,13 @@ function groupByMatch(vods, clips) {
     if (ts > group.latestAt) group.latestAt = ts;
   }
 
-  // Sort recordings within each group oldest→newest (kamera 1 before kamera 2)
+  // Sort recordings within each group oldest→newest (kamera 1 before kamera 2).
+  // The match's result is the newest one reported: a broadcast restarted
+  // mid-match leaves an older recording with an earlier score, or none.
   for (const group of groups.values()) {
     group.recordings.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const reported = group.recordings.filter((r) => r.result);
+    group.result = reported.length ? reported[reported.length - 1].result : null;
   }
 
   // Map streamId → group key for clip assignment
@@ -179,8 +183,26 @@ function createMatchGroup(group) {
 
   const title = document.createElement("h3");
   title.className = "match-group-title";
-  title.textContent = group.matchTitle;
+  const result = group.result;
+  // The score takes the place of "vs" — unless the title was changed to
+  // something other than the teams, and then it gets a line of its own.
+  const titleIsTeams = group.homeTeam && group.awayTeam &&
+    group.matchTitle === `${group.homeTeam} vs ${group.awayTeam}`;
+  if (result && titleIsTeams) {
+    title.setAttribute("aria-label",
+      `${group.homeTeam} ${result.home}, ${group.awayTeam} ${result.away}`);
+    title.append(group.homeTeam, " ", createScore(result), " ", group.awayTeam);
+  } else {
+    title.textContent = group.matchTitle;
+  }
   header.appendChild(title);
+
+  if (result && !titleIsTeams) {
+    const line = document.createElement("p");
+    line.className = "match-group-result";
+    line.append("Resultat ", createScore(result));
+    header.appendChild(line);
+  }
 
   // Date + location subtitle
   const subtitleParts = [];
@@ -229,6 +251,14 @@ function createMatchGroup(group) {
     el.appendChild(hlSection);
   }
 
+  return el;
+}
+
+/** "72 – 65", own team first. */
+function createScore(result) {
+  const el = document.createElement("span");
+  el.className = "match-score";
+  el.textContent = `${result.home}\u2009\u2013\u2009${result.away}`;
   return el;
 }
 

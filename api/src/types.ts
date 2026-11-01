@@ -4,6 +4,9 @@ export interface StreamInfo {
   rtmpUrl: string;
   hlsUrl: string;
   createdAt: string;
+  /** The teams as the recording's card shows them, so the camera asks for the result with the same names. */
+  homeTeam?: string;
+  awayTeam?: string;
 }
 
 export interface StreamPublicInfo {
@@ -59,6 +62,18 @@ export interface HighlightClip {
   label?: string;
 }
 
+/**
+ * The final score of a recorded match. `home` is the club's own team
+ * (`homeTeam`) and `away` the opponent, wherever the match was played.
+ */
+export interface MatchResult {
+  home: number;
+  away: number;
+  /** Who set it: the camera right after the match, or the admin afterwards. */
+  setBy: "camera" | "admin";
+  setAt: string;
+}
+
 export interface VodEntry {
   id: string;
   matchTitle: string;
@@ -71,4 +86,5 @@ export interface VodEntry {
   createdAt: string;
   stoppedAt?: string;
   durationSeconds?: number;
+  result?: MatchResult;
 }

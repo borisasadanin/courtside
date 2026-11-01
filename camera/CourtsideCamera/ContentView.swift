@@ -3,6 +3,8 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var pairing = Pairing.shared
     @State private var streamInfo: StreamInfo?
+    /// The match just stopped, while its result is being asked for.
+    @State private var finishedMatch: FinishedMatch?
 
     var body: some View {
         screen
@@ -17,6 +19,9 @@ struct ContentView: View {
             } message: {
                 Text(pairing.linkNotice ?? "")
             }
+            .sheet(item: $finishedMatch) { match in
+                MatchResultView(match: match) { finishedMatch = nil }
+            }
     }
 
     @ViewBuilder
@@ -26,8 +31,9 @@ struct ContentView: View {
             PairingView()
                 .transition(.opacity)
         } else if let info = streamInfo {
-            StreamView(streamInfo: info) {
+            StreamView(streamInfo: info) { match in
                 streamInfo = nil
+                finishedMatch = match
             }
             .transition(.move(edge: .trailing))
         } else {

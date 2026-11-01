@@ -18,6 +18,19 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.5.0 — 2026-11-01
+
+Matchresultat på repriserna.
+
+- När matchen är slut frågar kameraappen hur det gick: först det egna lagets poäng, sedan motståndarens.
+  Resultatet står sedan på matchkortet under Repriser, i stället för "vs": *Älta 72 – 65 Djurgården*.
+  Hoppa över går alltid bra
+- Under Hantera → Inspelningar kan ni lägga till, ändra eller ta bort resultatet på varje match, till exempel
+  om ingen skrev in det efter matchen eller om det blev fel. Kameran kan bara sätta resultatet det första dygnet
+  efter matchen. Sedan är det bara Hantera som kan ändra det
+- Kräver kameraappen 1.3.0 för att frågan ska komma efter matchen. Äldre appar fungerar som förut, och
+  resultatet sätts då i Hantera
+
 ## v0.4.1 — 2026-10-30
 
 Nytt utseende. Allt fungerar som förut, men det är lättare att hitta.

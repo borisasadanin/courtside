@@ -24,6 +24,12 @@ Rättas något i en version som inte nått någon telefon än, räcker det att k
 Ändra versionen så här: 1.1.0 → 1.1.1 för rättningar, 1.1.0 → 1.2.0 för nya
 funktioner.
 
+## 1.3.0 — 2026-11-01
+
+- När du stoppar en sändning frågar appen hur matchen slutade: först ditt lags poäng, sedan motståndarens.
+  Resultatet syns på matchkortet bland repriserna. Tryck **Hoppa över** om ni inte räknar resultat
+- Frågan kommer bara när plattformen kör v0.5.0 eller senare, och inte efter inspelningar kortare än 10 sekunder
+
 ## 1.2.0 — 2026-11-01
 
 - Sändningsmotorn startar inte längre av sig själv när appen öppnas. Starta den
