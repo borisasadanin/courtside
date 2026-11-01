@@ -62,6 +62,17 @@ export interface HighlightClip {
   durationSeconds: number;
   createdAt: string;
   label?: string;
+  /**
+   * The clip's first segment, named as in the match recording (e.g. "p2_abc_00123.ts"),
+   * so the replay can mark where the clip starts. Missing on clips made before ABL-046.
+   */
+  startSegment?: string;
+}
+
+/** A pause in a recording. `n` names its segments in the stitched playlist: pause{n}_seg_*.ts. */
+export interface RecordedPause {
+  n: number;
+  type: "period" | "timeout";
 }
 
 /**
@@ -93,4 +104,6 @@ export interface VodEntry {
   coverClipId?: string;
   /** A frame of the recording is stored as <id>/cover.jpg (ABL-045). */
   frameCover?: boolean;
+  /** Every pause in order, so the replay can tell period breaks from timeouts. Missing on older recordings. */
+  pauses?: RecordedPause[];
 }

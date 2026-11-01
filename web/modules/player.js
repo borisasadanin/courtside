@@ -11,6 +11,7 @@ import { stopListPolling } from "./streams.js";
 import { stopVodPolling } from "./vod.js";
 import { fetchClipsForStream } from "./highlights.js";
 import { unlockResumeSignal, playResumeSignal } from "./resume-signal.js";
+import { loadReplayMarkers, setReplayFragments, fetchReplayFragments, clearReplayMarkers, initReplayMarkers } from "./replay-markers.js";
 
 // Callbacks injected by the orchestrator
 let onClosePlayer = null; // called when player is closed (returns to list)
@@ -144,7 +145,6 @@ function destroyHls() {
     state.hls.destroy();
     state.hls = null;
   }
-  dom.progressBar.querySelectorAll(".pause-marker").forEach((el) => el.remove());
 }
 
 function tryConnect() {
@@ -223,6 +223,7 @@ function tryConnectVod() {
     startHlsVod();
   } else if (dom.video.canPlayType("application/vnd.apple.mpegurl")) {
     dom.video.src = state.currentStreamUrl;
+    fetchReplayFragments(state.currentStreamUrl);
     dom.video.addEventListener(
       "loadedmetadata",
       () => {
@@ -291,28 +292,18 @@ function startHlsVod() {
     showOverlay("Kunde inte spela upp reprisen", false);
   });
 
+  // Period, timeout and highlight markers are placed by fragment (replay-markers.js)
   state.hls.on(Hls.Events.LEVEL_LOADED, (_event, data) => {
-    const frags = data.details.fragments;
-    const pauseTimes = frags
-      .filter((f) => /pause\d+/.test(f.relurl))
-      .map((f) => f.start);
-    if (pauseTimes.length) {
-      renderPauseMarkers(pauseTimes, data.details.totalduration);
-    }
+    const frags = data.details.fragments.map((f) => ({
+      start: f.start,
+      duration: f.duration,
+      uri: f.relurl,
+      pdt: f.programDateTime,
+    }));
+    setReplayFragments(frags, data.details.totalduration);
   });
 
   state.hls.on(Hls.Events.LEVEL_SWITCHED, onLevelSwitched);
-}
-
-function renderPauseMarkers(times, duration) {
-  dom.progressBar.querySelectorAll(".pause-marker").forEach((el) => el.remove());
-  if (!duration) return;
-  for (const t of times) {
-    const marker = document.createElement("div");
-    marker.className = "pause-marker";
-    marker.style.left = (t / duration) * 100 + "%";
-    dom.progressBar.appendChild(marker);
-  }
 }
 
 // ============================
@@ -1121,6 +1112,7 @@ export function openPlayer(hlsUrl, name, streamId, dvrUrl) {
   unlockResumeSignal();
 
   state.isVodMode = false;
+  clearReplayMarkers();
   // Use DVR playlist for catch-up capability; fall back to memfs live URL
   state.currentStreamUrl = dvrUrl ? `${CONFIG.API_URL}${dvrUrl}` : mediaUrl(hlsUrl);
   state.currentStreamId = streamId;
@@ -1189,6 +1181,7 @@ export function openVodPlayer(hlsUrl, title, vodId) {
 
   setupProgressForVod();
   hideOverlay();
+  loadReplayMarkers(vodId);
   tryConnectVod();
 }
 
@@ -1199,6 +1192,7 @@ export function openVodPlayer(hlsUrl, title, vodId) {
 export function closePlayer() {
   stopHighlightCarousel();
   destroyHls();
+  clearReplayMarkers();
   stopStreamPolling();
   stopViewerHeartbeat();
   resetProgress();
@@ -1341,4 +1335,5 @@ function bindPlayerEvents() {
 export function initPlayer(callbacks) {
   onClosePlayer = callbacks.onClosePlayer;
   bindPlayerEvents();
+  initReplayMarkers();
 }

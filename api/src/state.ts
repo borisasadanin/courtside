@@ -6,7 +6,7 @@ import { OscInstanceManager } from "./osc-manager.js";
 import { MinioClient } from "./minio.js";
 import { DeviceRegistry } from "./devices.js";
 import type { SegmentCollector } from "./segment-collector.js";
-import type { HighlightClip } from "./types.js";
+import type { HighlightClip, RecordedPause } from "./types.js";
 
 /** Why a stream is paused. Only a period break starts a new period. */
 export type PauseType = "period" | "timeout";
@@ -31,6 +31,8 @@ export interface StreamMeta {
   periodNumber: number;
   /** List of completed part numbers (for playlist stitching on stop) */
   completedParts: number[];
+  /** Every pause so far with its type, copied to the VOD entry for the replay */
+  pauses?: RecordedPause[];
 }
 
 /** In-memory stream metadata */

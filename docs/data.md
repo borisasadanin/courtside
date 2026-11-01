@@ -12,6 +12,8 @@ Varje match får en omslagsbild: miniatyren från matchens första klipp, eller 
 tas när den stoppas. Medan en match sänds sparas en bild ur sändningen ungefär varje minut, så att livekortet
 visar vad som händer. Den bilden tas bort när sändningen slutar. Bilderna ur inspelningen syns bara med
 tittarkoden, precis som videon.
+Till varje match sparas också om varje paus var en periodvila eller en timeout, och till varje klipp var i
+matchen det börjar, så att reprisen kan hoppa dit.
 Tas en match bort försvinner resultatet och bilderna med den. Inställningar och koder ligger i `<klubbnamn>config`.
 
 ## Vad får videon att försvinna?
