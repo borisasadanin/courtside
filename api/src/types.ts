@@ -7,6 +7,8 @@ export interface StreamInfo {
   /** The teams as the recording's card shows them, so the camera asks for the result with the same names. */
   homeTeam?: string;
   awayTeam?: string;
+  /** The match the recording belongs to (ABL-048). */
+  matchId?: string;
 }
 
 export interface StreamPublicInfo {
@@ -22,6 +24,13 @@ export interface StreamPublicInfo {
   /** Current match period (1-based) */
   period?: number;
   viewers: number;
+  /** A recent frame of the stream, behind the viewer PIN (ABL-045). */
+  posterUrl?: string;
+  /** The match the stream belongs to (ABL-048). Missing on streams started before it. */
+  matchId?: string;
+  /** The teams as recorded, own team first (ABL-049). Missing on streams started before it. */
+  homeTeam?: string;
+  awayTeam?: string;
 }
 
 export interface CreateStreamBody {
@@ -29,6 +38,8 @@ export interface CreateStreamBody {
   deviceId?: string;
   opponent?: string;
   team?: string;
+  /** A match from the schedule (ABL-048). Its teams and venue then win over team and opponent. */
+  matchId?: string;
 }
 
 export interface RestreamerProcess {
@@ -60,6 +71,17 @@ export interface HighlightClip {
   durationSeconds: number;
   createdAt: string;
   label?: string;
+  /**
+   * The clip's first segment, named as in the match recording (e.g. "p2_abc_00123.ts"),
+   * so the replay can mark where the clip starts. Missing on clips made before ABL-046.
+   */
+  startSegment?: string;
+}
+
+/** A pause in a recording. `n` names its segments in the stitched playlist: pause{n}_seg_*.ts. */
+export interface RecordedPause {
+  n: number;
+  type: "period" | "timeout";
 }
 
 /**
@@ -87,4 +109,12 @@ export interface VodEntry {
   stoppedAt?: string;
   durationSeconds?: number;
   result?: MatchResult;
+  /** The highlight the admin chose as the match's cover (ABL-045). */
+  coverClipId?: string;
+  /** A frame of the recording is stored as <id>/cover.jpg (ABL-045). */
+  frameCover?: boolean;
+  /** Every pause in order, so the replay can tell period breaks from timeouts. Missing on older recordings. */
+  pauses?: RecordedPause[];
+  /** The match in the schedule (ABL-048). Missing on recordings made before it. */
+  matchId?: string;
 }

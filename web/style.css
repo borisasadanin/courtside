@@ -808,14 +808,6 @@ main {
   white-space: nowrap;
 }
 
-.match-group-result {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  margin: 0 0 6px;
-}
-
 /* ── Recording cards: one per camera angle ── */
 
 .match-recordings {
@@ -1360,17 +1352,6 @@ main {
 /* Disable transition during drag */
 .progress-bar-container.seeking .progress-filled {
   transition: none;
-}
-
-.pause-marker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 1px;
-  background: rgba(255, 255, 255, 0.8);
-  z-index: 2;
-  pointer-events: none;
 }
 
 .control-btn {
@@ -2766,3 +2747,675 @@ footer a:hover { color: var(--accent-ink); }
 }
 .admin-page .admin-on-request input { width: 18px; height: 18px; flex-shrink: 0; }
 .admin-deletions-card { margin-top: 16px; }
+
+/* ABL-045: pictures — the live card, match covers, highlight thumbnails and the cover choice in Hantera.
+   Every picture is loaded with the viewer's code and shown once it has arrived; until then the card
+   looks as it did without one. */
+
+.stream-card-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stream-card-image:not([src]),
+.match-cover img:not([src]),
+.clip-chip-thumb img:not([src]),
+.admin-cover-option img:not([src]) {
+  visibility: hidden;
+}
+
+/* Badges and the play button stay above the picture */
+.stream-card-poster > .stream-card-play {
+  position: relative;
+}
+
+.match-cover {
+  margin: -16px -16px 14px;
+  overflow: hidden;
+  border-radius: 16px 16px 0 0;
+  background: #12161c;
+  cursor: pointer;
+}
+
+/* 16:9 on a phone, a banner on a wide screen */
+.match-cover img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 280px;
+  object-fit: cover;
+}
+
+@media (max-width: 480px) {
+  .match-cover {
+    margin: -14px -14px 14px;
+  }
+}
+
+/* A highlight with a thumbnail: the picture on top, "★ 1  14:32  12s" in a row below */
+.clip-chip.has-thumb {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "thumb thumb thumb"
+    "num time dur";
+  align-items: center;
+  gap: 6px 8px;
+  width: 152px;
+  padding: 0 10px 8px;
+  overflow: hidden;
+}
+
+.clip-chip-thumb {
+  grid-area: thumb;
+  display: block;
+  margin: 0 -10px;
+  aspect-ratio: 16 / 9;
+  background: #12161c;
+}
+
+.clip-chip-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.clip-chip.has-thumb .clip-chip-num { grid-area: num; }
+.clip-chip.has-thumb .clip-chip-time { grid-area: time; font-size: 1rem; }
+.clip-chip.has-thumb .clip-chip-dur { grid-area: dur; }
+
+.admin-vod-cover {
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
+
+.admin-cover-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.admin-cover-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-cover-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 112px;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  overflow: hidden;
+  background: #12161c;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.admin-cover-option img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-cover-option[aria-pressed="true"] {
+  border-color: var(--accent-ink);
+}
+
+.admin-cover-option:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+/* ABL-046: replay markers and the jump row under the player.
+   Told apart by shape, not only by colour: a star above the bar is a highlight,
+   a tall line through it a period break, a short line a timeout. */
+.replay-marker {
+  position: absolute;
+  top: 50%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+/* The button is wider than the line it draws, to be easier to hit */
+.replay-marker-period,
+.replay-marker-timeout {
+  width: 12px;
+}
+.replay-marker-period { height: 18px; }
+.replay-marker-timeout { height: 8px; }
+
+.replay-marker-period::after,
+.replay-marker-timeout::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+.replay-marker-period::after {
+  width: 3px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+.replay-marker-timeout::after {
+  width: 2px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.replay-marker-highlight {
+  top: auto;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-ink);
+}
+.replay-marker-highlight svg {
+  width: 12px;
+  height: 12px;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+  transition: transform 0.1s;
+}
+.replay-marker-highlight:hover svg { transform: scale(1.3); }
+
+.replay-marker-tip {
+  position: absolute;
+  bottom: calc(100% + 26px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 180px;
+  padding: 6px 8px;
+  background: rgba(10, 10, 10, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+.replay-marker-tip[hidden] { display: none; }
+.replay-marker-tip[data-edge="start"] { transform: none; }
+.replay-marker-tip[data-edge="end"] { transform: translateX(-100%); }
+.replay-marker-tip img {
+  width: 160px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 2px;
+}
+.replay-marker-tip span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.replay-marker-tip-time {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* P1 · P2 · P3 · P4 · ★ 7 — big enough to tap on a phone */
+.replay-nav {
+  margin-top: 12px;
+  padding: 0 4px;
+}
+.replay-nav-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0;
+}
+.replay-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 44px;
+  min-height: 40px;
+  padding: 0 10px;
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.replay-nav-btn:hover { background: var(--surface-hover); }
+.replay-nav-btn:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+.replay-nav-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.replay-nav-row > .replay-nav-btn + .replay-nav-btn { margin-left: 12px; position: relative; }
+.replay-nav-row > .replay-nav-btn + .replay-nav-btn::before {
+  content: "·";
+  position: absolute;
+  left: -9px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+/* The ring, not only the tint, says which period is playing: a dark club colour gives a faint tint */
+.replay-nav-period[aria-current="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-ink);
+  color: var(--accent-ink);
+}
+.replay-nav-star { color: var(--accent-ink); }
+
+.replay-highlights {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 4px;
+  margin-top: 8px;
+}
+.replay-highlights[hidden] { display: none; }
+.replay-highlights .replay-nav-btn {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  font-weight: 500;
+  text-align: left;
+}
+.replay-highlights .replay-nav-btn:hover { background: var(--surface-hover); }
+.replay-highlights-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 2.6em;
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+.replay-highlights-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.replay-highlights-time { color: var(--text-muted); }
+/* ABL-047: team registry — the team badge (teams.js) and Hantera → Lag (team-admin.js). */
+.team-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+.team-badge.is-long { font-size: 0.8rem; letter-spacing: 0; }
+.team-badge-sm { width: 24px; height: 24px; font-size: 0.6rem; }
+.team-badge-sm.is-long { font-size: 0.5rem; }
+.team-badge-lg { width: 64px; height: 64px; font-size: 1.4rem; }
+.team-badge-lg.is-long { font-size: 1.15rem; }
+/* A logo keeps its own shape: no circle to crop it. */
+.team-badge.has-logo { border-radius: 0; overflow: visible; }
+.team-badge.has-logo img { width: 100%; height: 100%; object-fit: contain; }
+
+.team-group { margin: 20px 0 8px; }
+.team-list > .team-group:first-child { margin-top: 4px; }
+.team-row { justify-content: flex-start; }
+.team-row .device-info { flex: 1; }
+.team-no-logo { color: var(--accent-ink); }
+.team-add-panel { text-align: left; }
+.team-edit {
+  margin: -2px 0 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.team-edit-badge { display: inline-flex; width: 72px; justify-content: center; }
+.team-own { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--text); }
+.team-own input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--accent); }
+.team-merge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.team-merge .branding-field { align-self: stretch; }
+.team-merge .privacy-admin-intro { margin: 0; }
+.team-merge select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 14px; font-family: inherit; font-size: 1rem; min-height: 46px;
+}
+.team-merge button:disabled { opacity: 0.5; cursor: default; }
+/* ABL-051: a match announced from a camera while another is on shows as its own card. */
+.stream-card.upcoming {
+  cursor: default;
+  border-style: dashed;
+}
+.stream-card.upcoming:hover {
+  background: var(--surface);
+  border-color: var(--line);
+}
+.stream-card-badge.upcoming {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* ABL-048: match schedule — the next matches under the empty live page (streams.js) and Hantera → Matcher (match-admin.js). */
+.empty-schedule {
+  margin: 20px auto 0;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.empty-schedule-title {
+  margin-top: 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.empty-schedule-list {
+  list-style: none;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.empty-schedule-list li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.4;
+}
+.calendar-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  text-decoration: underline;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 6px 4px;
+  min-height: 32px;
+}
+.calendar-btn:hover { color: var(--text); }
+
+.match-add-panel { text-align: left; }
+.match-row { justify-content: flex-start; }
+.match-row .device-info { flex: 1; }
+.match-row-badges { display: inline-flex; gap: 4px; flex-shrink: 0; }
+.match-edit {
+  margin: -2px 0 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.match-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.match-team { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.match-new-team { display: flex; flex-direction: column; gap: 6px; }
+.match-logo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.match-logo-name { font-size: 0.8rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.match-form select,
+.match-form input[type="date"],
+.match-form input[type="time"] {
+  background: var(--bg); color: var(--text); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 14px; font-family: inherit; font-size: 1rem; min-height: 46px;
+  width: 100%; min-width: 0;
+  color-scheme: dark;
+}
+.match-form button:disabled { opacity: 0.5; cursor: default; }
+.match-played { margin-top: 20px; }
+.match-played > summary {
+  cursor: pointer;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+@media (max-width: 480px) {
+  .match-form-row { grid-template-columns: 1fr; }
+}
+/* ABL-049: match cards — one head for live, coming and played matches (match-card.js): the teams with
+   their badges, then the status line. Also the badge cover for a match without a picture, and the
+   filter per team above the replays and the coming matches. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mc-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.mc-title {
+  display: block;
+  margin: 0;
+  font: inherit;
+}
+/* Own team left, opponent right; a long name wraps beside its badge */
+.mc-teams {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) auto minmax(0, max-content);
+  justify-content: start;
+  align-items: center;
+  column-gap: 10px;
+}
+/* A ring keeps a badge in a dark team colour apart from the card */
+.mc-teams .team-badge:not(.has-logo),
+.match-cover-teams .team-badge:not(.has-logo) {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.mc-team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.mc-opponent { text-align: right; }
+.mc-name,
+.mc-dash {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+.mc-name {
+  min-width: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.mc-dash { color: var(--text-muted); }
+
+.mc-status,
+.empty-state .mc-head .mc-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 4px;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mc-pill { margin-right: 10px; }
+.mc-part + .mc-part::before {
+  content: "\00b7";
+  margin: 0 7px;
+}
+.mc-status .match-score {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.mc-camera {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Played: a hand-written title above the teams, the share button beside them */
+.match-group-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.match-group-heading {
+  flex: 1;
+  min-width: 0;
+}
+.match-share-btn { flex-shrink: 0; }
+
+/* No cover: the two badges on the drawn court */
+.match-cover-teams {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  height: 190px;
+  background: #12161c var(--court-lines) center / auto 88% no-repeat;
+}
+/* A logo here is a badge, not a cover picture */
+.match-cover-teams .team-badge img {
+  height: 100%;
+  aspect-ratio: auto;
+  max-height: none;
+  object-fit: contain;
+}
+.match-cover-dash {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+/* Coming: cards under the empty live page */
+.empty-schedule {
+  max-width: 480px;
+  align-items: stretch;
+}
+.empty-schedule-list li { display: block; }
+.match-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 14px 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  text-align: left;
+}
+.match-card .mc-head { align-self: stretch; }
+.match-card .mc-name,
+.match-card .mc-dash { font-size: 1.3rem; }
+.match-card .calendar-btn { margin-left: -4px; }
+
+/* Alla · P12 · F14 */
+.team-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.empty-schedule .team-filter {
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+/* Under the live cards: the same cards, laid out as the live ones */
+.empty-schedule.under-live {
+  margin: 28px 0 0;
+  max-width: none;
+  align-items: stretch;
+}
+.empty-schedule.under-live .empty-schedule-title { margin-top: 0; }
+.empty-schedule.under-live .team-filter { justify-content: flex-start; }
+.empty-schedule.under-live .empty-schedule-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.team-filter-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.team-filter-btn:hover { background: var(--surface-hover); }
+/* The ring, not only the tint, says which is chosen */
+.team-filter-btn[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-ink);
+  color: var(--accent-ink);
+}
+.team-filter-btn:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .mc-name,
+  .mc-dash { font-size: 1.3rem; }
+  .mc-teams,
+  .mc-team { gap: 8px; }
+  .match-cover-teams { gap: 14px; }
+}

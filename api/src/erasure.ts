@@ -6,6 +6,10 @@
  * its clips too, or a clip of it would stay watchable after the match was
  * removed.  Deleting a clip ends its shared link at once.
  *
+ * A match's cover frame and live picture (ABL-045) are stored with its video,
+ * under <streamId>/, so they go with the video's files.  Its other cover is a
+ * clip's thumbnail, which goes with the clip.
+ *
  * The index entry goes first: once it is gone, nothing serves the clip, even if
  * removing its files then fails.  Deleting again finishes the job.
  *
@@ -15,6 +19,7 @@
  * exactly what the request was about.
  */
 import { clipsByStream } from "./state.js";
+import { forgetLivePicture } from "./match-images.js";
 import type { MinioClient } from "./minio.js";
 import type { HighlightClip } from "./types.js";
 
@@ -29,6 +34,7 @@ export interface Erased {
 export async function deleteMatch(minio: MinioClient, streamId: string): Promise<Erased> {
   const clips = await minio.removeClipEntries((c) => c.streamId === streamId);
   clipsByStream.delete(streamId);
+  forgetLivePicture(streamId);
 
   let files = await minio.deletePrefix(`clips/${streamId}/`);
   files += await minio.deleteVodFiles(streamId);

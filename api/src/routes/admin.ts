@@ -19,7 +19,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
       const [entries, clips] = await Promise.all([minio.readVodIndex(), minio.readClipsIndex()]);
       const stoppedEntries = entries.filter((e) => e.stoppedAt);
       const storageInfo = await minio.getStorageInfo(stoppedEntries);
-      const clipSummary = (c: (typeof clips)[number]) => ({ id: c.id, label: c.label, createdAt: c.createdAt });
+      const clipSummary = (c: (typeof clips)[number]) => ({ id: c.id, label: c.label, createdAt: c.createdAt, thumbnailUrl: c.thumbnailUrl });
 
       // Merge VOD metadata with size info
       const vods = stoppedEntries

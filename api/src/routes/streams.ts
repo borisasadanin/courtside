@@ -4,7 +4,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
-import { requireBroadcasterAuth, requireViewerAuth, requireViewerOrBroadcasterAuth } from "../auth.js";
+import { broadcasterOf, requireBroadcasterAuth, requireViewerAuth, requireViewerOrBroadcasterAuth } from "../auth.js";
 import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream, PAUSE_TYPES } from "../state.js";
 import type { PauseType, StreamMeta } from "../state.js";
 import { SegmentCollector } from "../segment-collector.js";
@@ -13,21 +13,43 @@ import { determineStreamStatus } from "../stream-status.js";
 import { uploadPauseSegments } from "../pause-segments.js";
 import { stitchPlaylist, buildPartList } from "../playlist-stitcher.js";
 import type { CreateStreamBody, StreamInfo, StreamPublicInfo, VodEntry } from "../types.js";
-import { getBroadcastState, setBroadcastState } from "../broadcast-state.js";
+import { streamStartedBy } from "../broadcast-state.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "../club-config.js";
 import { saveStreamMetaSoon } from "../stream-meta-store.js";
+import { forgetLivePicture, recordingStopped, withLivePictures } from "../match-images.js";
+import { matches } from "../state.js";
+import { clubDate, type MatchSummary } from "../matches.js";
 
 /** DVR playlist URL for a stream (relative path — frontend prepends API base). */
 function dvrUrl(id: string): string {
   return `/api/streams/${id}/dvr.m3u8`;
 }
 
-/** Match fields for the public API: the current period, and the pause type while paused. */
-function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["status"]): Pick<StreamPublicInfo, "pauseType" | "period"> {
+/**
+ * Match fields for the public API: the match in the schedule, the current
+ * period, and the pause type while paused.
+ */
+function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["status"]): Pick<StreamPublicInfo, "pauseType" | "period" | "matchId" | "homeTeam" | "awayTeam"> {
   if (!meta) return {};
-  const info: Pick<StreamPublicInfo, "pauseType" | "period"> = { period: meta.periodNumber };
+  const info: Pick<StreamPublicInfo, "pauseType" | "period" | "matchId" | "homeTeam" | "awayTeam"> = { ...ofMatch(meta), period: meta.periodNumber };
   if (status === "paused") info.pauseType = meta.pauseType ?? "period";
   return info;
+}
+
+/**
+ * The stream's match id, when it has one (ABL-048), and its teams as recorded,
+ * so a live card can name them without the schedule (ABL-049).
+ */
+function ofMatch(meta: StreamMeta | undefined): Pick<StreamPublicInfo, "matchId" | "homeTeam" | "awayTeam"> {
+  return {
+    ...(meta?.matchId && { matchId: meta.matchId }),
+    ...(meta?.homeTeam && meta.awayTeam && { homeTeam: meta.homeTeam, awayTeam: meta.awayTeam }),
+  };
+}
+
+/** A typed team name, trimmed, or "" when none was typed. */
+function typed(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 /**
@@ -48,9 +70,29 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
   app.post<{ Body: CreateStreamBody }>("/api/streams", async (request, reply) => {
     if (!(await requireBroadcasterAuth(request, reply))) return;
 
-    const { name, deviceId, opponent, team } = request.body || {};
+    const { name, deviceId, opponent, team, matchId } = request.body || {};
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return reply.code(400).send({ error: "missing_name", message: "Namn saknas" });
+    }
+
+    // A match picked from the schedule (ABL-048), looked up before anything
+    // starts so an unknown one starts nothing. If the schedule cannot be read,
+    // the broadcast goes ahead as one without a match: it must not fail on that.
+    let scheduled: MatchSummary | null = null;
+    if (matchId !== undefined && matchId !== null && matchId !== "") {
+      let lookedUp = true;
+      try {
+        scheduled = typeof matchId === "string" ? await matches.summary(matchId) : null;
+      } catch (err) {
+        lookedUp = false;
+        request.log.warn(err, `Could not read the schedule for match ${String(matchId)}`);
+      }
+      if (!scheduled && lookedUp) {
+        return reply.code(404).send({
+          error: "match_not_found",
+          message: "Matchen finns inte i schemat längre. Välj en annan match, eller Annan match.",
+        });
+      }
     }
 
     // Ensure Restreamer is available
@@ -107,8 +149,10 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           rtmpUrl: restreamer.rtmpUrl(existingId),
           hlsUrl: restreamer.hlsUrl(existingId),
           createdAt: meta.createdAt,
-          homeTeam: vod?.homeTeam,
-          awayTeam: vod?.awayTeam,
+          ...ofMatch(meta),
+          // The recording follows a change to its match; the stream's own copy does not
+          homeTeam: vod?.homeTeam ?? meta.homeTeam,
+          awayTeam: vod?.awayTeam ?? meta.awayTeam,
         };
         return reply.code(200).send(info);
       }
@@ -136,35 +180,66 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         createdAt: new Date().toISOString(),
       };
 
-      streamMeta.set(streamId, { name: displayName, createdAt: info.createdAt, deviceId, partNumber: 1, periodNumber: 1, completedParts: [] });
-      saveStreamMetaSoon(minio, request.log);
-
-      // Auto-transition broadcast state to "live" (only if idle or upcoming)
-      const bState = getBroadcastState().status;
-      if (bState === "idle" || bState === "upcoming") {
-        setBroadcastState("live");
+      // The match this recording belongs to: the one picked, or else one on
+      // the same day between the same teams, made now if there is none, so
+      // an older app or "Annan match" still lands on a match (ABL-048). A team
+      // typed in the app joins the registry on the way (ABL-047).
+      let match = scheduled;
+      const typedTeam = typed(team);
+      const typedOpponent = typed(opponent);
+      if (!match) {
+        try {
+          match = await matches.forRecording(
+            clubDate(),
+            typedTeam || defaultHomeTeam,
+            typedOpponent || defaultAwayTeam,
+            { own: !!typedTeam, opponent: !!typedOpponent },
+          );
+        } catch (err) {
+          request.log.warn(err, "Could not put the recording on a match");
+        }
       }
 
-      // Create VOD entry with match metadata from request
-      const homeTeam = team || defaultHomeTeam;
-      const awayTeam = opponent || defaultAwayTeam;
+      // The match's teams, or the ones typed in the app
+      const homeTeam = match?.ownTeam.name ?? (typedTeam || defaultHomeTeam);
+      const awayTeam = match?.opponent.name ?? (typedOpponent || defaultAwayTeam);
+
+      streamMeta.set(streamId, {
+        name: displayName,
+        createdAt: info.createdAt,
+        deviceId,
+        partNumber: 1,
+        periodNumber: 1,
+        completedParts: [],
+        ...(match && { matchId: match.id }),
+        homeTeam,
+        awayTeam,
+      });
+      saveStreamMetaSoon(minio, request.log);
+
+      // The camera's announced match has started. Every status after this
+      // follows the stream itself (ABL-051).
+      streamStartedBy(await broadcasterOf(request), match?.id);
+
+      // Create VOD entry with the same teams
       const vodEntry: VodEntry = {
         id: streamId,
         matchTitle: `${homeTeam} vs ${awayTeam}`,
-        location: clubManifest.venue,
+        location: match ? match.venue ?? "" : clubManifest.venue,
         homeTeam,
         awayTeam,
-        matchDate: new Date().toISOString().slice(0, 10),
+        matchDate: match?.date ?? clubDate(),
         cameraName: name.trim(),
         hlsUrl: `/api/vod/${streamId}/playlist.m3u8`,
         createdAt: info.createdAt,
+        ...(match && { matchId: match.id }),
       };
 
       minio.addVodEntry(vodEntry).catch((err) => {
         request.log.error(err, "Failed to save VOD entry");
       });
 
-      return reply.code(201).send({ ...info, homeTeam, awayTeam });
+      return reply.code(201).send({ ...info, homeTeam, awayTeam, ...(match && { matchId: match.id }) });
     } catch (err) {
       request.log.error(err, "Failed to create stream");
       return reply.code(500).send({
@@ -209,7 +284,12 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     meta.pausedAt = new Date().toISOString();
     meta.pauseType = pauseType;
     meta.completedParts.push(meta.partNumber);
+    // The pause segments only say "pause N"; the replay needs to know which kind it was.
+    meta.pauses = [...(meta.pauses ?? []), { n: meta.partNumber, type: pauseType }];
     saveStreamMetaSoon(minio, request.log);
+    minio.updateVodEntry(id, { pauses: meta.pauses }).catch((err) => {
+      request.log.error(err, `Failed to save pause type for ${id}`);
+    });
 
     // Upload pause marker segments (fire-and-forget, with logging)
     const pauseNumber = meta.partNumber;
@@ -221,12 +301,6 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     // disconnects, the process waits for it, and resuming only has to point it
     // at the next part — nothing has to be built up again.
     oscManager.streamPaused();
-
-    // Auto-transition broadcast state to "paused" if all streams are now paused
-    const allPaused = [...streamMeta.values()].every((m) => m.stoppedAt || m.pausedAt);
-    if (allPaused) {
-      setBroadcastState("paused");
-    }
 
     return reply.code(200).send({ status: "paused", pauseType, pausedAt: meta.pausedAt, period: meta.periodNumber });
   });
@@ -284,7 +358,6 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       const how = await restreamer.switchPart(id, meta.partNumber);
       request.log.info(`Resume ${id}: process ${how} for part ${meta.partNumber} in ${Date.now() - resumeStarted} ms`);
       oscManager.streamResumed();
-      setBroadcastState("live");
 
       // Start collecting segments for the new part
       const resumeCollector = new SegmentCollector(id, () => restreamer.baseUrlValue, minio, request.log, meta.partNumber);
@@ -333,6 +406,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             hlsUrl: restreamer.hlsUrl(streamId, meta.partNumber),
             createdAt: meta.createdAt,
             status: "stopped",
+            ...ofMatch(meta),
             viewers: 0,
           });
         } else if (meta.pausedAt) {
@@ -365,7 +439,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
 
     // If Restreamer is not running, return metadata-only list
     if (!restreamerAvailable) {
-      return reply.send(metadataOnlyStreams());
+      return reply.send(withLivePictures(metadataOnlyStreams()));
     }
 
     try {
@@ -429,6 +503,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           hlsUrl: restreamer.hlsUrl(streamId, meta.partNumber),
           createdAt: meta.createdAt,
           status: "stopped",
+          ...ofMatch(meta),
           viewers: 0,
         });
       }
@@ -466,11 +541,11 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         });
       }
 
-      return reply.send(streams);
+      return reply.send(withLivePictures(streams));
     } catch (err) {
       // Restreamer API failed (crashed/503/504) — fall back to metadata
       _request.log.error(err, "Restreamer API unavailable, falling back to cached metadata");
-      return reply.send(metadataOnlyStreams());
+      return reply.send(withLivePictures(metadataOnlyStreams()));
     }
   });
 
@@ -495,6 +570,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             hlsUrl: restreamer.hlsUrl(id, partNum),
             createdAt: meta.createdAt,
             status: "stopped",
+            ...ofMatch(meta),
             viewers: 0,
           } satisfies StreamPublicInfo);
         }
@@ -634,18 +710,15 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         collectors.delete(id);
       }
 
+      // A cover frame from the first period; the live picture goes (ABL-045)
+      void recordingStopped(id, meta?.partNumber ?? 1, request.log);
+
       // Delete the Restreamer process in the background (fire-and-forget).
       // Metadata is already updated, so the response returns instantly.
       // The cleanup timer will catch any stragglers.
       restreamer.deleteProcess(id).catch((err) => {
         request.log.warn(err, `Could not delete Restreamer process for ${id} (may already be stopped)`);
       });
-
-      // Auto-transition broadcast state to "ended" if no active streams remain
-      const hasActiveStreams = [...streamMeta.values()].some((m) => !m.stoppedAt);
-      if (!hasActiveStreams) {
-        setBroadcastState("ended");
-      }
 
       // Stitch playlist (always needed — all recordings use p1.m3u8, not index.m3u8)
       if (meta && meta.partNumber >= 1) {
@@ -680,6 +753,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         if (meta.stoppedAt && now - new Date(meta.stoppedAt).getTime() > config.STOPPED_TTL_MS) {
           streamMeta.delete(streamId);
           clipsByStream.delete(streamId);
+          forgetLivePicture(streamId);
         }
       }
       return;
@@ -728,6 +802,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             meta.stoppedAt = new Date().toISOString();
             const dur = Math.round((new Date(meta.stoppedAt).getTime() - new Date(meta.createdAt).getTime()) / 1000);
             minio.updateVodEntry(streamId, { stoppedAt: meta.stoppedAt, durationSeconds: dur }).catch(() => {});
+            void recordingStopped(streamId, meta.partNumber, app.log);
           }
           viewers.delete(streamId);
         }
@@ -739,6 +814,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             meta.stoppedAt = new Date().toISOString();
             const dur = Math.round((new Date(meta.stoppedAt).getTime() - new Date(meta.createdAt).getTime()) / 1000);
             minio.updateVodEntry(streamId, { stoppedAt: meta.stoppedAt, durationSeconds: dur }).catch(() => {});
+            void recordingStopped(streamId, meta.partNumber, app.log);
           }
           viewers.delete(streamId);
         } else {
@@ -750,20 +826,13 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       // Sync the manager's active stream count with reality
       oscManager.syncActiveCount(activeCount);
 
-      // If no active streams remain and broadcast state is still live/paused, transition to ended
-      if (activeCount === 0) {
-        const bStatus = getBroadcastState().status;
-        if (bStatus === "live" || bStatus === "paused") {
-          setBroadcastState("ended");
-        }
-      }
-
       // Remove stopped metadata older than TTL
       const now = Date.now();
       for (const [streamId, meta] of streamMeta) {
         if (meta.stoppedAt && now - new Date(meta.stoppedAt).getTime() > config.STOPPED_TTL_MS) {
           streamMeta.delete(streamId);
           clipsByStream.delete(streamId);
+          forgetLivePicture(streamId);
         }
       }
     } catch (err) {

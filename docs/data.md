@@ -8,7 +8,30 @@ annan kan ta fram dem om de försvinner. Den här sidan säger vad som krävs f�
 
 I en lagringstjänst i ert OSC-konto, som heter `<klubbnamn>storage`. Den skapades när ni startade Courtside.
 Där finns hela matcher, klipp, miniatyrbilder och er logotyp, och varje matchs lag, datum och resultat.
-Tas en match bort försvinner resultatet med den. Inställningar och koder ligger i `<klubbnamn>config`.
+Varje match får en omslagsbild: miniatyren från matchens första klipp, eller annars en bild ur inspelningen som
+tas när den stoppas. Medan en match sänds sparas en bild ur sändningen ungefär varje minut, så att livekortet
+visar vad som händer. Den bilden tas bort när sändningen slutar. Bilderna ur inspelningen syns bara med
+tittarkoden, precis som videon.
+Till varje match sparas också om varje paus var en periodvila eller en timeout, och till varje klipp var i
+matchen det börjar, så att reprisen kan hoppa dit.
+Tas en match bort försvinner resultatet och bilderna med den. Inställningar och koder ligger i `<klubbnamn>config`.
+
+Lagen under *Hantera → Lag* ligger i samma lagring: listan i `config/teams.json` och varje lags logga i
+`config/teams/<id>`. Ett lag har namn, kortnamn, färg och eventuellt en logga. Matcherna sparar lagens namn
+som text och hittar sitt lag via namnet. Tar ni bort ett lag finns matcherna kvar. Loggorna visar
+inga personer och kan ses utan kod, som klubbens logotyp. Tas Courtside bort följer lagen och loggorna med.
+Lagen från matcher som spelades in innan registret fanns läggs in i registret en gång, när plattformen
+uppdateras. Att det är gjort noteras i `config/backfill.json`, så att ett lag ni tar bort inte kommer tillbaka.
+
+Matcherna under *Hantera → Matcher* ligger i `config/matches.json`: datum, tid, plats och de två lagen (lagets
+id i registret och dess namn). Varje inspelning vet vilken match den hör till. En match som filmats utan att
+väljas i schemat läggs in där av sig själv. Resultatet ligger kvar på inspelningen, och matchen visar det från
+sin senaste inspelning som har ett. En match utan inspelningar kan tas bort under Matcher. Har den inspelningar
+tar ni bort dem under *Inspelningar*, så att raderingsloggen gäller. Schemat syns bara med tittarkoden. Tas
+Courtside bort följer schemat med.
+Undantaget är en delad matchlänk: förhandsbilden i chatten visar utan kod lagen, datumet och resultatet.
+Bilden ritas av Courtside och visar inga personer, och den sparas inte i lagringen. Själva matchen kräver
+fortfarande tittarkoden.
 
 ## Vad får videon att försvinna?
 

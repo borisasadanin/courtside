@@ -5,8 +5,10 @@ import { RestreamerClient } from "./restreamer.js";
 import { OscInstanceManager } from "./osc-manager.js";
 import { MinioClient } from "./minio.js";
 import { DeviceRegistry } from "./devices.js";
+import { TeamRegistry } from "./teams.js";
+import { MatchSchedule } from "./matches.js";
 import type { SegmentCollector } from "./segment-collector.js";
-import type { HighlightClip } from "./types.js";
+import type { HighlightClip, RecordedPause } from "./types.js";
 
 /** Why a stream is paused. Only a period break starts a new period. */
 export type PauseType = "period" | "timeout";
@@ -31,6 +33,13 @@ export interface StreamMeta {
   periodNumber: number;
   /** List of completed part numbers (for playlist stitching on stop) */
   completedParts: number[];
+  /** Every pause so far with its type, copied to the VOD entry for the replay */
+  pauses?: RecordedPause[];
+  /** The match in the schedule this stream records (ABL-048) */
+  matchId?: string;
+  /** The teams as recorded, for a live card when the schedule cannot be read (ABL-049) */
+  homeTeam?: string;
+  awayTeam?: string;
 }
 
 /** In-memory stream metadata */
@@ -51,10 +60,16 @@ export let minio: MinioClient;
 export let oscManager: OscInstanceManager;
 /** Registry of paired cameras — see devices.ts. */
 export let devices: DeviceRegistry;
+/** The club's teams and their opponents — see teams.ts. */
+export let teams: TeamRegistry;
+/** The club's matches — see matches.ts. */
+export let matches: MatchSchedule;
 
 export function initServices(r: RestreamerClient, m: MinioClient, o: OscInstanceManager): void {
   restreamer = r;
   minio = m;
   oscManager = o;
   devices = new DeviceRegistry(m);
+  teams = new TeamRegistry(m);
+  matches = new MatchSchedule(m, teams, () => streamMeta);
 }

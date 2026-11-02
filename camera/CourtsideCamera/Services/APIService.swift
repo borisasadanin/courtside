@@ -12,6 +12,8 @@ enum APIError: LocalizedError {
     case restreamerNotReady(String)
     case decodingError
     case notPaired
+    /// The chosen match is no longer in the schedule.
+    case matchNotFound(String)
 
     var errorDescription: String? {
         switch self {
@@ -20,6 +22,7 @@ enum APIError: LocalizedError {
         case .restreamerNotReady(let message): return message
         case .decodingError: return "Kunde inte tolka svaret"
         case .notPaired: return "Kameran är inte längre kopplad till klubben."
+        case .matchNotFound(let message): return message
         }
     }
 }
@@ -81,7 +84,7 @@ final class APIService {
         return (data, http)
     }
 
-    func createStream(name: String, opponent: String = "", team: String = "") async throws -> StreamInfo {
+    func createStream(name: String, opponent: String = "", team: String = "", matchId: String? = nil) async throws -> StreamInfo {
         let url = URL(string: "\(baseURL)/api/streams")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -90,6 +93,7 @@ final class APIService {
         var body: [String: String] = ["name": name, "deviceId": deviceId]
         if !opponent.isEmpty { body["opponent"] = opponent }
         if !team.isEmpty { body["team"] = team }
+        if let matchId { body["matchId"] = matchId }
         request.httpBody = try JSONEncoder().encode(body)
 
         let (data, http) = try await send(request)
@@ -98,6 +102,9 @@ final class APIService {
             if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
                 if errorResponse.error == "restreamer_not_ready" {
                     throw APIError.restreamerNotReady(errorResponse.message ?? "Restreamer är inte redo")
+                }
+                if errorResponse.error == "match_not_found" {
+                    throw APIError.matchNotFound(errorResponse.message ?? "Matchen finns inte längre i schemat.")
                 }
                 throw APIError.serverError(http.statusCode, errorResponse.message)
             }
@@ -123,6 +130,25 @@ final class APIService {
             }
             throw APIError.serverError(http.statusCode, nil)
         }
+    }
+
+    // MARK: - Schedule
+
+    /// The scheduled matches on one day, or nil when the platform has no
+    /// schedule (before ABL-048) or cannot be reached.
+    func fetchMatches(on day: String) async -> [ScheduledMatch]? {
+        var components = URLComponents(string: "\(baseURL)/api/matches")
+        components?.queryItems = [
+            URLQueryItem(name: "from", value: day),
+            URLQueryItem(name: "to", value: day)
+        ]
+        guard let url = components?.url else { return nil }
+        var request = URLRequest(url: url, timeoutInterval: 5)
+        request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
+        guard let (data, http) = try? await send(request), http.statusCode == 200,
+              let list = try? JSONDecoder().decode([Lossy<ScheduledMatch>].self, from: data)
+        else { return nil }
+        return list.compactMap(\.value)
     }
 
     // MARK: - Match result
@@ -271,7 +297,8 @@ final class APIService {
         let updatedAt: String
     }
 
-    func setBroadcastState(status: String, message: String? = nil) async throws -> BroadcastStateResponse {
+    /// `matchId` ties an "upcoming" announcement to the scheduled match; older platforms ignore it.
+    func setBroadcastState(status: String, message: String? = nil, matchId: String? = nil) async throws -> BroadcastStateResponse {
         let url = URL(string: "\(baseURL)/api/broadcast")!
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
@@ -279,6 +306,7 @@ final class APIService {
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         var body: [String: String] = ["status": status]
         if let message { body["message"] = message }
+        if let matchId { body["matchId"] = matchId }
         request.httpBody = try JSONEncoder().encode(body)
 
         let (data, http) = try await send(request)
