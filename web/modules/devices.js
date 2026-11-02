@@ -9,6 +9,7 @@ import QRCode from "qrcode";
 import { CONFIG } from "./config.js";
 import { state } from "./state.js";
 import { escapeHtml, formatDate } from "./utils.js";
+import { t } from "./i18n.js";
 
 function adminHeaders() {
   return { "X-Admin-Token": state.adminToken };
@@ -26,7 +27,7 @@ export async function loadDevices() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     renderDevices(await res.json());
   } catch (err) {
-    list.innerHTML = `<p class="admin-empty">Kunde inte hämta kameror (${escapeHtml(err.message)})</p>`;
+    list.innerHTML = `<p class="admin-empty">${escapeHtml(t("devices.loadError", { error: err.message }))}</p>`;
   }
 }
 
@@ -35,10 +36,10 @@ function renderDevices(devices) {
   const active = devices.filter((d) => !d.revokedAt);
 
   const sub = document.getElementById("adminRowCameraSub");
-  if (sub) sub.textContent = active.length === 0 ? "Ingen kamera parad ännu" : `${active.length} parad${active.length === 1 ? "" : "e"}`;
+  if (sub) sub.textContent = active.length === 0 ? t("devices.noneSub") : t("devices.pairedCount", { n: active.length });
 
   if (active.length === 0) {
-    list.innerHTML = `<p class="admin-empty">Ingen kamera är parad ännu.</p>`;
+    list.innerHTML = `<p class="admin-empty">${escapeHtml(t("devices.empty"))}</p>`;
     return;
   }
 
@@ -50,11 +51,11 @@ function renderDevices(devices) {
           <span class="device-name">${escapeHtml(d.name)}</span>
           <span class="device-meta">${
             d.appVersion ? `App ${escapeHtml(d.appVersion)}` : "App 1.0"
-          } · parad ${formatDate(d.createdAt.slice(0, 10))}${
-            d.lastSeenAt ? ` · senast aktiv ${formatDate(d.lastSeenAt.slice(0, 10))}` : ""
+          } · ${escapeHtml(t("devices.pairedOn", { date: formatDate(d.createdAt.slice(0, 10)) }))}${
+            d.lastSeenAt ? ` · ${escapeHtml(t("devices.lastSeen", { date: formatDate(d.lastSeenAt.slice(0, 10)) }))}` : ""
           }</span>
         </div>
-        <button class="device-revoke" data-device="${escapeHtml(d.id)}">Ta bort</button>
+        <button class="device-revoke" data-device="${escapeHtml(d.id)}">${escapeHtml(t("common.delete"))}</button>
       </div>`
     )
     .join("");
@@ -69,11 +70,11 @@ async function revokeDevice(btn) {
   const id = btn.dataset.device;
   if (btn.dataset.confirm !== "1") {
     btn.dataset.confirm = "1";
-    btn.textContent = "Säker?";
+    btn.textContent = t("devices.sure");
     setTimeout(() => {
       if (btn.dataset.confirm === "1") {
         btn.dataset.confirm = "";
-        btn.textContent = "Ta bort";
+        btn.textContent = t("common.delete");
       }
     }, 4000);
     return;
@@ -89,7 +90,7 @@ async function revokeDevice(btn) {
     await loadDevices();
   } catch {
     btn.disabled = false;
-    btn.textContent = "Gick inte";
+    btn.textContent = t("devices.failed");
   }
 }
 
@@ -100,7 +101,7 @@ export async function startPairing() {
 
   btn.disabled = true;
   panel.classList.remove("hidden");
-  panel.innerHTML = `<p class="admin-empty">Hämtar kod…</p>`;
+  panel.innerHTML = `<p class="admin-empty">${escapeHtml(t("devices.fetchingCode"))}</p>`;
 
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/devices/pairing-code`, {
@@ -117,9 +118,9 @@ export async function startPairing() {
     });
 
     panel.innerHTML = `
-      <p class="pair-instructions">Skanna koden med telefonens kamera, eller i Courtside-appen.</p>
+      <p class="pair-instructions">${escapeHtml(t("devices.scan"))}</p>
       <div class="pair-qr">${svg}</div>
-      <p class="pair-code-label">Eller skriv in manuellt:</p>
+      <p class="pair-code-label">${escapeHtml(t("devices.manual"))}</p>
       <p class="pair-code">${escapeHtml(data.code)}</p>
       <p class="pair-url">${escapeHtml(data.apiUrl)}</p>
       <p class="pair-expiry" id="pairExpiry"></p>`;
@@ -128,7 +129,7 @@ export async function startPairing() {
     // A camera that pairs shows up in the list; refresh while the code is open.
     pollForNewDevice();
   } catch (err) {
-    panel.innerHTML = `<p class="admin-empty">Kunde inte hämta kod (${escapeHtml(err.message)})</p>`;
+    panel.innerHTML = `<p class="admin-empty">${escapeHtml(t("devices.codeError", { error: err.message }))}</p>`;
     btn.disabled = false;
   }
 }
@@ -143,11 +144,11 @@ function startExpiryCountdown(expiresAt, btn, panel) {
     if (!node) return clearInterval(expiryTimer);
     if (left === 0) {
       clearInterval(expiryTimer);
-      panel.innerHTML = `<p class="admin-empty">Koden gick ut. Skapa en ny.</p>`;
+      panel.innerHTML = `<p class="admin-empty">${escapeHtml(t("devices.expired"))}</p>`;
       btn.disabled = false;
       return;
     }
-    node.textContent = `Koden gäller i ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+    node.textContent = t("devices.validFor", { time: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` });
   };
 
   tick();

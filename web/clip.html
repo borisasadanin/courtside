@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0a0a0a">
   <meta name="description" content="">
   <meta property="og:title" content="">
-  <meta property="og:description" content="Se höjdpunkten från matchen.">
+  <meta property="og:description" content="Se höjdpunkten från matchen." data-i18n-attr="content:clip.ogDescription">
   <meta property="og:image" content="icon.png">
   <meta property="og:type" content="website">
   <meta name="courtside:api-url" content="">
@@ -124,32 +124,40 @@
       padding: 60px 20px;
       color: var(--text-muted);
     }
-    /* Header link style override — no tab nav on clip page */
-    .clip-page-header .header-inner {
-      cursor: pointer;
+    /* Header: logo and name link home; no tab nav on clip page */
+    .clip-page-home {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+      text-decoration: none;
+      color: inherit;
     }
   </style>
 </head>
-<body data-title-suffix="Höjdpunkt">
+<body data-title-suffix="Höjdpunkt" data-i18n-attr="data-title-suffix:clip.titleSuffix">
   <header class="clip-page-header">
-    <a href="/" class="header-inner" style="text-decoration:none;color:inherit">
-      <img src="icon.png" alt="" data-club-logo class="logo">
-      <div class="header-text">
-        <h1 data-club-name>Courtside</h1>
-      </div>
-    </a>
+    <div class="header-inner">
+      <a href="/" class="clip-page-home">
+        <img src="icon.png" alt="" data-club-logo class="logo">
+        <div class="header-text">
+          <h1 data-club-name>Courtside</h1>
+        </div>
+      </a>
+      <button class="lang-switch" type="button" data-lang-switch>EN</button>
+    </div>
   </header>
 
   <main class="clip-page">
     <div id="loading" class="clip-page-loading">
       <div class="spinner"></div>
-      <p>Laddar klipp...</p>
+      <p data-i18n="clip.loading">Laddar klipp...</p>
     </div>
 
     <div id="error" class="clip-page-error" style="display:none">
-      <h2>Klippet hittades inte</h2>
-      <p>Länken kan vara felaktig eller klippet har tagits bort.</p>
-      <p style="margin-top:16px"><a href="index.html" style="color:var(--accent)">Till startsidan</a></p>
+      <h2 data-i18n="clip.notFound">Klippet hittades inte</h2>
+      <p data-i18n="clip.notFoundSub">Länken kan vara felaktig eller klippet har tagits bort.</p>
+      <p style="margin-top:16px"><a href="index.html" style="color:var(--accent)" data-i18n="clip.home">Till startsidan</a></p>
     </div>
 
     <div id="clipCard" class="clip-page-card" style="display:none">
@@ -165,7 +173,7 @@
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
-            Dela
+            <span data-i18n="clip.share">Dela</span>
           </button>
         </div>
       </div>
@@ -173,8 +181,8 @@
   </main>
 
   <footer>
-    <p>&copy; <span data-club-name>Courtside</span> · <a href="#" data-privacy-open>Om inspelningarna</a></p>
-    <a class="powered-by" href="https://courtside.apps.osaas.io" target="_blank" rel="noopener"><img src="courtside.png" alt="" width="16" height="16">Drivs av <b>Courtside</b></a>
+    <p>&copy; <span data-club-name>Courtside</span> · <a href="#" data-privacy-open data-i18n="page.privacy">Om inspelningarna</a></p>
+    <a class="powered-by" href="https://courtside.apps.osaas.io" data-i18n-attr="href:page.landingUrl" target="_blank" rel="noopener"><img src="courtside.png" alt="" width="16" height="16"><span data-i18n-html="page.poweredBy">Drivs av <b>Courtside</b></span></a>
   </footer>
 
   <script type="module" src="clip.js"></script>

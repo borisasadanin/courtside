@@ -11,6 +11,7 @@ import { openVodPlayer } from "./player.js";
 import { fetchAllClips, playClip } from "./highlights.js";
 import { copyClipLink, copyMatchLink, setClipHash } from "./deeplink.js";
 import { showImage } from "./images.js";
+import { t, locale } from "./i18n.js";
 import { loadMatches, findMatch } from "./matches.js";
 import { loadTeams, teamBadge } from "./teams.js";
 import { matchTeams, matchHead, spokenTeams, playedOn, teamFilter, focusedTeamFilter, focusTeamFilter, TEAM_FILTER_EVENT } from "./match-card.js";
@@ -131,7 +132,7 @@ function groupByMatch(vods, clips) {
       key: "__orphan__",
       matchId: null,
       match: null,
-      matchTitle: "Pågående match",
+      matchTitle: t("vod.inProgress"),
       matchDate: "",
       location: "",
       homeTeam: "",
@@ -152,7 +153,7 @@ function groupByMatch(vods, clips) {
  */
 function matchHeading(vod, match) {
   const heading = {
-    matchTitle: vod.matchTitle || "Inspelning",
+    matchTitle: vod.matchTitle || t("vod.recording"),
     matchDate: vod.matchDate || "",
     location: vod.location || "",
     homeTeam: vod.homeTeam || "",
@@ -363,9 +364,9 @@ function createReplayHead(group, teams) {
   const result = group.result;
   const spoken = [
     spokenTeams(teams),
-    result && `resultat ${result.home} mot ${result.away}`,
+    result && t("vod.spokenResult", { home: result.home, away: result.away }),
     group.matchDate && new Date(`${group.matchDate}T12:00:00`)
-      .toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+      .toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
     group.location,
   ].filter(Boolean).join(", ");
   return matchHead(teams, {
@@ -399,8 +400,8 @@ function createMatchShare(group, teams) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "clip-share-btn match-share-btn";
-  btn.setAttribute("aria-label", `Dela ${spokenTeams(teams)}`);
-  btn.title = "Kopiera länk";
+  btn.setAttribute("aria-label", t("vod.share", { name: spokenTeams(teams) }));
+  btn.title = t("vod.copyLink");
   btn.innerHTML = SHARE_SVG;
   btn.addEventListener("click", async () => {
     const ok = await copyMatchLink(group.matchId);
@@ -434,11 +435,11 @@ function createHighlightsSection(group) {
   toggle.dataset.highlightsFor = key;
   toggle.setAttribute("aria-expanded", String(open));
   toggle.setAttribute("aria-controls", `highlights-${key}`);
-  toggle.setAttribute("aria-label", count === 1 ? "1 höjdpunkt" : `${count} höjdpunkter`);
+  toggle.setAttribute("aria-label", t("vod.highlightsCount", { n: count }));
   toggle.innerHTML =
     `<svg width="11" height="11" viewBox="0 0 24 24" fill="var(--accent-ink)" aria-hidden="true">` +
     `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>` +
-    `</svg> HÖJDPUNKTER ` +
+    `</svg> ${escapeHtml(t("vod.highlightsLabel"))} ` +
     `<span class="match-highlights-count">${count}</span>` +
     `<svg class="match-highlights-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" ` +
     `stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">` +
@@ -505,8 +506,8 @@ const DOWNLOAD_SVG =
 function createRecordingCard(vod, index) {
   const btn = document.createElement("button");
   btn.className = "recording-card";
-  const name = vod.cameraName || `Kamera ${index + 1}`;
-  btn.setAttribute("aria-label", `Spela ${escapeHtml(name)}`);
+  const name = vod.cameraName || t("vod.camera", { n: index + 1 });
+  btn.setAttribute("aria-label", t("vod.playName", { name: escapeHtml(name) }));
 
   const duration = formatDuration(vod.durationSeconds);
 
@@ -514,7 +515,7 @@ function createRecordingCard(vod, index) {
     `<span class="recording-card-icon">${CAMERA_SVG}</span>` +
     `<span class="recording-card-name">${escapeHtml(name)}</span>` +
     (duration ? `<span class="recording-card-dur">${escapeHtml(duration)}</span>` : "") +
-    `<span class="recording-card-play">${PLAY_SVG} Spela</span>`;
+    `<span class="recording-card-play">${PLAY_SVG} ${escapeHtml(t("vod.play"))}</span>`;
 
   btn.addEventListener("click", () => {
     openVodPlayer(vod.hlsUrl, vod.matchTitle, vod.id);
@@ -530,7 +531,7 @@ function createClipCard(clip, index) {
 
   const btn = document.createElement("button");
   btn.className = "clip-chip";
-  const label = clip.label || `Höjdpunkt ${index + 1}`;
+  const label = clip.label || t("vod.highlight", { n: index + 1 });
   btn.setAttribute("aria-label", label);
   btn.title = label;
 
@@ -563,8 +564,8 @@ function createClipCard(clip, index) {
   // Share button
   const shareBtn = document.createElement("button");
   shareBtn.className = "clip-share-btn";
-  shareBtn.setAttribute("aria-label", `Dela ${label}`);
-  shareBtn.title = "Kopiera länk";
+  shareBtn.setAttribute("aria-label", t("vod.share", { name: label }));
+  shareBtn.title = t("vod.copyLink");
   shareBtn.innerHTML = SHARE_SVG;
 
   shareBtn.addEventListener("click", async (e) => {
@@ -588,8 +589,8 @@ function createClipCard(clip, index) {
   if (clip.mp4Url) {
     const dlBtn = document.createElement("button");
     dlBtn.className = "clip-share-btn clip-download-btn";
-    dlBtn.setAttribute("aria-label", `Ladda ner ${label}`);
-    dlBtn.title = "Ladda ner";
+    dlBtn.setAttribute("aria-label", t("vod.downloadName", { name: label }));
+    dlBtn.title = t("vod.download");
     dlBtn.innerHTML = DOWNLOAD_SVG;
 
     dlBtn.addEventListener("click", async (e) => {
@@ -609,8 +610,8 @@ function createClipCard(clip, index) {
         dlBtn.innerHTML = DOWNLOAD_SVG;
       } catch {
         dlBtn.textContent = "!";
-        dlBtn.title = "Kunde inte ladda ner";
-        setTimeout(() => { dlBtn.innerHTML = DOWNLOAD_SVG; dlBtn.title = "Ladda ner"; }, 2000);
+        dlBtn.title = t("vod.downloadFailed");
+        setTimeout(() => { dlBtn.innerHTML = DOWNLOAD_SVG; dlBtn.title = t("vod.download"); }, 2000);
       }
       dlBtn.disabled = false;
     });
@@ -624,7 +625,7 @@ function createClipCard(clip, index) {
 function formatClipTime(isoString) {
   try {
     const d = new Date(isoString);
-    return d.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
   } catch {
     return "";
   }

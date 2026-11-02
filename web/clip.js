@@ -3,9 +3,14 @@ import { CONFIG } from "./modules/config.js";
 import { club, loadClub } from "./modules/club.js";
 import { mediaUrl } from "./modules/utils.js";
 import { initPrivacy } from "./modules/privacy.js";
+import { t, applyStatic, sendLanguageToApi } from "./modules/i18n.js";
 
 (async function init() {
-  // Theme first — the error state is branded too.
+  // Language first: the page's own text, and the language API errors come back in
+  applyStatic();
+  sendLanguageToApi(CONFIG.API_URL);
+
+  // Theme next — the error state is branded too.
   await loadClub();
   initPrivacy();
 
@@ -37,7 +42,7 @@ function showClip(clip) {
   document.getElementById("loading").style.display = "none";
   document.getElementById("clipCard").style.display = "block";
 
-  const label = clip.label || "Höjdpunkt";
+  const label = clip.label || t("clip.highlight");
   document.getElementById("clipLabel").textContent = label;
   document.getElementById("clipDur").textContent = `${Math.round(clip.durationSeconds)}s`;
   document.title = `${label} — ${club.name}`;
@@ -69,7 +74,7 @@ function showClip(clip) {
 function showPlayOverlay(video) {
   const overlay = document.createElement("button");
   overlay.className = "clip-play-overlay";
-  overlay.setAttribute("aria-label", "Spela klipp");
+  overlay.setAttribute("aria-label", t("clip.play"));
   overlay.innerHTML =
     '<svg width="64" height="64" viewBox="0 0 24 24" fill="white" aria-hidden="true">' +
     '<polygon points="5 3 19 12 5 21 5 3"/>' +
@@ -105,13 +110,13 @@ function setupShare(clipId) {
     }
     try {
       await navigator.clipboard.writeText(ogUrl);
-      btn.textContent = "Kopierad!";
+      btn.textContent = t("common.copied");
       setTimeout(() => {
         btn.innerHTML =
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
           '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>' +
           '<line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>' +
-          "</svg> Dela";
+          `</svg> <span>${t("clip.share")}</span>`;
       }, 1500);
     } catch {
       // Fallback: open in new tab

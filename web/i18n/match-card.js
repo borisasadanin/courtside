@@ -2,7 +2,13 @@
 
 export default {
   sv: {
+    spokenTeams: "{own} mot {opponent}",
+    filterAll: "Alla",
+    filterLabel: "Visa lag",
   },
   en: {
+    spokenTeams: "{own} versus {opponent}",
+    filterAll: "All",
+    filterLabel: "Show team",
   },
 };

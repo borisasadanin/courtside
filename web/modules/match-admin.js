@@ -17,6 +17,7 @@ import { resize } from "./branding.js";
 import { club } from "./club.js";
 import { setTeams, getTeams, teamBadge } from "./teams.js";
 import { setMatches, localToday, formatMatchWhen } from "./matches.js";
+import { t } from "./i18n.js";
 
 /** The match whose form is open, kept open across a reload of the list. */
 let openId = null;
@@ -38,9 +39,9 @@ async function send(method, path, body) {
   });
   const data = res.status === 204 ? {} : await res.json().catch(() => ({}));
   if (res.status === 401) {
-    alert("Du har loggats ut från admin. Logga in igen med admin-koden.");
+    alert(t("match-admin.loggedOut"));
     deactivateAdmin();
-    throw new Error(data.error || "Admin-åtkomst krävs");
+    throw new Error(data.error || t("common.adminRequired"));
   }
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
@@ -62,7 +63,7 @@ export async function renderMatchesAdmin() {
     if (teamRes.ok) setTeams(await teamRes.json());
     matches = setMatches(await matchRes.json());
   } catch (err) {
-    list.innerHTML = `<p class="admin-empty">Kunde inte hämta matcherna (${escapeHtml(err.message)})</p>`;
+    list.innerHTML = `<p class="admin-empty">${escapeHtml(t("match-admin.loadError", { error: err.message }))}</p>`;
     return;
   }
 
@@ -72,24 +73,24 @@ export async function renderMatchesAdmin() {
   const played = matches.filter((m) => !upcoming.includes(m)).reverse();
 
   const sub = document.getElementById("adminRowMatchesSub");
-  if (sub) sub.textContent = upcoming.length ? `${upcoming.length} kommande` : "Inga kommande matcher";
+  if (sub) sub.textContent = upcoming.length ? t("match-admin.upcomingCount", { n: upcoming.length }) : t("match-admin.noUpcomingSub");
 
   if (matches.length === 0) {
-    list.innerHTML = `<p class="admin-empty">Inga matcher ännu. Lägg in kommande matcher, så ser tittarna när nästa match spelas och kan lägga in den i kalendern.</p>`;
+    list.innerHTML = `<p class="admin-empty">${escapeHtml(t("match-admin.empty"))}</p>`;
     return;
   }
 
   list.replaceChildren();
-  list.append(heading("Kommande"));
+  list.append(heading(t("match-admin.upcoming")));
   if (upcoming.length) list.append(...upcoming.map(matchRow));
-  else list.append(Object.assign(document.createElement("p"), { className: "admin-empty", textContent: "Inga kommande matcher." }));
+  else list.append(Object.assign(document.createElement("p"), { className: "admin-empty", textContent: t("match-admin.noUpcoming") }));
 
   if (played.length) {
     const details = document.createElement("details");
     details.className = "match-played";
     details.open = played.some((m) => m.id === openId);
     const summary = document.createElement("summary");
-    summary.textContent = `Spelade matcher (${played.length})`;
+    summary.textContent = t("match-admin.played", { n: played.length });
     details.append(summary, ...played.map(matchRow));
     list.append(details);
   }
@@ -128,9 +129,9 @@ function matchRow(match) {
 
   const meta = [formatMatchWhen(match)];
   if (match.venue) meta.push(match.venue);
-  if (match.status === "live") meta.push("sänds nu");
+  if (match.status === "live") meta.push(t("match-admin.liveNow"));
   const n = match.recordingIds.length;
-  if (n && match.status !== "live") meta.push(n === 1 ? "1 inspelning" : `${n} inspelningar`);
+  if (n && match.status !== "live") meta.push(t("match-admin.recordings", { n }));
   if (match.result) meta.push(`${match.result.home}–${match.result.away}`);
 
   const info = document.createElement("div");
@@ -141,7 +142,7 @@ function matchRow(match) {
   const edit = document.createElement("button");
   edit.type = "button";
   edit.className = "device-revoke";
-  edit.textContent = "Ändra";
+  edit.textContent = t("match-admin.edit");
   row.append(badges, info, edit);
 
   const form = matchForm(match, () => {
@@ -163,15 +164,15 @@ function matchRow(match) {
 /** <option>s for every team, the side's own kind first, then "Nytt lag…". */
 function teamOptions(own) {
   const teams = getTeams();
-  const first = teams.filter((t) => t.own === own);
-  const rest = teams.filter((t) => t.own !== own);
+  const first = teams.filter((tm) => tm.own === own);
+  const rest = teams.filter((tm) => tm.own !== own);
   const group = (label, list) => list.length
-    ? `<optgroup label="${label}">${list.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join("")}</optgroup>`
+    ? `<optgroup label="${escapeHtml(label)}">${list.map((tm) => `<option value="${escapeHtml(tm.id)}">${escapeHtml(tm.name)}</option>`).join("")}</optgroup>`
     : "";
-  return `<option value="">Välj lag…</option>` +
-    group(own ? "Egna lag" : "Motståndare", first) +
-    group(own ? "Andra lag" : "Egna lag", rest) +
-    `<option value="${NEW_TEAM}">Nytt lag…</option>`;
+  return `<option value="">${escapeHtml(t("match-admin.chooseTeam"))}</option>` +
+    group(own ? t("match-admin.ownTeams") : t("match-admin.opponents"), first) +
+    group(own ? t("match-admin.otherTeams") : t("match-admin.ownTeams"), rest) +
+    `<option value="${NEW_TEAM}">${escapeHtml(t("match-admin.newTeamOption"))}</option>`;
 }
 
 /** One side of the match: pick a team, or type a new one and optionally give it a logo. */
@@ -180,15 +181,15 @@ function teamField(label, side, team) {
   const field = document.createElement("div");
   field.className = "match-team";
   field.innerHTML = `
-    <label class="branding-field">${label}
+    <label class="branding-field">${escapeHtml(label)}
       <select name="${side}">${teamOptions(own)}</select>
     </label>
     <div class="match-new-team hidden">
-      <label class="branding-field">Nytt lag
-        <input type="text" name="${side}Name" maxlength="60" autocomplete="off" placeholder="${own ? "t.ex. P12" : "t.ex. Hornets"}">
+      <label class="branding-field">${escapeHtml(t("match-admin.newTeam"))}
+        <input type="text" name="${side}Name" maxlength="60" autocomplete="off" placeholder="${escapeHtml(t(own ? "match-admin.ownPlaceholder" : "match-admin.opponentPlaceholder"))}">
       </label>
       <div class="match-logo">
-        <button type="button" class="branding-link" data-action="pick">Lägg till logga (valfritt)</button>
+        <button type="button" class="branding-link" data-action="pick">${escapeHtml(t("match-admin.addLogo"))}</button>
         <input type="file" accept="image/*" class="visually-hidden-file">
         <span class="match-logo-name"></span>
       </div>
@@ -197,7 +198,7 @@ function teamField(label, side, team) {
   const select = field.querySelector("select");
   const name = field.querySelector('input[type="text"]');
   const newTeam = field.querySelector(".match-new-team");
-  const known = team && team.id && getTeams().some((t) => t.id === team.id);
+  const known = team && team.id && getTeams().some((tm) => tm.id === team.id);
   if (known) {
     select.value = team.id;
   } else if (team) {
@@ -205,7 +206,7 @@ function teamField(label, side, team) {
     select.value = NEW_TEAM;
     name.value = team.name;
   } else if (own) {
-    const ownTeams = getTeams().filter((t) => t.own);
+    const ownTeams = getTeams().filter((tm) => tm.own);
     if (ownTeams.length === 1) select.value = ownTeams[0].id;
     else if (getTeams().length === 0) select.value = NEW_TEAM;
   }
@@ -226,7 +227,7 @@ function teamField(label, side, team) {
     logo = input.files?.[0] || null;
     input.value = "";
     picked.textContent = logo ? logo.name : "";
-    pick.textContent = logo ? "Byt logga" : "Lägg till logga (valfritt)";
+    pick.textContent = logo ? t("match-admin.changeLogo") : t("match-admin.addLogo");
   });
 
   return {
@@ -248,8 +249,8 @@ function matchForm(match, done) {
   form.className = "admin-branding match-form";
   form.noValidate = true;
 
-  const own = teamField("Eget lag", "own", match?.ownTeam);
-  const opponent = teamField("Motståndare", "opponent", match?.opponent);
+  const own = teamField(t("match-admin.ownTeam"), "own", match?.ownTeam);
+  const opponent = teamField(t("match-admin.opponent"), "opponent", match?.opponent);
   const teamsRow = document.createElement("div");
   teamsRow.className = "match-form-row";
   teamsRow.append(own.el, opponent.el);
@@ -259,21 +260,21 @@ function matchForm(match, done) {
   const canRemove = match && match.recordingIds.length === 0;
   rest.innerHTML = `
     <div class="match-form-row">
-      <label class="branding-field">Datum
+      <label class="branding-field">${escapeHtml(t("match-admin.date"))}
         <input type="date" name="date" required value="${escapeHtml(match?.date ?? "")}">
       </label>
-      <label class="branding-field">Tid (valfri)
+      <label class="branding-field">${escapeHtml(t("match-admin.time"))}
         <input type="time" name="time" value="${escapeHtml(match?.time ?? "")}">
       </label>
     </div>
-    <label class="branding-field">Plats
+    <label class="branding-field">${escapeHtml(t("match-admin.venue"))}
       <input type="text" name="venue" maxlength="80" autocomplete="off" value="${escapeHtml(match ? match.venue ?? "" : club.venue)}">
     </label>
-    ${match && !canRemove ? `<p class="privacy-admin-intro">Matchen har inspelningar och kan inte tas bort här. Inspelningarna tas bort under Inspelningar. Det du ändrar här ändras också på inspelningarna.</p>` : ""}
+    ${match && !canRemove ? `<p class="privacy-admin-intro">${escapeHtml(t("match-admin.hasRecordings"))}</p>` : ""}
     <div class="branding-save-row">
-      <button class="admin-pair-btn" type="submit">${match ? "Spara" : "Lägg till"}</button>
-      <button class="branding-link" type="button" data-action="cancel">Avbryt</button>
-      ${canRemove ? '<button class="device-revoke" type="button" data-action="delete">Ta bort match</button>' : ""}
+      <button class="admin-pair-btn" type="submit">${escapeHtml(match ? t("common.save") : t("match-admin.add"))}</button>
+      <button class="branding-link" type="button" data-action="cancel">${escapeHtml(t("common.cancel"))}</button>
+      ${canRemove ? `<button class="device-revoke" type="button" data-action="delete">${escapeHtml(t("match-admin.deleteMatch"))}</button>` : ""}
       <span class="branding-status" role="status"></span>
     </div>`;
   form.append(teamsRow, rest);
@@ -301,7 +302,7 @@ function matchForm(match, done) {
     if (save.disabled) return;
     const body = { ...own.body(), ...opponent.body(), date: date.value, time: time.value, venue: venue.value };
     save.disabled = true;
-    say("Sparar…");
+    say(t("common.saving"));
     let saved;
     try {
       saved = await send(match ? "PUT" : "POST", match ? `/api/admin/matches/${encodeURIComponent(match.id)}` : "/api/admin/matches", body);
@@ -326,7 +327,7 @@ function matchForm(match, done) {
     openId = match ? match.id : null;
     if (!match) done();
     await renderMatchesAdmin();
-    if (failed.length) alert(`Matchen är sparad, men loggan kunde inte laddas upp (${failed.join("; ")}). Ladda upp den under Lag.`);
+    if (failed.length) alert(t("match-admin.logoFailed", { errors: failed.join("; ") }));
   });
 
   // Two clicks, like removing a team.
@@ -334,14 +335,14 @@ function matchForm(match, done) {
   del?.addEventListener("click", async () => {
     if (del.dataset.confirm !== "1") {
       del.dataset.confirm = "1";
-      del.textContent = "Säker?";
+      del.textContent = t("match-admin.sure");
       setTimeout(() => {
         del.dataset.confirm = "";
-        del.textContent = "Ta bort match";
+        del.textContent = t("match-admin.deleteMatch");
       }, 4000);
       return;
     }
-    say("Tar bort…");
+    say(t("match-admin.deleting"));
     try {
       await send("DELETE", `/api/admin/matches/${encodeURIComponent(match.id)}`);
       openId = null;

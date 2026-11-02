@@ -47,7 +47,7 @@ test("Swedish and English have the same keys and placeholders", () => {
 
 test("every key the site asks for exists", () => {
   const used = [];
-  for (const { file, text } of sources) {
+  for (const { file, text } of sources.map((s) => ({ ...s, text: withoutComments(s.file, s.text) }))) {
     for (const m of text.matchAll(/\bt\(\s*["'`]([\w-]+\.[\w.-]+)["'`]/g)) used.push([file, m[1]]);
     for (const m of text.matchAll(/data-i18n(?:-html)?="([^"]+)"/g)) used.push([file, m[1]]);
     for (const m of text.matchAll(/data-i18n-attr="([^"]+)"/g)) {
@@ -58,18 +58,27 @@ test("every key the site asks for exists", () => {
     const dot = key.indexOf(".");
     return !(key.slice(dot + 1) in (tables[key.slice(0, dot)]?.sv || {}));
   });
-  assert.deepEqual(missing.map(([f, k]) => `${f}: ${k}`), []);
+  assert.equal(missing.length, 0, `Missing keys:\n${missing.map(([f, k]) => `${f}: ${k}`).join("\n")}`);
 });
 
 // Swedish words without å, ä or ö that often show up in the site's text.
 const SWEDISH_WORDS =
   /\b(och|inte|ingen|inga|eller|alla|kan|sparar|spara|sparat|visa|dela|kopiera|avbryt|hantera|matcher|matchen|repriser|reprisen|kameror|kameran|inspelningar|inspelningen|spela|ladda|logga|hemma|borta|idag|imorgon|igen|sekunder|minuter|klart|tittare|tittarna|klippet|laget|lagen)\b/i;
 
+/** Source without comments, so examples in comments are not taken for real text */
+function withoutComments(file, text) {
+  if (file.endsWith(".html")) return text.replace(/<!--[\s\S]*?-->/g, "");
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ""))
+    .replace(/(^|[^:\\'"`])\/\/.*$/gm, "$1");
+}
+
 /** The text a visitor can read, with comments and marked (translated) text removed */
 function visibleText(file, text) {
+  // A line marked i18n-ignore (usually in a comment) is data, not text we show.
+  text = withoutComments(file, text.replace(/^.*i18n-ignore.*$/gm, ""));
   if (file.endsWith(".html")) {
     return text
-      .replace(/<!--[\s\S]*?-->/g, "")
       .replace(/<style[\s\S]*?<\/style>/g, "")
       // Elements whose text comes from a table keep the Swedish as a fallback.
       .replace(/<(\w+)\b([^>]*\bdata-i18n(?:-html)?="[^"]+"[^>]*)>[\s\S]*?<\/\1>/g, "<$1$2></$1>")
@@ -77,12 +86,7 @@ function visibleText(file, text) {
         spec.split(";").reduce((t, pair) => t.replace(new RegExp(`\\s${pair.split(":")[0].trim()}="[^"]*"`), ""), tag)
       );
   }
-  return text
-    .replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ""))
-    .replace(/(^|[^:\\'"`])\/\/.*$/gm, "$1")
-    .split("\n")
-    .filter((line) => !line.includes("i18n-ignore"))
-    .join("\n");
+  return text;
 }
 
 /** String literals in JS; the visible text of an HTML page */
@@ -102,5 +106,5 @@ test("no Swedish is left outside the text tables", () => {
       if (!/[åäöÅÄÖ]/.test(s) && SWEDISH_WORDS.test(s)) found.push(`${file}: "${s.trim()}"`);
     }
   }
-  assert.deepEqual(found, []);
+  assert.equal(found.length, 0, `Swedish outside the text tables:\n${found.join("\n")}`);
 });

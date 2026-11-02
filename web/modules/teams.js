@@ -121,13 +121,13 @@ export function textOn(hex) {
 
 const GENERIC_WORDS = new Set([
   "if", "ik", "bk", "bbk", "bc", "bf", "fc", "sk", "ss",
-  "basket", "basketball", "basketboll", "basketklubb", "basketbollklubb", "idrottsförening", "idrottsklubb",
+  "basket", "basketball", "basketboll", "basketklubb", "basketbollklubb", "idrottsförening", "idrottsklubb", // i18n-ignore: data, same list as api/src/teams.ts
 ]);
 
 export function deriveShortName(name, own = false) {
   const words = String(name || "").trim().replace(/\s+/g, " ")
     .split(/[\s\-–/.,&]+/)
-    .map((w) => w.replace(/[^0-9A-Za-zÀ-ÖØ-öø-ÿ]/g, ""))
+    .map((w) => w.replace(/[^0-9A-Za-zÀ-ÖØ-öø-ÿ]/g, "")) // i18n-ignore: letter range
     .filter(Boolean);
   if (words.length === 0) return "?";
   const ageGroup = words.length > 1 ? words.find((w) => /\d/.test(w) && w.length <= 4) : undefined;

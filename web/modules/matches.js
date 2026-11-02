@@ -16,6 +16,7 @@
 
 import { CONFIG } from "./config.js";
 import { state } from "./state.js";
+import { t } from "./i18n.js";
 
 /** How long a loaded schedule is used before it is fetched again (ms). */
 const MAX_AGE_MS = 60000;
@@ -82,8 +83,8 @@ export function upcomingMatches(list = matches, today = localToday()) {
   return list.filter((m) => m.status === "planned" && m.date >= today);
 }
 
-const WEEKDAYS = ["sön", "mån", "tis", "ons", "tor", "fre", "lör"];
-const MONTHS = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+const WEEKDAYS = t("matches.weekdays").split(" ");
+const MONTHS = t("matches.months").split(" ");
 
 /** The date as a Date at noon, so no time zone moves it to another day. */
 function dayOf(date) {
@@ -95,10 +96,10 @@ export function formatMatchWhen(match, today = localToday()) {
   const d = dayOf(match.date);
   const tomorrow = new Date(dayOf(today).getTime() + 86400000);
   const day = match.date === today
-    ? "i dag"
+    ? t("matches.today")
     : match.date === localToday(tomorrow)
-      ? "i morgon"
-      : `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+      ? t("matches.tomorrow")
+      : t("matches.day", { weekday: WEEKDAYS[d.getDay()], day: d.getDate(), month: MONTHS[d.getMonth()] });
   return match.time ? `${day} ${match.time}` : day;
 }
 
@@ -107,7 +108,9 @@ export function formatMatchWhen(match, today = localToday()) {
  * a club with several teams: "lör 8 nov 14:00 P12 mot Hornets, Sporthallen".
  */
 export function describeMatch(match, { withOwnTeam = false, today } = {}) {
-  const teams = withOwnTeam ? `${match.ownTeam.name} mot ${match.opponent.name}` : `mot ${match.opponent.name}`;
+  const teams = withOwnTeam
+    ? t("matches.ownAgainst", { own: match.ownTeam.name, opponent: match.opponent.name })
+    : t("matches.against", { opponent: match.opponent.name });
   return `${formatMatchWhen(match, today)} ${teams}${match.venue ? `, ${match.venue}` : ""}`;
 }
 
@@ -179,9 +182,9 @@ export function matchIcs(match, { url = location.origin, clubName = "" } = {}) {
     const day = dayOf(match.date);
     lines.push(`DTSTART;VALUE=DATE:${icsDate(day)}`, `DTEND;VALUE=DATE:${icsDate(new Date(day.getTime() + 86400000))}`);
   }
-  lines.push(`SUMMARY:${icsText(`${match.ownTeam.name} mot ${match.opponent.name}`)}`);
+  lines.push(`SUMMARY:${icsText(t("matches.icsSummary", { own: match.ownTeam.name, opponent: match.opponent.name }))}`);
   if (match.venue) lines.push(`LOCATION:${icsText(match.venue)}`);
-  lines.push(`DESCRIPTION:${icsText(`${clubName ? `${clubName}. ` : ""}Se matchen på ${url}`)}`);
+  lines.push(`DESCRIPTION:${icsText(`${clubName ? `${clubName}. ` : ""}${t("matches.icsDescription", { url })}`)}`);
   if (url) lines.push(`URL:${url}`);
   lines.push("END:VEVENT", "END:VCALENDAR");
   return lines.map(fold).join("\r\n") + "\r\n";

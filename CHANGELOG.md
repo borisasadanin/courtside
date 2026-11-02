@@ -20,6 +20,10 @@ From the moment the tag is pushed, new platforms get it (within five minutes).
 
 ## Ej släppt
 
+- Plattformen finns nu också på engelska. Tryck på **EN** uppe till höger för att byta språk; valet sparas
+  i webbläsaren, och första gången väljs svenska för den som har svenska i webbläsaren. Allt översätts:
+  tittarsidan, repriserna, Hantera, felmeddelanden från servern och klippsidan. En länk som delas från den
+  engelska sidan får förhandsvisning och delningsbild på engelska. Kameraappen är fortfarande bara på svenska.
 - Under Repriser är highlights hopfällda under avslutade matcher. Tryck på *Höjdpunkter* för att se dem.
   Under en pågående match står de utfällda, så att nya klipp syns direkt. Det du själv fällt ut eller ihop
   står kvar när nya klipp kommer, och en match som tar slut medan du tittar fälls inte ihop framför dig

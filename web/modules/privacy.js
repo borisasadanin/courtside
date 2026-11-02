@@ -9,6 +9,7 @@
 import { CONFIG } from "./config.js";
 import { club } from "./club.js";
 import { escapeHtml } from "./utils.js";
+import { t } from "./i18n.js";
 
 /** Who answers for the recordings: what the admin entered, else the club's name. */
 function controller() {
@@ -21,25 +22,25 @@ export function privacyNoticeHtml(pinRequired) {
   const contact = club.privacy?.contact;
   const policy = club.privacy?.policyUrl;
   const watchers = pinRequired === false
-    ? "Alla som har adressen till sidan kan titta på sändningar och inspelningar."
-    : "Bara den som har föreningens tittarkod kan titta på sändningar och inspelningar.";
+    ? t("privacy.watchersOpen")
+    : t("privacy.watchersPin");
 
   return `
-    <h2>Om inspelningarna</h2>
-    <p>${who} sänder och spelar in matcher här, så att lagets familjer och vänner kan följa dem. Det är ${who} som ansvarar för filmerna och klippen.</p>
-    <h3>Vem kan titta</h3>
-    <p>${watchers} Ett klipp som någon delar kan ses av den som får länken, men det går inte att ladda ner därifrån.</p>
-    <p>Filmerna är till för lagets familjer. Sprid dem inte vidare utan lov.</p>
-    <h3>Hur länge de sparas</h3>
-    <p>Inspelningar och klipp sparas tills föreningen tar bort dem.</p>
-    <h3>Om du eller ditt barn syns på filmen</h3>
-    <p>Du kan be föreningen ta bort ett klipp eller en match, fråga vilka inspelningar som finns, eller säga att du inte vill bli filmad. Är du inte nöjd med svaret kan du vända dig till Integritetsskyddsmyndigheten, <a href="https://www.imy.se" target="_blank" rel="noopener">imy.se</a>.</p>
-    <h3>Kontakt</h3>
+    <h2>${t("privacy.title")}</h2>
+    <p>${t("privacy.intro", { who })}</p>
+    <h3>${t("privacy.whoTitle")}</h3>
+    <p>${watchers} ${t("privacy.sharedClips")}</p>
+    <p>${t("privacy.familiesOnly")}</p>
+    <h3>${t("privacy.keptTitle")}</h3>
+    <p>${t("privacy.kept")}</p>
+    <h3>${t("privacy.rightsTitle")}</h3>
+    <p>${t("privacy.rights")}</p>
+    <h3>${t("privacy.contactTitle")}</h3>
     <p>${contact
-      ? `Skriv till <a href="mailto:${escapeHtml(contact)}">${escapeHtml(contact)}</a>.`
-      : `Kontakta ${who}.`}
-      ${policy ? ` Läs också <a href="${escapeHtml(policy)}" target="_blank" rel="noopener">föreningens integritetspolicy</a>.` : ""}</p>
-    <p class="privacy-note">Sidan körs av föreningen själv, på föreningens eget konto hos Open Source Cloud. Ingen reklam och ingen spårning.</p>`;
+      ? t("privacy.writeTo", { contact: escapeHtml(contact) })
+      : t("privacy.contactWho", { who })}
+      ${policy ? ` ${t("privacy.policy", { url: escapeHtml(policy) })}` : ""}</p>
+    <p class="privacy-note">${t("privacy.note")}</p>`;
 }
 
 let dialog = null;
@@ -62,7 +63,7 @@ export async function openPrivacy() {
   dialog.innerHTML = `
     <div class="privacy-body">
       ${privacyNoticeHtml(pinRequired)}
-      <button class="pin-btn privacy-close" data-privacy-close>Stäng</button>
+      <button class="pin-btn privacy-close" data-privacy-close>${t("common.close")}</button>
     </div>`;
   if (!dialog.open) dialog.showModal();
 }

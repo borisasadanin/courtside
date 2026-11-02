@@ -17,7 +17,6 @@ import replayMarkers from "./replay-markers.js";
 import setup from "./setup.js";
 import streams from "./streams.js";
 import teamAdmin from "./team-admin.js";
-import teams from "./teams.js";
 import teardown from "./teardown.js";
 import update from "./update.js";
 import vod from "./vod.js";
@@ -40,7 +39,6 @@ export default {
   setup,
   streams,
   "team-admin": teamAdmin,
-  teams,
   teardown,
   update,
   vod,

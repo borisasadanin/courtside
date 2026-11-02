@@ -6,6 +6,7 @@
 
 import { CONFIG } from "./config.js";
 import { authHeaders } from "./auth.js";
+import { lang } from "./i18n.js";
 
 /**
  * Check URL hash on page load and play the referenced clip.
@@ -48,7 +49,10 @@ function parseClipHash() {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-/** Match id from a /match/<id> path. Returns null for any other page. */
+/**
+ * Match id from a /match/<id> path. Returns null for any other page. The path
+ * holds no query string, so a link carrying ?lang=en is recognised too.
+ */
 function parseMatchPath() {
   const match = window.location.pathname.match(/^\/match\/([A-Za-z0-9_-]+)\/?$/);
   return match ? match[1] : null;
@@ -102,9 +106,18 @@ function scrollToMatchCard(matchId) {
   const timer = setTimeout(() => observer.disconnect(), CARD_WAIT_MS);
 }
 
+/**
+ * The query a share link carries for the language of its preview: the server
+ * writes the preview text and share image in English for ?lang=en. Swedish
+ * links carry none, so they stay as they always were.
+ */
+function shareQuery() {
+  return lang === "en" ? "?lang=en" : "";
+}
+
 /** Build a shareable URL for a clip (via Cloudflare Worker, for a clean URL on the club's own domain). */
 export function getShareUrl(clipId) {
-  return `${window.location.origin}/c/${encodeURIComponent(clipId)}`;
+  return `${window.location.origin}/c/${encodeURIComponent(clipId)}${shareQuery()}`;
 }
 
 /** Set URL hash to point to a clip (without triggering navigation). */
@@ -137,7 +150,7 @@ export async function copyClipLink(clipId) {
  * (ABL-050), and opening it asks for the viewer code as usual.
  */
 export function matchShareUrl(matchId) {
-  return `${window.location.origin}/match/${encodeURIComponent(matchId)}`;
+  return `${window.location.origin}/match/${encodeURIComponent(matchId)}${shareQuery()}`;
 }
 
 /**
