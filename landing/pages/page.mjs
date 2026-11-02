@@ -341,6 +341,20 @@ export function page(t) {
         <a class="btn btn-secondary" href="${start}" data-start>${p.tryCta}</a>
       </div>
 
+      <div class="host" id="pris-drift">
+        <div class="host-head">
+          <h3>${p.host.h}</h3>
+          <p>${p.host.sub}</p>
+        </div>
+        <div class="card-grid two">
+          ${[["osc", " us"], ["self", ""]].map(([k, cls]) => `
+          <article class="card host-card${cls}">
+            <h4>${p.host[k].h}</h4>
+            <ul>${p.host[k].items.map(([h, b]) => `<li><strong>${h}</strong> ${b}</li>`).join("")}</ul>
+          </article>`).join("")}
+        </div>
+      </div>
+
       <p class="calc-explain" id="pris-raknare">${p.calcExplain}</p>
       <div class="calc" aria-labelledby="calc-h3">
         <div>
