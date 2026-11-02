@@ -13,7 +13,7 @@ import { matches, teams } from "../state.js";
 import { clubManifest } from "../club-config.js";
 import type { Branding } from "../club-branding.js";
 import type { Match } from "../matches.js";
-import { SHARE_HEIGHT, SHARE_WIDTH, ShareImages, formatShareDate, shareTitle } from "../share-image.js";
+import { SHARE_HEIGHT, SHARE_WIDTH, ShareImages, shareTitle, shareWhen } from "../share-image.js";
 
 /** Match ids are eight hex characters; anything far from that is not looked up. */
 const MATCH_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -43,8 +43,9 @@ function originOf(request: FastifyRequest): string {
  */
 export function withMatchMeta(html: string, match: Match, origin: string, version: string): string {
   const title = shareTitle(match);
-  const date = formatShareDate(match.date);
-  const description = `${date[0].toUpperCase()}${date.slice(1)} · ${clubManifest.name}. ${INVITE[match.status]}`;
+  const when = shareWhen(match);
+  const where = match.venue ? ` · ${match.venue}` : "";
+  const description = `${when[0].toUpperCase()}${when.slice(1)}${where} · ${clubManifest.name}. ${INVITE[match.status]}`;
   const image = `${origin}/api/matches/${encodeURIComponent(match.id)}/share.png?v=${version}`;
   const url = `${origin}/match/${encodeURIComponent(match.id)}`;
 

@@ -4,9 +4,9 @@
  *
  * Link previews are fetched without the viewer code, so the picture is drawn,
  * never taken: the two teams' logos (or their short names on their colours),
- * the result once the match has one, the date and the club's name, in the
- * club's colour. Nothing from a recording, so nothing behind the PIN shows
- * here. No time or venue either: the schedule itself is behind the PIN.
+ * the result once the match has one, the date, the venue and the club's
+ * name, in the club's colour, and the time for a match still to be played.
+ * Nothing from a recording, so nothing behind the PIN shows here.
  *
  * Drawn with the ffmpeg the API already ships for clips, so there is no new
  * dependency: the background and the badges are painted here into raw pixels,
@@ -42,7 +42,7 @@ export const SHARE_WIDTH = 1200;
 export const SHARE_HEIGHT = 630;
 
 /** Bump when the layout changes, so every chat app fetches the new picture. */
-const LAYOUT_VERSION = 1;
+const LAYOUT_VERSION = 2;
 
 /** How many matches' pictures are kept in memory. */
 const MAX_CACHED = 50;
@@ -72,6 +72,9 @@ export interface ShareDrawing {
   accentColor: string;
   /** YYYY-MM-DD */
   date: string;
+  /** HH:MM, only for a match still to be played. */
+  time?: string;
+  venue?: string;
   own: ShareTeam;
   opponent: ShareTeam;
   /** Own team first. */
@@ -86,6 +89,12 @@ export function formatShareDate(date: string): string {
   const d = new Date(`${date}T12:00:00Z`);
   if (isNaN(d.getTime())) return date;
   return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** The date, with the time for a match still to be played: "lördag 8 november 2026 kl. 14:00". */
+export function shareWhen(match: Pick<Match, "date" | "time" | "status">): string {
+  const date = formatShareDate(match.date);
+  return match.status === "planned" && match.time ? `${date} kl. ${match.time}` : date;
 }
 
 /** "P12 72 – 65 Hornets", or "P12 – Hornets" before there is a result. */
@@ -337,7 +346,8 @@ export async function renderShareImage(d: ShareDrawing): Promise<Buffer> {
   // Header: the club on the left, the date on the right.
   const header = 92;
   texts.push({ ...fitText(d.club.toUpperCase(), 560, 36, 26), color: readableOnBackground(accent), x: 72, align: "left", baseline: header });
-  texts.push({ ...fitText(formatShareDate(d.date).toUpperCase(), 440, 36, 26), color: MUTED, x: W - 72, align: "right", baseline: header });
+  const when = d.time ? `${formatShareDate(d.date)} · ${d.time}` : formatShareDate(d.date);
+  texts.push({ ...fitText(when.toUpperCase(), 520, 36, 26), color: MUTED, x: W - 72, align: "right", baseline: header });
 
   // Badges: the logo on a white plate, or the short name on the team's colour.
   for (const { team, cx } of sides) {
@@ -363,6 +373,9 @@ export async function renderShareImage(d: ShareDrawing): Promise<Buffer> {
   } else {
     texts.push({ text: "–", size: 150, color: MUTED, x: W / 2, align: "center", baseline: Math.round(badgeY + capHeight(150) / 2) });
   }
+
+  // Under the names: where it is played.
+  if (d.venue) texts.push({ ...fitText(d.venue.toUpperCase(), 900, 32, 24), color: MUTED, x: W / 2, align: "center", baseline: 574 });
 
   return ffmpegCompose(canvas, logos, texts);
 }
@@ -461,6 +474,8 @@ export class ShareImages {
       club.accentColor,
       clubLogo,
       match.date,
+      plannedTime(match) ?? "",
+      match.venue ?? "",
       team(match.ownTeam),
       team(match.opponent),
       match.result ? [match.result.home, match.result.away] : null,
@@ -498,6 +513,8 @@ export class ShareImages {
       club: club.name,
       accentColor: club.accentColor,
       date: match.date,
+      ...(plannedTime(match) && { time: plannedTime(match) }),
+      ...(match.venue && { venue: match.venue }),
       own: teamDrawing(match.ownTeam, ownLogo),
       opponent: teamDrawing(match.opponent, opponentLogo),
       ...(match.result && { result: match.result }),
@@ -515,6 +532,11 @@ export class ShareImages {
     if (!team.id || !team.logoUrl) return null;
     return this.sources.teamLogo(team.id).catch(() => null);
   }
+}
+
+/** The time is drawn only before the match is played. */
+function plannedTime(match: Match): string | undefined {
+  return match.status === "planned" ? match.time : undefined;
 }
 
 function teamDrawing(team: MatchTeam, logo: Logo | null): ShareTeam {

@@ -126,7 +126,7 @@ describe("GET /match/:id", () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("text/html");
     expect(res.body).toContain('<meta property="og:title" content="P12 – Hornets">');
-    expect(res.body).toContain('<meta property="og:description" content="Söndag 1 november 2026 · Test Courtside. Matchen sänds live.">');
+    expect(res.body).toContain('<meta property="og:description" content="Söndag 1 november 2026 · Testhallen · Test Courtside. Matchen sänds live.">');
     expect(res.body).toMatch(
       new RegExp(`<meta property="og:image" content="https://club\\.example\\.com/api/matches/${match.id}/share\\.png\\?v=[0-9a-f]{12}">`),
     );
@@ -149,6 +149,23 @@ describe("GET /match/:id", () => {
     const res = await app.inject({ url: `/match/${match.id}`, headers: crawler });
     expect(res.body).toContain('og:title" content="P12 72 – 65 Hornets"');
     expect(res.body).toContain("Se reprisen.");
+  });
+
+  it("tells a planned match's time and venue", async () => {
+    const own = await teams.create({ name: "P12", own: true });
+    const opponent = await teams.create({ name: "Hornets" });
+    const match = await matches.create({ date: "2026-11-08", time: "14:00", venue: "Sporthallen", ownTeamId: own.id, opponentId: opponent.id });
+    const res = await app.inject({ url: `/match/${match.id}`, headers: crawler });
+    expect(res.body).toContain('og:description" content="Söndag 8 november 2026 kl. 14:00 · Sporthallen · Test Courtside. Matchen sänds live."');
+  });
+
+  it("leaves the time out once the match is played", async () => {
+    const own = await teams.create({ name: "P12", own: true });
+    const opponent = await teams.create({ name: "Hornets" });
+    const match = await matches.create({ date: "2026-11-01", time: "14:00", venue: "Sporthallen", ownTeamId: own.id, opponentId: opponent.id });
+    storage.vods.push(recording("rec1", match.id, { result: { home: 72, away: 65 } as VodEntry["result"] }));
+    const res = await app.inject({ url: `/match/${match.id}`, headers: crawler });
+    expect(res.body).toContain('og:description" content="Söndag 1 november 2026 · Sporthallen · Test Courtside. Se reprisen."');
   });
 
   it("escapes team names", async () => {
@@ -277,6 +294,20 @@ describe("ShareImages", () => {
     expect(render.mock.calls[0][0].opponent.logo).toBeUndefined();
     // A new club logo is a new picture.
     expect(images.version(noLogo)).not.toBe(new ShareImages(sources(false)).version(noLogo));
+  });
+
+  it("draws the time only before the match, and the venue always", async () => {
+    const render = vi.fn(async (_d: ShareDrawing) => Buffer.from("png"));
+    const images = new ShareImages(sources(), render);
+    const planned = { ...match, status: "planned", result: undefined, time: "14:00", venue: "Sporthallen" } as Match;
+    await images.image(planned);
+    expect(render.mock.calls[0][0]).toMatchObject({ time: "14:00", venue: "Sporthallen" });
+
+    await images.image({ ...planned, status: "ended" });
+    expect(render.mock.calls[1][0].time).toBeUndefined();
+    expect(render.mock.calls[1][0].venue).toBe("Sporthallen");
+    // A moved match is a new picture.
+    expect(images.version({ ...planned, venue: "Hallen" })).not.toBe(images.version(planned));
   });
 
   it("draws without logos when one cannot be read", async () => {

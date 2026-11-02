@@ -104,21 +104,21 @@ function updateEmptyState(broadcastState) {
 /** What the schedule block shows now, so a poll that changes nothing leaves it (and focus) alone. */
 let scheduleShown = "";
 /** The arguments it was last drawn with, to draw it again when the team filter changes. */
-let scheduleArgs = ["idle", []];
+let scheduleArgs = ["idle", [], []];
 
 document.addEventListener(TEAM_FILTER_EVENT, () => renderSchedule(...scheduleArgs));
 
 /**
  * "Nästa match" as a match card, and a few after it, each with "Lägg till i
- * kalendern". A match a camera has announced already shows above as starting
- * soon, so it is left out here. With several of the club's teams in the list,
- * the team filter goes on top (ABL-049).
+ * kalendern". A match a camera has announced, or is sending, already has its
+ * card above, so it is left out here. With several of the club's teams in the
+ * list, the team filter goes on top (ABL-049).
  */
-function renderSchedule(status, announced) {
+function renderSchedule(status, announced, liveIds = []) {
   const el = dom.emptySchedule;
   if (!el) return;
-  scheduleArgs = [status, announced];
-  const skip = new Set(announced.map((u) => u.matchId).filter(Boolean));
+  scheduleArgs = [status, announced, liveIds];
+  const skip = new Set([...announced.map((u) => u.matchId), ...liveIds].filter(Boolean));
   const filter = teamFilter(
     upcomingMatches().filter((m) => !skip.has(m.id)),
     (m) => m.ownTeam,
@@ -131,7 +131,7 @@ function renderSchedule(status, announced) {
   const headline = status === "idle" ? list[0] : null;
   const later = (headline ? list.slice(1) : list).slice(0, headline ? 3 : 4);
 
-  const shown = JSON.stringify([status, filter.keys, filter.chosen, headline, later]);
+  const shown = JSON.stringify([status, filter.keys, filter.chosen, headline, later, liveIds]);
   if (shown === scheduleShown) return;
   scheduleShown = shown;
   const focusedFilter = focusedTeamFilter();
@@ -159,6 +159,20 @@ function renderSchedule(status, announced) {
     el.append(title, items);
   }
   focusTeamFilter(el, focusedFilter);
+}
+
+/**
+ * The schedule sits in the empty state while nothing is sent, and under the
+ * live cards while something is. Moved rather than drawn twice, so it keeps
+ * its state and focus.
+ */
+function placeSchedule(underLive) {
+  const el = dom.emptySchedule;
+  if (!el || el.classList.contains("under-live") === underLive) return;
+  el.classList.toggle("under-live", underLive);
+  if (underLive) dom.streamGrid.after(el);
+  else dom.emptyState.querySelector(".empty-content").append(el);
+  scheduleShown = "";
 }
 
 /** A match still to be played: its card and "Lägg till i kalendern". */
@@ -302,12 +316,18 @@ function renderStreamList(streams, broadcastState) {
     dom.streamGrid.innerHTML = "";
     dom.streamGrid.classList.add("hidden");
     dom.emptyState.classList.remove("hidden");
+    placeSchedule(false);
     updateEmptyState(broadcastState);
     return;
   }
 
   dom.emptyState.classList.add("hidden");
   dom.streamGrid.classList.remove("hidden");
+
+  // The coming matches stay in view under the live cards
+  placeSchedule(true);
+  const liveIds = streams.filter((s) => s.status !== "stopped").map((s) => s.matchId);
+  renderSchedule("live", broadcastState?.upcoming ?? [], liveIds);
 
   // Matches with more than one camera on the list
   const perMatch = new Map();
