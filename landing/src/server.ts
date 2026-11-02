@@ -14,6 +14,7 @@
  *   COURTSIDE_GIT_REF         branch or tag to build; default the newest release tag (vX.Y.Z)
  *   COURTSIDE_GIT_TOKEN       only while the repository is private, and
  *   COURTSIDE_GIT_TOKEN_TENANTS  then only for these tenants (comma-separated)
+ *   SMTP_*, EMAIL_FROM, CONTACT_TO  the contact form, see contact.ts
  */
 
 import crypto from "node:crypto";
@@ -24,6 +25,7 @@ import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import * as oauth from "./oauth.js";
 import { oscFor } from "./osc.js";
+import { contact, smtpFromEnv } from "./contact.js";
 import { isNewer, latestRelease } from "./release.js";
 import { install, invalidClub, Job, maxClubLength, names, NotNow, renewToken, repair, resetAdmin, sameRepo, siteDomain, Source, uninstall, upgrade } from "./install.js";
 
@@ -142,6 +144,14 @@ function backTo(returnTo: string, reason: "denied" | "failed" | "unavailable"): 
 }
 
 app.get("/health", async () => ({ ok: true }));
+
+const sendContact = contact(smtpFromEnv(), undefined, (err) => app.log.error({ err }, "Contact form could not send"));
+if (!process.env.SMTP_HOST || !process.env.CONTACT_TO) app.log.warn("Contact form is off: SMTP_HOST and CONTACT_TO are not set");
+
+app.post("/api/contact", { bodyLimit: 16 * 1024 }, async (req, reply) => {
+  const r = await sendContact(req.body, req.ip);
+  return reply.code(r.status).send(r.body);
+});
 
 app.get("/auth/signin", async (req, reply) => {
   const base = origin(req);
