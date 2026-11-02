@@ -171,6 +171,13 @@ describe("TeamRegistry", () => {
     expect(err.teamId).toBe(aik.id);
   });
 
+  it("ensure finds a name longer than it stores", async () => {
+    const long = "Idrottsföreningen med ett mycket långt namn som aldrig tar slut";
+    const first = await registry.ensure(long);
+    expect((await registry.ensure(long))?.id).toBe(first?.id);
+    expect(await registry.list()).toHaveLength(1);
+  });
+
   it("ensure creates an unknown team once, and only marks a new one as own", async () => {
     const first = await registry.ensure("Hammarby ", { own: false });
     const again = await registry.ensure("HAMMARBY");

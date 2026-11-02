@@ -126,7 +126,7 @@ describe("GET /match/:id", () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("text/html");
     expect(res.body).toContain('<meta property="og:title" content="P12 – Hornets">');
-    expect(res.body).toContain('<meta property="og:description" content="Söndag 1 november 2026 · Test Courtside. Matchen sänds live.">');
+    expect(res.body).toContain('<meta property="og:description" content="Söndag 1 november 2026 · Testhallen · Test Courtside. Matchen sänds live.">');
     expect(res.body).toMatch(
       new RegExp(`<meta property="og:image" content="https://club\\.example\\.com/api/matches/${match.id}/share\\.png\\?v=[0-9a-f]{12}">`),
     );
@@ -151,6 +151,25 @@ describe("GET /match/:id", () => {
     expect(res.body).toContain("Se reprisen.");
   });
 
+  it("tells a planned match's time and venue", async () => {
+    const own = await teams.create({ name: "P12", own: true });
+    const opponent = await teams.create({ name: "Hornets" });
+    const match = await matches.create({ date: "2026-11-08", time: "14:00", venue: "Sporthallen", ownTeamId: own.id, opponentId: opponent.id });
+    const res = await app.inject({ url: `/match/${match.id}`, headers: crawler });
+    expect(res.body).toContain('og:description" content="Söndag 8 november 2026 kl. 14:00 · Sporthallen · Test Courtside. Matchen sänds live."');
+    const en = await app.inject({ url: `/match/${match.id}?lang=en`, headers: crawler });
+    expect(en.body).toContain('og:description" content="Sunday, 8 November 2026 at 14:00 · Sporthallen · Test Courtside. The game will be streamed live."');
+  });
+
+  it("leaves the time out once the match is played", async () => {
+    const own = await teams.create({ name: "P12", own: true });
+    const opponent = await teams.create({ name: "Hornets" });
+    const match = await matches.create({ date: "2026-11-01", time: "14:00", venue: "Sporthallen", ownTeamId: own.id, opponentId: opponent.id });
+    storage.vods.push(recording("rec1", match.id, { result: { home: 72, away: 65 } as VodEntry["result"] }));
+    const res = await app.inject({ url: `/match/${match.id}`, headers: crawler });
+    expect(res.body).toContain('og:description" content="Söndag 1 november 2026 · Sporthallen · Test Courtside. Se reprisen."');
+  });
+
   it("escapes team names", async () => {
     const own = await teams.create({ name: 'P12 "B" <script>', own: true });
     const opponent = await teams.create({ name: "Hornets & Co" });
@@ -166,7 +185,7 @@ describe("GET /match/:id", () => {
 
     expect(res.body).toContain('<html lang="en">');
     expect(res.body).toContain(
-      '<meta property="og:description" content="Sunday, 1 November 2026 · Test Courtside. The game will be streamed live.">',
+      '<meta property="og:description" content="Sunday, 1 November 2026 · Testhallen · Test Courtside. The game will be streamed live.">',
     );
     expect(res.body).not.toContain("sänds");
     // The picture is the English one, and the link stays English when passed on.
@@ -335,6 +354,20 @@ describe("ShareImages", () => {
     expect(render).toHaveBeenCalledTimes(2);
     expect(render.mock.calls.map(([d]) => d.lang)).toEqual(["sv", "en"]);
     expect(images.version(match, "en")).not.toBe(images.version(match));
+  });
+
+  it("draws the time only before the match, and the venue always", async () => {
+    const render = vi.fn(async (_d: ShareDrawing) => Buffer.from("png"));
+    const images = new ShareImages(sources(), render);
+    const planned = { ...match, status: "planned", result: undefined, time: "14:00", venue: "Sporthallen" } as Match;
+    await images.image(planned);
+    expect(render.mock.calls[0][0]).toMatchObject({ time: "14:00", venue: "Sporthallen" });
+
+    await images.image({ ...planned, status: "ended" });
+    expect(render.mock.calls[1][0].time).toBeUndefined();
+    expect(render.mock.calls[1][0].venue).toBe("Sporthallen");
+    // A moved match is a new picture.
+    expect(images.version({ ...planned, venue: "Hallen" })).not.toBe(images.version(planned));
   });
 
   it("draws without logos when one cannot be read", async () => {

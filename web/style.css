@@ -3401,6 +3401,20 @@ footer a:hover { color: var(--accent-ink); }
   justify-content: center;
   margin-bottom: 6px;
 }
+
+/* Under the live cards: the same cards, laid out as the live ones */
+.empty-schedule.under-live {
+  margin: 28px 0 0;
+  max-width: none;
+  align-items: stretch;
+}
+.empty-schedule.under-live .empty-schedule-title { margin-top: 0; }
+.empty-schedule.under-live .team-filter { justify-content: flex-start; }
+.empty-schedule.under-live .empty-schedule-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
 .team-filter-btn {
   min-height: 44px;
   padding: 0 16px;

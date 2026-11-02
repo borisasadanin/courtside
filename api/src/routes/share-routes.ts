@@ -16,7 +16,7 @@ import { matches, teams } from "../state.js";
 import { clubManifest } from "../club-config.js";
 import type { Branding } from "../club-branding.js";
 import type { Match } from "../matches.js";
-import { SHARE_HEIGHT, SHARE_WIDTH, ShareImages, formatShareDate, shareTitle } from "../share-image.js";
+import { SHARE_HEIGHT, SHARE_WIDTH, ShareImages, shareTitle, shareWhen } from "../share-image.js";
 import { linkLang, say, type Lang, type Text } from "../i18n.js";
 
 /** Match ids are eight hex characters; anything far from that is not looked up. */
@@ -47,8 +47,9 @@ function originOf(request: FastifyRequest): string {
  */
 export function withMatchMeta(html: string, match: Match, origin: string, version: string, lang: Lang = "sv"): string {
   const title = shareTitle(match);
-  const date = formatShareDate(match.date, lang);
-  const description = `${date[0].toUpperCase()}${date.slice(1)} · ${clubManifest.name}. ${INVITE[match.status][lang]}`;
+  const when = shareWhen(match, lang);
+  const where = match.venue ? ` · ${match.venue}` : "";
+  const description = `${when[0].toUpperCase()}${when.slice(1)}${where} · ${clubManifest.name}. ${INVITE[match.status][lang]}`;
   // The picture and the link keep the language, so they match the words.
   const image = `${origin}/api/matches/${encodeURIComponent(match.id)}/share.png?v=${version}${lang === "en" ? "&lang=en" : ""}`;
   const url = `${origin}/match/${encodeURIComponent(match.id)}${lang === "en" ? "?lang=en" : ""}`;

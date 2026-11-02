@@ -105,6 +105,15 @@ describe("MatchSchedule", () => {
     schedule = new MatchSchedule(storage, registry, () => live);
   });
 
+  it("adds no typed team to the registry when the match is refused", async () => {
+    const own = await registry.ensure("P12", { own: true });
+    await expect(schedule.create({ date: "2026-11-08", ownTeamName: "Nya laget", opponentName: "nya laget" })).rejects.toThrow("Välj två olika lag.");
+    const match = await schedule.create({ date: "2026-11-08", ownTeamId: own!.id, opponentName: "AIK" });
+    await expect(schedule.update(match.id, { opponentName: "P12" })).rejects.toThrow("Välj två olika lag.");
+    await expect(schedule.update("saknas", { opponentName: "Täby" })).rejects.toThrow("Matchen finns inte.");
+    expect((await registry.list()).map((t) => t.name).sort()).toEqual(["AIK", "P12"]);
+  });
+
   it("stores a match in the club's storage, with the club's venue unless another is given", async () => {
     const p12 = await registry.create({ name: "P12", own: true });
     const match = await schedule.create({ date: "2026-11-08", time: "14:00", ownTeamId: p12.id, opponentName: "Hornets" });
