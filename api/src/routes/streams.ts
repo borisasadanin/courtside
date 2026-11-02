@@ -16,7 +16,7 @@ import type { CreateStreamBody, StreamInfo, StreamPublicInfo, VodEntry } from ".
 import { streamStartedBy } from "../broadcast-state.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "../club-config.js";
 import { saveStreamMetaSoon } from "../stream-meta-store.js";
-import { recordingStopped, withLivePictures } from "../match-images.js";
+import { forgetLivePicture, recordingStopped, withLivePictures } from "../match-images.js";
 import { matches } from "../state.js";
 import { clubDate, type MatchSummary } from "../matches.js";
 
@@ -753,6 +753,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         if (meta.stoppedAt && now - new Date(meta.stoppedAt).getTime() > config.STOPPED_TTL_MS) {
           streamMeta.delete(streamId);
           clipsByStream.delete(streamId);
+          forgetLivePicture(streamId);
         }
       }
       return;
@@ -831,6 +832,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         if (meta.stoppedAt && now - new Date(meta.stoppedAt).getTime() > config.STOPPED_TTL_MS) {
           streamMeta.delete(streamId);
           clipsByStream.delete(streamId);
+          forgetLivePicture(streamId);
         }
       }
     } catch (err) {

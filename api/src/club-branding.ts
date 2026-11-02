@@ -115,12 +115,12 @@ export class Branding {
     await this.save(rest);
   }
 
-  /** The uploaded logo, or null when the club has not uploaded one. */
   /** Changes whenever the uploaded logo does; null when there is none. */
   logoVersion(): string | null {
     return this.record?.logoType ? this.record.updatedAt : null;
   }
 
+  /** The uploaded logo, or null when the club has not uploaded one. */
   async logo(): Promise<{ bytes: Buffer; type: string } | null> {
     if (!this.record?.logoType) return null;
     return { bytes: await this.storage.downloadBuffer(LOGO_KEY), type: this.record.logoType };

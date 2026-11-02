@@ -192,6 +192,11 @@ export class MatchSchedule {
     const date = checkDate(input.date);
     const time = checkTime(input.time);
     const venue = input.venue === undefined ? clubManifest.venue : checkVenue(input.venue);
+    // Refused before a typed team is added to the registry
+    const ownAsked = await this.teamAsked(input.ownTeamId, input.ownTeamName);
+    const opponentAsked = await this.teamAsked(input.opponentId, input.opponentName);
+    if (!ownAsked || !opponentAsked) throw new MatchError("Välj eget lag och motståndare.", 400);
+    checkTwoTeams(ownAsked, opponentAsked);
     const ownTeam = await this.teamFromInput(input.ownTeamId, input.ownTeamName, true);
     const opponent = await this.teamFromInput(input.opponentId, input.opponentName, false);
     if (!ownTeam || !opponent) throw new MatchError("Välj eget lag och motståndare.", 400);
@@ -224,6 +229,13 @@ export class MatchSchedule {
     const date = input.date === undefined ? undefined : checkDate(input.date);
     const time = input.time === undefined ? undefined : checkTime(input.time);
     const venue = input.venue === undefined ? undefined : checkVenue(input.venue);
+    // Refused before a typed team is added to the registry
+    const before = (await this.load()).find((m) => m.id === id);
+    if (!before) throw new MatchError("Matchen finns inte.", 404);
+    checkTwoTeams(
+      (await this.teamAsked(input.ownTeamId, input.ownTeamName)) ?? before.ownTeam,
+      (await this.teamAsked(input.opponentId, input.opponentName)) ?? before.opponent,
+    );
     const ownTeam = await this.teamFromInput(input.ownTeamId, input.ownTeamName, true);
     const opponent = await this.teamFromInput(input.opponentId, input.opponentName, false);
 
@@ -347,6 +359,21 @@ export class MatchSchedule {
     });
     this.queue = run.catch(() => {});
     return run;
+  }
+
+  /**
+   * The team the input asks for, without adding a named one to the registry:
+   * enough to refuse a match against itself first. Null when the input names none.
+   */
+  private async teamAsked(id: unknown, name: unknown): Promise<TeamRef | null> {
+    if (typeof id === "string" && id) {
+      const team = await this.teams.get(id);
+      if (!team) throw new MatchError("Laget finns inte.", 400);
+      return { id: team.id, name: team.name };
+    }
+    if (typeof name !== "string" || !normalizeName(name)) return null;
+    const team = await this.teams.findByName(name);
+    return team ? { id: team.id, name: team.name } : { name: normalizeName(name) };
   }
 
   /** A team picked by id, or named and added to the registry; null when the input names none. */

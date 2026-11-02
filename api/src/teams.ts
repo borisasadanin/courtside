@@ -222,13 +222,15 @@ export class TeamRegistry {
    */
   async ensure(name: string, opts: { own?: boolean } = {}): Promise<Team | null> {
     if (typeof name !== "string" || !normalizeName(name)) return null;
-    const found = await this.findByName(name);
+    // Looked up as it is stored, so a long name finds its team the next time too.
+    const stored = normalizeName(name).slice(0, MAX_NAME);
+    const found = await this.findByName(stored);
     if (found) return found;
     return this.exclusive(async (records) => {
       // Someone may have added it while this waited its turn.
-      const existing = this.owner(records, name);
+      const existing = this.owner(records, stored);
       if (existing) return { records, result: present(existing) };
-      const team = this.newRecord(normalizeName(name).slice(0, MAX_NAME), opts.own === true);
+      const team = this.newRecord(stored, opts.own === true);
       return { records: [...records, team], result: present(team) };
     });
   }
