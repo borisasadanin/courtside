@@ -56,22 +56,22 @@ describe("Setup", () => {
   it("refuses the wrong code", async () => {
     const setup = new Setup(memoryStorage(), CODE);
     await setup.load();
-    expect(await setup.complete({ code: "WRNG-CODE", adminPin: "123456" })).toMatch(/Fel/);
+    expect((await setup.complete({ code: "WRNG-CODE", adminPin: "123456" }))?.sv).toMatch(/Fel/);
     expect(setup.isRequired()).toBe(true);
   });
 
   it("validates the PINs", async () => {
     const setup = new Setup(memoryStorage(), CODE);
     await setup.load();
-    expect(await setup.complete({ code: CODE, adminPin: "1234" })).toMatch(/6–8/);
-    expect(await setup.complete({ code: CODE, adminPin: "123456", viewerPin: "12" })).toMatch(/4–8/);
-    expect(await setup.complete({ code: CODE, adminPin: "123456", viewerPin: "123456" })).toMatch(/olika/);
+    expect((await setup.complete({ code: CODE, adminPin: "1234" }))?.sv).toMatch(/6–8/);
+    expect((await setup.complete({ code: CODE, adminPin: "123456", viewerPin: "12" }))?.sv).toMatch(/4–8/);
+    expect((await setup.complete({ code: CODE, adminPin: "123456", viewerPin: "123456" }))?.sv).toMatch(/olika/);
   });
 
   it("does not leave watching open just because the viewer PIN was left empty", async () => {
     const setup = new Setup(memoryStorage(), CODE);
     await setup.load();
-    expect(await setup.complete({ code: CODE, adminPin: "123456" })).toMatch(/tittarkod/);
+    expect((await setup.complete({ code: CODE, adminPin: "123456" }))?.sv).toMatch(/tittarkod/);
     expect(setup.isRequired()).toBe(true);
     expect(await setup.complete({ code: CODE, adminPin: "123456", openAccess: true })).toBeNull();
     expect(mutableConfig.VIEWER_PIN).toBe("");
@@ -90,7 +90,7 @@ describe("Setup", () => {
     expect(mutableConfig.ADMIN_PIN).toBe("123456");
     expect(mutableConfig.VIEWER_PIN).toBe("2468");
     expect(storage.files.has(SETUP_KEY)).toBe(true);
-    expect(await setup.complete({ code: CODE, adminPin: "654321" })).toMatch(/redan/);
+    expect((await setup.complete({ code: CODE, adminPin: "654321" }))?.sv).toMatch(/redan/);
   });
 
   it("restores the PINs after a restart", async () => {

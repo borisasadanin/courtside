@@ -4,6 +4,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { config, mutableConfig } from "./config.js";
 import { devices } from "./state.js";
+import { say } from "./i18n.js";
 
 // --- Session tokens ---
 //
@@ -94,7 +95,10 @@ export async function requireBroadcasterAuth(
 
   reply.code(401).send({
     error: "not_paired",
-    message: "Kameran är inte parad med den här installationen.",
+    message: say(request, {
+      sv: "Kameran är inte parad med den här installationen.",
+      en: "The camera is not paired with this installation.",
+    }),
   });
   return false;
 }
@@ -140,7 +144,7 @@ export function requireViewerAuth(request: RequestLike, reply: ReplyLike): boole
     if (isValidViewerToken(token)) return true;
   }
 
-  reply.code(401).send({ error: "Åtkomst nekad. Ange kod för att titta." });
+  reply.code(401).send({ error: say(request, { sv: "Åtkomst nekad. Ange kod för att titta.", en: "Access denied. Enter the code to watch." }) });
   return false;
 }
 
@@ -153,6 +157,6 @@ export function requireAdminAuth(request: RequestLike, reply: ReplyLike): boolea
   const key = request.headers["x-api-key"];
   if (config.API_KEY && key === config.API_KEY) return true;
 
-  reply.code(401).send({ error: "Admin-åtkomst krävs" });
+  reply.code(401).send({ error: say(request, { sv: "Admin-åtkomst krävs", en: "Admin access required" }) });
   return false;
 }

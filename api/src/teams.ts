@@ -13,6 +13,7 @@
  */
 import crypto from "node:crypto";
 import { decodeLogo } from "./club-branding.js";
+import type { Text } from "./i18n.js";
 
 export const TEAMS_KEY = "config/teams.json";
 
@@ -68,8 +69,8 @@ interface TeamStorage {
 
 /** A refused change, with the message for the admin and the HTTP status to send. */
 export class TeamError extends Error {
-  constructor(message: string, readonly status: number, readonly teamId?: string) {
-    super(message);
+  constructor(readonly text: Text, readonly status: number, readonly teamId?: string) {
+    super(text.sv);
   }
 }
 
@@ -285,7 +286,7 @@ export class TeamRegistry {
     return this.exclusive(async (records) => {
       const team = this.find(records, id);
       const logo = decodeLogo(dataUrl);
-      if (typeof logo === "string") throw new TeamError(logo, 400);
+      if ("sv" in logo) throw new TeamError(logo, 400);
       await this.storage.uploadBuffer(teamLogoKey(id), logo.bytes, logo.type);
       const next = { ...team, logoType: logo.type, updatedAt: new Date().toISOString() };
       return { records: records.map((t) => (t.id === id ? next : t)), result: present(next) };
@@ -316,7 +317,7 @@ export class TeamRegistry {
    * takes from the duplicate.
    */
   async merge(keepId: string, dropId: string): Promise<Team> {
-    if (keepId === dropId) throw new TeamError("Välj två olika lag.", 400);
+    if (keepId === dropId) throw new TeamError({ sv: "Välj två olika lag.", en: "Choose two different teams." }, 400);
     return this.exclusive(async (records) => {
       const keep = this.find(records, keepId);
       const drop = this.find(records, dropId);
@@ -382,7 +383,7 @@ export class TeamRegistry {
 
   private find(records: TeamRecord[], id: string): TeamRecord {
     const team = records.find((t) => t.id === id);
-    if (!team) throw new TeamError("Laget finns inte.", 404);
+    if (!team) throw new TeamError({ sv: "Laget finns inte.", en: "The team does not exist." }, 404);
     return team;
   }
 
@@ -394,10 +395,14 @@ export class TeamRegistry {
   /** A valid name not used by another team, or a TeamError. */
   private checkName(records: TeamRecord[], raw: unknown, self?: string): string {
     const name = normalizeName(typeof raw === "string" ? raw : "");
-    if (!name || name.length > MAX_NAME) throw new TeamError(`Namnet ska vara 1–${MAX_NAME} tecken.`, 400);
+    if (!name || name.length > MAX_NAME) throw new TeamError({ sv: `Namnet ska vara 1–${MAX_NAME} tecken.`, en: `The name must be 1–${MAX_NAME} characters.` }, 400);
     const other = this.owner(records, name);
     if (other && other.id !== self) {
-      throw new TeamError(`Det finns redan ett lag som heter ${other.name}.`, 409, other.id);
+      throw new TeamError(
+        { sv: `Det finns redan ett lag som heter ${other.name}.`, en: `There is already a team called ${other.name}.` },
+        409,
+        other.id,
+      );
     }
     return name;
   }
@@ -406,12 +411,12 @@ export class TeamRegistry {
     const out: Pick<TeamRecord, "shortName" | "color"> = {};
     const shortName = typeof input.shortName === "string" ? input.shortName.replace(/\s+/g, "").toUpperCase() : "";
     if (shortName) {
-      if (!SHORT_NAME.test(shortName)) throw new TeamError("Kortnamnet ska vara 2–4 bokstäver eller siffror.", 400);
+      if (!SHORT_NAME.test(shortName)) throw new TeamError({ sv: "Kortnamnet ska vara 2–4 bokstäver eller siffror.", en: "The short name must be 2–4 letters or digits." }, 400);
       out.shortName = shortName;
     }
     const color = typeof input.color === "string" ? input.color.trim() : "";
     if (color) {
-      if (!COLOUR.test(color)) throw new TeamError("Färgen ska anges som #RRGGBB.", 400);
+      if (!COLOUR.test(color)) throw new TeamError({ sv: "Färgen ska anges som #RRGGBB.", en: "Colours are written as #RRGGBB." }, 400);
       out.color = color.toLowerCase();
     }
     return out;

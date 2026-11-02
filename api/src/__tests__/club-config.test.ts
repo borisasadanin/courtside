@@ -108,9 +108,9 @@ describe("club branding from the admin view", () => {
     const { Branding } = await import("../club-branding.js");
     const branding = new Branding(memoryStorage());
     await branding.load();
-    expect(await branding.update({ name: "", accentColor: "#112233" })).toMatch(/Namnet/);
-    expect(await branding.update({ name: "X", accentColor: "red" })).toMatch(/Färgen/);
-    expect(await branding.setLogo("data:image/svg+xml;base64,PHN2Zz4=")).toMatch(/PNG/);
+    expect((await branding.update({ name: "", accentColor: "#112233" }))?.sv).toMatch(/Namnet/);
+    expect((await branding.update({ name: "X", accentColor: "red" }))?.sv).toMatch(/Färgen/);
+    expect((await branding.setLogo("data:image/svg+xml;base64,PHN2Zz4="))?.sv).toMatch(/PNG/);
   });
 
   it("serves the logo publicly and changes it only for an admin", async () => {
@@ -160,8 +160,8 @@ describe("club branding from the admin view", () => {
     const { Branding } = await import("../club-branding.js");
     const branding = new Branding(memoryStorage());
     await branding.load();
-    expect(await branding.updatePrivacy({ contact: "ring Anna" })).toMatch(/e-post/);
-    expect(await branding.updatePrivacy({ policyUrl: "javascript:alert(1)" })).toMatch(/https/);
+    expect((await branding.updatePrivacy({ contact: "ring Anna" }))?.sv).toMatch(/e-post/);
+    expect((await branding.updatePrivacy({ policyUrl: "javascript:alert(1)" }))?.sv).toMatch(/https/);
     expect(await branding.updatePrivacy({ controller: "", contact: "", policyUrl: "" })).toBeNull();
   });
 });

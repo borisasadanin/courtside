@@ -9,10 +9,11 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isValidAdminToken, requireAdminAuth, requireViewerOrBroadcasterAuth } from "../auth.js";
 import { matches } from "../state.js";
 import { MatchError, isMatchDate, type MatchInput } from "../matches.js";
+import { say } from "../i18n.js";
 
 /** Answer a refused change with its message; anything else is a server error. */
-function refuse(reply: FastifyReply, err: unknown) {
-  if (err instanceof MatchError) return reply.code(err.status).send({ error: err.message });
+function refuse(request: FastifyRequest, reply: FastifyReply, err: unknown) {
+  if (err instanceof MatchError) return reply.code(err.status).send({ error: say(request, err.text) });
   throw err;
 }
 
@@ -30,7 +31,7 @@ export default async function matchRoutes(app: FastifyInstance): Promise<void> {
     const { from, to } = request.query;
     for (const value of [from, to]) {
       if (value !== undefined && !isMatchDate(value)) {
-        return reply.code(400).send({ error: "invalid_date", message: "Datum ska anges som ÅÅÅÅ-MM-DD." });
+        return reply.code(400).send({ error: "invalid_date", message: say(request, { sv: "Datum ska anges som ÅÅÅÅ-MM-DD.", en: "Dates are written as YYYY-MM-DD." }) });
       }
     }
     return reply.header("Cache-Control", "no-cache").send(await matches.list({ from, to }));
@@ -40,7 +41,7 @@ export default async function matchRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { id: string } }>("/api/matches/:id", async (request, reply) => {
     if (!(await viewerAccess(request, reply))) return;
     const match = await matches.get(request.params.id);
-    if (!match) return reply.code(404).send({ error: "match_not_found", message: "Matchen finns inte." });
+    if (!match) return reply.code(404).send({ error: "match_not_found", message: say(request, { sv: "Matchen finns inte.", en: "The game does not exist." }) });
     return reply.header("Cache-Control", "no-cache").send(match);
   });
 
@@ -50,7 +51,7 @@ export default async function matchRoutes(app: FastifyInstance): Promise<void> {
     try {
       return reply.code(201).send(await matches.create(request.body || {}));
     } catch (err) {
-      return refuse(reply, err);
+      return refuse(request, reply, err);
     }
   });
 
@@ -60,7 +61,7 @@ export default async function matchRoutes(app: FastifyInstance): Promise<void> {
     try {
       return reply.send(await matches.update(request.params.id, request.body || {}));
     } catch (err) {
-      return refuse(reply, err);
+      return refuse(request, reply, err);
     }
   });
 
@@ -71,7 +72,7 @@ export default async function matchRoutes(app: FastifyInstance): Promise<void> {
       await matches.remove(request.params.id);
       return reply.code(204).send();
     } catch (err) {
-      return refuse(reply, err);
+      return refuse(request, reply, err);
     }
   });
 }

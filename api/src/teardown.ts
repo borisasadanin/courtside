@@ -13,6 +13,7 @@
 import { Context, getInstance, removeInstance } from "@osaas/client-core";
 import { config } from "./config.js";
 import type { MinioClient } from "./minio.js";
+import type { Lang, Text } from "./i18n.js";
 
 const STORAGE_SERVICE = "minio-minio";
 const RESTREAMER_SERVICE = "datarhei-restreamer";
@@ -63,23 +64,31 @@ export async function call<T>(method: string, url: string, body?: unknown): Prom
  * it cannot be found: only one made from the Courtside page carries the names
  * to look it up by.  `fix` ends the reason with where to do it by hand.
  */
-export async function ownApp(fix: string): Promise<{ club: string; record: Record<string, unknown> } | string> {
+export async function ownApp(fix: Text): Promise<{ club: string; record: Record<string, unknown> } | Text> {
   const club = clubOf(config.PROCESS_PREFIX);
-  if (!club) return `Den här installationen gjordes inte från Courtside-sidan. ${fix}`;
+  if (!club) {
+    return {
+      sv: `Den här installationen gjordes inte från Courtside-sidan. ${fix.sv}`,
+      en: `This installation was not made from the Courtside page. ${fix.en}`,
+    };
+  }
   const name = `${club}api`;
   const store = `${club}config`;
   const apps = await call<Record<string, unknown>[]>("GET", `${deployBase()}/myapps`);
   const record = (apps ?? []).find((a) => a.name === name);
   if (!record || record.configService !== store) {
-    return `Hittar ingen Courtside-app som heter ${name} med inställningarna ${store}. ${fix}`;
+    return {
+      sv: `Hittar ingen Courtside-app som heter ${name} med inställningarna ${store}. ${fix.sv}`,
+      en: `Cannot find a Courtside app called ${name} with the settings ${store}. ${fix.en}`,
+    };
   }
   return { club, record };
 }
 
 /** What would be removed, or the reason this installation cannot remove itself. */
-export async function plan(): Promise<Plan | string> {
-  const own = await ownApp("Ta bort den i Open Source Cloud.");
-  if (typeof own === "string") return own;
+export async function plan(): Promise<Plan | Text> {
+  const own = await ownApp({ sv: "Ta bort den i Open Source Cloud.", en: "Remove it in Open Source Cloud." });
+  if ("sv" in own) return own;
   const { club, record } = own;
   const name = `${club}api`;
   return {
@@ -97,31 +106,31 @@ export async function plan(): Promise<Plan | string> {
  * Everything but the app and its tokens.  Each step runs even if an earlier
  * one failed, so as much as possible is gone either way.
  */
-export async function removeData(p: Plan, minio: MinioClient): Promise<Removed[]> {
+export async function removeData(p: Plan, minio: MinioClient, lang: Lang = "sv"): Promise<Removed[]> {
   const ctx = new Context({ personalAccessToken: config.OSC_PAT, environment: config.OSC_REGION });
   const out: Removed[] = [];
-  const step = async (what: string, f: () => Promise<string | void>) => {
+  const step = async (what: Text, f: () => Promise<Text | void>) => {
     try {
-      out.push({ what, ok: true, detail: (await f()) || undefined });
+      out.push({ what: what[lang], ok: true, detail: (await f())?.[lang] });
     } catch (err) {
-      out.push({ what, ok: false, detail: err instanceof Error ? err.message : String(err) });
+      out.push({ what: what[lang], ok: false, detail: err instanceof Error ? err.message : String(err) });
     }
   };
 
-  await step("Inspelningar, klipp, inställningar och koder", async () => {
+  await step({ sv: "Inspelningar, klipp, inställningar och koder", en: "Recordings, clips, settings and codes" }, async () => {
     const n = await minio.deleteEverything();
-    return `${n} filer raderade`;
+    return { sv: `${n} filer raderade`, en: `${n} files deleted` };
   });
-  await step(`Sändningsmotorn (${p.restreamer})`, async () => {
+  await step({ sv: `Sändningsmotorn (${p.restreamer})`, en: `The broadcast engine (${p.restreamer})` }, async () => {
     const sat = await ctx.getServiceAccessToken(RESTREAMER_SERVICE);
-    if (!(await getInstance(ctx, RESTREAMER_SERVICE, p.restreamer, sat))) return "var redan avstängd";
+    if (!(await getInstance(ctx, RESTREAMER_SERVICE, p.restreamer, sat))) return { sv: "var redan avstängd", en: "was already off" };
     await removeInstance(ctx, RESTREAMER_SERVICE, p.restreamer, sat);
   });
-  await step(`Lagringen (${p.storage})`, async () => {
+  await step({ sv: `Lagringen (${p.storage})`, en: `The storage (${p.storage})` }, async () => {
     const sat = await ctx.getServiceAccessToken(STORAGE_SERVICE);
     await removeInstance(ctx, STORAGE_SERVICE, p.storage, sat);
   });
-  await step(`Inställningar och lösenord (${p.store})`, async () => {
+  await step({ sv: `Inställningar och lösenord (${p.store})`, en: `Settings and passwords (${p.store})` }, async () => {
     await call("DELETE", `${deployBase()}/parameter-stores/${encodeURIComponent(p.store)}`);
   });
   return out;

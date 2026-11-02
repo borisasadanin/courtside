@@ -10,6 +10,7 @@ import { clubManifest, absoluteLogoUrl } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { keysReferencedBy } from "./media.js";
 import { deleteClip, logDeletion } from "../erasure.js";
+import { linkLang, say } from "../i18n.js";
 
 /** Track last clip time per stream to prevent spam */
 const lastClipTime = new Map<string, number>();
@@ -27,22 +28,22 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
       // Rate limit: max 1 clip per 5 seconds per stream
       const lastTime = lastClipTime.get(id) || 0;
       if (Date.now() - lastTime < MIN_CLIP_INTERVAL_MS) {
-        return reply.code(429).send({ error: "too_fast", message: "Vänta några sekunder mellan klipp" });
+        return reply.code(429).send({ error: "too_fast", message: say(request, { sv: "Vänta några sekunder mellan klipp", en: "Wait a few seconds between clips" }) });
       }
 
       const meta = streamMeta.get(id);
       if (!meta) {
-        return reply.code(404).send({ error: "stream_not_found", message: "Strömmen hittades inte" });
+        return reply.code(404).send({ error: "stream_not_found", message: say(request, { sv: "Strömmen hittades inte", en: "Stream not found" }) });
       }
       if (meta.stoppedAt) {
-        return reply.code(400).send({ error: "stream_stopped", message: "Strömmen är redan stoppad" });
+        return reply.code(400).send({ error: "stream_stopped", message: say(request, { sv: "Strömmen är redan stoppad", en: "The stream has already been stopped" }) });
       }
 
       const collector = collectors.get(id);
       if (!collector) {
         return reply
           .code(400)
-          .send({ error: "no_collector", message: "Ingen segmentinsamling aktiv för denna ström" });
+          .send({ error: "no_collector", message: say(request, { sv: "Ingen segmentinsamling aktiv för denna ström", en: "No segment collection is running for this stream" }) });
       }
 
       // Use provided timestamp or fall back to now
@@ -50,7 +51,7 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
       const buttonPressTimestamp = body.timestamp ? new Date(body.timestamp).getTime() : Date.now();
 
       if (isNaN(buttonPressTimestamp)) {
-        return reply.code(400).send({ error: "invalid_timestamp", message: "Ogiltig tidsstämpel" });
+        return reply.code(400).send({ error: "invalid_timestamp", message: say(request, { sv: "Ogiltig tidsstämpel", en: "Invalid timestamp" }) });
       }
 
       try {
@@ -76,7 +77,7 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
         request.log.error(err, "Failed to create clip");
         return reply.code(500).send({
           error: "clip_failed",
-          message: err instanceof Error ? err.message : "Kunde inte skapa klipp",
+          message: err instanceof Error ? err.message : say(request, { sv: "Kunde inte skapa klipp", en: "Could not create the clip" }),
         });
       }
     },
@@ -142,14 +143,14 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
         const clips = await minio.readClipsIndex();
         const clip = clips.find((c) => c.id === id);
         if (!clip) {
-          return reply.code(404).send({ error: "clip_not_found", message: "Klippet hittades inte" });
+          return reply.code(404).send({ error: "clip_not_found", message: say(request, { sv: "Klippet hittades inte", en: "Clip not found" }) });
         }
         // No MP4: the shared page plays the clip, it does not hand out a download.
         const { mp4Url: _download, ...shared } = clip;
         return reply.send(shared);
       } catch (err) {
         request.log.error(err, "Failed to read clip");
-        return reply.code(500).send({ error: "read_failed", message: "Kunde inte läsa klipp" });
+        return reply.code(500).send({ error: "read_failed", message: say(request, { sv: "Kunde inte läsa klipp", en: "Could not read the clip" }) });
       }
     },
   );
@@ -157,16 +158,18 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/clips/:id/og — Open Graph HTML for WhatsApp/social media link previews.
   // Also at /c/:id, the link the share buttons hand out: the website is served
   // from this origin, so there is no Cloudflare Worker in front to map it.
+  // In English for ?lang=en, which the English site adds to the links it shares.
   const ogPage = async (
-    request: FastifyRequest<{ Params: { id: string } }>,
+    request: FastifyRequest<{ Params: { id: string }; Querystring: { lang?: string } }>,
     reply: FastifyReply,
   ) => {
     const { id } = request.params;
+    const en = linkLang(request.query.lang) === "en";
     try {
       const clips = await minio.readClipsIndex();
       const clip = clips.find((c) => c.id === id);
       if (!clip) {
-        return reply.code(404).type("text/html").send("<h1>Klippet hittades inte</h1>");
+        return reply.code(404).type("text/html").send(en ? "<h1>Clip not found</h1>" : "<h1>Klippet hittades inte</h1>");
       }
 
       // Social crawlers need absolute URLs. Media paths are relative to this
@@ -177,7 +180,7 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
       const absolute = (path?: string): string =>
         !path ? "" : /^https?:\/\//.test(path) ? path : `${proto}://${host}${path}`;
 
-      const label = clip.label || "Höjdpunkt";
+      const label = clip.label || (en ? "Highlight" : "Höjdpunkt");
       const siteUrl = clubManifest.siteUrl || `${proto}://${host}`;
       const clipPageUrl = `${siteUrl}/clip.html#${encodeURIComponent(clip.id)}`;
 
@@ -193,9 +196,9 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
       const title = matchTitle
         ? `${label} — ${matchTitle}`
         : `${label} — ${clubName}`;
-      const description = matchTitle
-        ? `Höjdpunkt från ${matchTitle} — ${clubName}`
-        : `Höjdpunkt från matchen — ${clubName}`;
+      const description = en
+        ? `Highlight from ${matchTitle || "the match"} — ${clubName}`
+        : `Höjdpunkt från ${matchTitle || "matchen"} — ${clubName}`;
 
       // Detect bot crawlers (WhatsApp, Facebook, Telegram, etc.)
       const ua = (request.headers["user-agent"] || "").toLowerCase();
@@ -209,7 +212,7 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
 <script>setTimeout(function(){window.location.href="${clipPageUrl}"},800)</script>`;
 
       const html = `<!DOCTYPE html>
-<html>
+<html lang="${en ? "en" : "sv"}">
 <head>
 <meta charset="UTF-8">
 <meta property="og:type" content="website">
@@ -219,17 +222,17 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
 ${redirectTag}
 <title>${title}</title>
 </head>
-<body><p>Omdirigerar...</p></body>
+<body><p>${en ? "Redirecting..." : "Omdirigerar..."}</p></body>
 </html>`;
 
       return reply.type("text/html").send(html);
     } catch (err) {
       request.log.error(err, "Failed to serve OG page for clip");
-      return reply.code(500).type("text/html").send("<h1>Serverfel</h1>");
+      return reply.code(500).type("text/html").send(en ? "<h1>Server error</h1>" : "<h1>Serverfel</h1>");
     }
   };
-  app.get<{ Params: { id: string } }>("/api/clips/:id/og", ogPage);
-  app.get<{ Params: { id: string } }>("/c/:id", ogPage);
+  app.get<{ Params: { id: string }; Querystring: { lang?: string } }>("/api/clips/:id/og", ogPage);
+  app.get<{ Params: { id: string }; Querystring: { lang?: string } }>("/c/:id", ogPage);
 
   // GET /api/clips/:id — Get a specific highlight clip by ID
   app.get<{ Params: { id: string } }>(
@@ -242,12 +245,12 @@ ${redirectTag}
         const clips = await minio.readClipsIndex();
         const clip = clips.find((c) => c.id === id);
         if (!clip) {
-          return reply.code(404).send({ error: "clip_not_found", message: "Klippet hittades inte" });
+          return reply.code(404).send({ error: "clip_not_found", message: say(request, { sv: "Klippet hittades inte", en: "Clip not found" }) });
         }
         return reply.send(clip);
       } catch (err) {
         request.log.error(err, "Failed to read clip");
-        return reply.code(500).send({ error: "read_failed", message: "Kunde inte läsa klipp" });
+        return reply.code(500).send({ error: "read_failed", message: say(request, { sv: "Kunde inte läsa klipp", en: "Could not read the clip" }) });
       }
     },
   );
@@ -266,7 +269,7 @@ ${redirectTag}
       try {
         const erased = await deleteClip(minio, id);
         if (!erased.found) {
-          return reply.code(404).send({ error: "clip_not_found", message: "Klippet hittades inte" });
+          return reply.code(404).send({ error: "clip_not_found", message: say(request, { sv: "Klippet hittades inte", en: "Clip not found" }) });
         }
         request.log.info(`Deleted clip ${id}: ${erased.files} files`);
         const streamId = erased.clips[0].streamId;
@@ -281,7 +284,7 @@ ${redirectTag}
         return reply.code(204).send();
       } catch (err) {
         request.log.error(err, "Failed to delete clip");
-        return reply.code(500).send({ error: "delete_failed", message: "Kunde inte ta bort klippet" });
+        return reply.code(500).send({ error: "delete_failed", message: say(request, { sv: "Kunde inte ta bort klippet", en: "Could not delete the clip" }) });
       }
     },
   );

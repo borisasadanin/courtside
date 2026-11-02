@@ -9,6 +9,7 @@ import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { deleteMatch, logDeletion } from "../erasure.js";
 import { matchCover } from "../match-images.js";
 import type { MatchResult, VodEntry } from "../types.js";
+import { say } from "../i18n.js";
 
 /** How long after a match the camera may still report its result. After that, only the admin. */
 export const CAMERA_RESULT_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -134,29 +135,29 @@ export default async function vodRoutes(app: FastifyInstance): Promise<void> {
 
       const { home, away } = request.body ?? {};
       if (!isScore(home) || !isScore(away)) {
-        return reply.code(400).send({ error: "invalid_result", message: "Resultatet ska vara två heltal mellan 0 och 999" });
+        return reply.code(400).send({ error: "invalid_result", message: say(request, { sv: "Resultatet ska vara två heltal mellan 0 och 999", en: "The result must be two whole numbers between 0 and 999" }) });
       }
 
       const { id } = request.params;
       try {
         const entry = (await minio.readVodIndex()).find((v) => v.id === id);
         if (!entry) {
-          return reply.code(404).send({ error: "not_found", message: "Inspelningen hittades inte" });
+          return reply.code(404).send({ error: "not_found", message: say(request, { sv: "Inspelningen hittades inte", en: "Recording not found" }) });
         }
         // A camera reporting late must never overwrite what the admin corrected since.
         if (!asAdmin && entry.stoppedAt && Date.now() - new Date(entry.stoppedAt).getTime() > CAMERA_RESULT_WINDOW_MS) {
-          return reply.code(403).send({ error: "result_locked", message: "Resultatet kan nu bara ändras av admin i Hantera" });
+          return reply.code(403).send({ error: "result_locked", message: say(request, { sv: "Resultatet kan nu bara ändras av admin i Hantera", en: "The result can now only be changed by the admin in Manage" }) });
         }
 
         const result: MatchResult = { home, away, setBy: asAdmin ? "admin" : "camera", setAt: new Date().toISOString() };
         if (!(await minio.updateVodEntry(id, { result }))) {
-          return reply.code(404).send({ error: "not_found", message: "Inspelningen hittades inte" });
+          return reply.code(404).send({ error: "not_found", message: say(request, { sv: "Inspelningen hittades inte", en: "Recording not found" }) });
         }
         request.log.info(`Result for ${id}: ${home}–${away} (${result.setBy})`);
         return reply.send(result);
       } catch (err) {
         request.log.error(err, "Failed to save result");
-        return reply.code(500).send({ error: "save_failed", message: "Kunde inte spara resultatet" });
+        return reply.code(500).send({ error: "save_failed", message: say(request, { sv: "Kunde inte spara resultatet", en: "Could not save the result" }) });
       }
     }
   );
@@ -171,24 +172,24 @@ export default async function vodRoutes(app: FastifyInstance): Promise<void> {
       const { id } = request.params;
       const clipId = request.body?.clipId;
       if (clipId !== null && typeof clipId !== "string") {
-        return reply.code(400).send({ error: "invalid_clip", message: "Välj ett klipp" });
+        return reply.code(400).send({ error: "invalid_clip", message: say(request, { sv: "Välj ett klipp", en: "Choose a clip" }) });
       }
       try {
         const [entries, clips] = await Promise.all([minio.readVodIndex(), minio.readClipsIndex()]);
         const entry = entries.find((e) => e.id === id);
         if (!entry) {
-          return reply.code(404).send({ error: "not_found", message: "Inspelningen hittades inte" });
+          return reply.code(404).send({ error: "not_found", message: say(request, { sv: "Inspelningen hittades inte", en: "Recording not found" }) });
         }
         // Only a highlight of this match, and one that has a picture.
         if (clipId !== null && !clips.some((c) => c.id === clipId && c.streamId === id && c.thumbnailUrl)) {
-          return reply.code(400).send({ error: "invalid_clip", message: "Klippet har ingen bild från den här matchen" });
+          return reply.code(400).send({ error: "invalid_clip", message: say(request, { sv: "Klippet har ingen bild från den här matchen", en: "The clip has no picture from this game" }) });
         }
         const coverClipId = clipId ?? undefined;
         await minio.updateVodEntry(id, { coverClipId });
         return reply.send({ cover: matchCover({ ...entry, coverClipId }, clips) ?? null });
       } catch (err) {
         request.log.error(err, "Failed to save cover");
-        return reply.code(500).send({ error: "save_failed", message: "Kunde inte spara omslagsbilden" });
+        return reply.code(500).send({ error: "save_failed", message: say(request, { sv: "Kunde inte spara omslagsbilden", en: "Could not save the cover picture" }) });
       }
     }
   );
@@ -199,12 +200,12 @@ export default async function vodRoutes(app: FastifyInstance): Promise<void> {
 
     try {
       if (!(await minio.updateVodEntry(request.params.id, { result: undefined }))) {
-        return reply.code(404).send({ error: "not_found", message: "Inspelningen hittades inte" });
+        return reply.code(404).send({ error: "not_found", message: say(request, { sv: "Inspelningen hittades inte", en: "Recording not found" }) });
       }
       return reply.code(204).send();
     } catch (err) {
       request.log.error(err, "Failed to remove result");
-      return reply.code(500).send({ error: "save_failed", message: "Kunde inte ta bort resultatet" });
+      return reply.code(500).send({ error: "save_failed", message: say(request, { sv: "Kunde inte ta bort resultatet", en: "Could not remove the result" }) });
     }
   });
 

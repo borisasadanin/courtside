@@ -59,8 +59,8 @@ describe("Setup.changePins", () => {
 
   it("needs the current admin PIN for a new one", async () => {
     const { setup } = await setUp();
-    expect(await setup.changePins({ adminPin: "654321" })).toBe("Fel nuvarande admin-kod.");
-    expect(await setup.changePins({ currentAdminPin: "999999", adminPin: "654321" })).toBe("Fel nuvarande admin-kod.");
+    expect((await setup.changePins({ adminPin: "654321" }))?.sv).toBe("Fel nuvarande admin-kod.");
+    expect((await setup.changePins({ currentAdminPin: "999999", adminPin: "654321" }))?.sv).toBe("Fel nuvarande admin-kod.");
     expect(mutableConfig.ADMIN_PIN).toBe("123456");
     expect(await setup.changePins({ currentAdminPin: "123456", adminPin: "654321" })).toBeNull();
     expect(mutableConfig.ADMIN_PIN).toBe("654321");
@@ -68,14 +68,14 @@ describe("Setup.changePins", () => {
 
   it("holds new PINs to the rules setup uses", async () => {
     const { setup } = await setUp();
-    expect(await setup.changePins({ viewerPin: "12" })).toMatch(/Tittarkoden/);
-    expect(await setup.changePins({ currentAdminPin: "123456", adminPin: "123" })).toMatch(/Admin-koden/);
-    expect(await setup.changePins({ viewerPin: "123456" })).toMatch(/olika/);
+    expect((await setup.changePins({ viewerPin: "12" }))?.sv).toMatch(/Tittarkoden/);
+    expect((await setup.changePins({ currentAdminPin: "123456", adminPin: "123" }))?.sv).toMatch(/Admin-koden/);
+    expect((await setup.changePins({ viewerPin: "123456" }))?.sv).toMatch(/olika/);
   });
 
   it("can open watching to anyone, on purpose", async () => {
     const { setup } = await setUp();
-    expect(await setup.changePins({ viewerPin: "" })).toMatch(/bekräfta/);
+    expect((await setup.changePins({ viewerPin: "" }))?.sv).toMatch(/bekräfta/);
     expect(mutableConfig.VIEWER_PIN).toBe("2468");
     expect(await setup.changePins({ viewerPin: "", openAccess: true })).toBeNull();
     expect(mutableConfig.VIEWER_PIN).toBe("");
@@ -91,8 +91,8 @@ describe("Setup.changePins", () => {
   it("refuses when the PINs come from the environment", async () => {
     const setup = new Setup(memoryStorage(), "");
     await setup.load();
-    expect(setup.pinsLocked()).toMatch(/serverns inställningar/);
-    expect(await setup.changePins({ viewerPin: "1357" })).toMatch(/serverns inställningar/);
+    expect(setup.pinsLocked()?.sv).toMatch(/serverns inställningar/);
+    expect((await setup.changePins({ viewerPin: "1357" }))?.sv).toMatch(/serverns inställningar/);
   });
 });
 
@@ -149,5 +149,17 @@ describe("PIN routes", () => {
       payload: { currentAdminPin: "000000", adminPin: "654321" },
     });
     expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe("Fel nuvarande admin-kod.");
+  });
+
+  it("refuse in English for the English site, with the same status", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/admin/pins",
+      headers: { ...admin, "accept-language": "en" },
+      payload: { currentAdminPin: "000000", adminPin: "654321" },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe("Wrong current admin code.");
   });
 });

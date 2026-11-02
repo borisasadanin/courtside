@@ -11,6 +11,7 @@
  * OSC by hand (see CHANGELOG.md).
  */
 import { call, deployBase, ownApp } from "./teardown.js";
+import type { Text } from "./i18n.js";
 
 export interface UpdateInfo {
   /** The release OSC builds this installation from: a tag, or a branch for one not on a release. */
@@ -20,11 +21,15 @@ export interface UpdateInfo {
   /** Where to read what changed. */
   changelogUrl?: string;
   /** Why updating from here is not possible, when it is not. */
-  reason?: string;
+  reason?: Text;
 }
 
 /** Something the admin can fix by waiting, as opposed to a failure. */
-export class NotNow extends Error {}
+export class NotNow extends Error {
+  constructor(readonly text: Text) {
+    super(text.sv);
+  }
+}
 
 // --- Releases: same rules as landing/src/release.ts ---
 
@@ -79,9 +84,9 @@ interface Self {
   building: boolean;
 }
 
-async function self(): Promise<Self | string> {
-  const own = await ownApp("Uppdatera den i Open Source Cloud.");
-  if (typeof own === "string") return own;
+async function self(): Promise<Self | Text> {
+  const own = await ownApp({ sv: "Uppdatera den i Open Source Cloud.", en: "Update it in Open Source Cloud." });
+  if ("sv" in own) return own;
   const a = own.record;
   const [gitUrl, fromUrl] = String(a.gitUrl || a.gitHubUrl || "").split("#");
   return {
@@ -99,20 +104,23 @@ function changelogUrl(gitUrl: string): string | undefined {
 }
 
 export async function updateInfo(): Promise<UpdateInfo> {
-  let app: Self | string;
+  let app: Self | Text;
   try {
     app = await self();
   } catch {
-    return { reason: "Kunde inte nå Open Source Cloud. Försök igen om en stund." };
+    return { reason: { sv: "Kunde inte nå Open Source Cloud. Försök igen om en stund.", en: "Could not reach Open Source Cloud. Try again in a while." } };
   }
-  if (typeof app === "string") return { reason: app };
+  if ("sv" in app) return { reason: app };
 
   const info: UpdateInfo = { current: app.sourceRef, changelogUrl: changelogUrl(app.gitUrl) };
   try {
     const latest = await latestRelease(app.gitUrl);
     if (latest && latest !== app.sourceRef && isNewer(latest, app.sourceRef)) info.available = latest;
   } catch {
-    info.reason = "Kunde inte läsa vilka versioner av Courtside som finns. Försök igen om en stund.";
+    info.reason = {
+      sv: "Kunde inte läsa vilka versioner av Courtside som finns. Försök igen om en stund.",
+      en: "Could not read which versions of Courtside exist. Try again in a while.",
+    };
   }
   return info;
 }
@@ -122,13 +130,13 @@ export async function updateInfo(): Promise<UpdateInfo> {
  * NotNow when the admin should try again later.
  */
 export async function startUpdate(activeStreams: number): Promise<string> {
-  if (activeStreams > 0) throw new NotNow("Det pågår en sändning just nu. Uppdatera när matchen är slut.");
+  if (activeStreams > 0) throw new NotNow({ sv: "Det pågår en sändning just nu. Uppdatera när matchen är slut.", en: "A broadcast is running right now. Update when the game is over." });
   const app = await self();
-  if (typeof app === "string") throw new NotNow(app);
-  if (app.building) throw new NotNow("Plattformen byggs redan. Vänta tills den är igång och försök igen.");
+  if ("sv" in app) throw new NotNow(app);
+  if (app.building) throw new NotNow({ sv: "Plattformen byggs redan. Vänta tills den är igång och försök igen.", en: "The platform is already being built. Wait until it is up and try again." });
   const latest = await latestRelease(app.gitUrl);
   if (!latest || latest === app.sourceRef || !isNewer(latest, app.sourceRef)) {
-    throw new NotNow("Plattformen har redan den senaste versionen.");
+    throw new NotNow({ sv: "Plattformen har redan den senaste versionen.", en: "The platform already has the newest version." });
   }
   await call("PATCH", `${deployBase()}/myapps/${encodeURIComponent(app.id)}/source-ref`, { sourceRef: latest });
   return latest;

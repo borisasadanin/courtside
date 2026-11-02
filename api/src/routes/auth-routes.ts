@@ -8,6 +8,7 @@ import {
   createViewerToken,
   createAdminToken,
 } from "../auth.js";
+import { say } from "../i18n.js";
 
 export default async function authRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/auth/status — Check if PIN protection is active
@@ -32,13 +33,13 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     if (!mutableConfig.VIEWER_PIN) {
       // Watching needs no code. A code that is not the admin code is a
       // mistyped admin code, so say so rather than quietly let a viewer in.
-      if (pin) return reply.code(401).send({ error: "Fel kod" });
+      if (pin) return reply.code(401).send({ error: say(request, { sv: "Fel kod", en: "Wrong code" }) });
       return reply.send({ token: createViewerToken(), role: "viewer" });
     }
 
     // Check viewer PIN
     if (!pin || pin !== mutableConfig.VIEWER_PIN) {
-      return reply.code(401).send({ error: "Fel kod" });
+      return reply.code(401).send({ error: say(request, { sv: "Fel kod", en: "Wrong code" }) });
     }
 
     const token = createViewerToken();
@@ -51,7 +52,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { pin } = request.body || {};
     if (!pin || pin !== mutableConfig.ADMIN_PIN) {
-      return reply.code(401).send({ error: "Fel admin-kod" });
+      return reply.code(401).send({ error: say(request, { sv: "Fel admin-kod", en: "Wrong admin code" }) });
     }
 
     const token = createAdminToken();
