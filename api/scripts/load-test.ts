@@ -43,6 +43,8 @@ function numberSetting(name: string, fallback: number): number {
 const BASE_URL = setting("COURTSIDE_URL").replace(/\/+$/, "");
 const DEVICE_TOKEN = setting("COURTSIDE_DEVICE_TOKEN");
 const VIEWER_PIN = process.env.COURTSIDE_VIEWER_PIN;
+/** The installation's API key, from its parameter store: watches without the viewer code. */
+const API_KEY = process.env.COURTSIDE_API_KEY;
 const STREAMS = Math.round(numberSetting("LOAD_TEST_STREAMS", 2));
 const MINUTES = numberSetting("LOAD_TEST_MINUTES", 30);
 const BITRATE_KBPS = Math.round(numberSetting("LOAD_TEST_BITRATE_KBPS", 3000));
@@ -141,7 +143,8 @@ async function api(
 ): Promise<Answer> {
   const headers: Record<string, string> = {};
   if (options.asViewer) {
-    if (viewerToken) headers.Authorization = `Bearer ${viewerToken}`;
+    if (API_KEY) headers["X-Api-Key"] = API_KEY;
+    else if (viewerToken) headers.Authorization = `Bearer ${viewerToken}`;
   } else {
     headers["X-Device-Token"] = DEVICE_TOKEN;
   }
@@ -170,11 +173,20 @@ async function api(
 
 // --- Setup ---
 
+/**
+ * Up and taking streams: running, or counting down to switch itself off for
+ * lack of streams, which it reports as "stopping" with the seconds left. A
+ * new stream cancels the countdown.
+ */
+function engineUp(json: any): boolean {
+  return json?.state === "running" || (json?.state === "stopping" && typeof json?.shutdownInSeconds === "number");
+}
+
 async function ensureEngine(): Promise<void> {
   let res = await api("GET", "/api/restreamer/status");
   if (res.status === 401) throw new Error("The device token was not accepted (401). Pair a camera and use its token.");
   if (res.status !== 200) throw new Error(`GET /api/restreamer/status answered ${res.status}: ${res.text}`);
-  if (res.json?.state === "running") return;
+  if (engineUp(res.json)) return;
 
   log(`Broadcast engine is ${res.json?.state}; starting it (takes 1-3 minutes)`);
   await api("POST", "/api/restreamer/start");
@@ -182,7 +194,7 @@ async function ensureEngine(): Promise<void> {
   while (Date.now() < deadline) {
     await sleep(10_000);
     res = await api("GET", "/api/restreamer/status");
-    if (res.json?.state === "running") return;
+    if (engineUp(res.json)) return;
     log(`  engine: ${res.json?.state ?? res.status}`);
   }
   throw new Error("The broadcast engine did not start within 6 minutes");
@@ -190,6 +202,7 @@ async function ensureEngine(): Promise<void> {
 
 /** A viewer token for the DVR and recording checks; without one those are skipped. */
 async function getViewerToken(): Promise<string | null> {
+  if (API_KEY) return "api-key";
   const res = await api("POST", "/api/auth/verify", { body: VIEWER_PIN ? { pin: VIEWER_PIN } : {} });
   if (res.status === 200 && typeof res.json?.token === "string") return res.json.token;
   log(`No viewer access (${res.status}); set COURTSIDE_VIEWER_PIN to measure DVR lag and check the recordings`);

@@ -49,6 +49,16 @@ describe("OscInstanceManager idle shutdown", () => {
     expect(manager.getShutdownInSeconds()).toBeNull();
   });
 
+  it("takes streams while it counts down, and not once it is gone", async () => {
+    expect(manager.isUp()).toBe(false);
+    await manager.ensureRunning();
+    expect(manager.getState()).toBe("stopping");
+    expect(manager.isUp()).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(GRACE_MS);
+    expect(manager.isUp()).toBe(false);
+  });
+
   it("counts down while the grace period runs", async () => {
     await manager.ensureRunning();
     await vi.advanceTimersByTimeAsync(20_000);

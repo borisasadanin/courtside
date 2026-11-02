@@ -117,7 +117,9 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       });
     }
     const oscInfo = oscManager.getInfo();
-    if (oscState !== "running" || !oscInfo) {
+    // Started and counting down for lack of a stream is up: this stream is
+    // the one it waits for (ensureRunning starts the countdown again).
+    if (!oscManager.isUp() || !oscInfo) {
       const stateMessages: Record<string, string> = {
         starting: "Sändningsmotorn startar. Vänta tills den är redo och försök igen (~1 min).",
         stopping: "Sändningsmotorn håller på att stängas ner. Försök igen om en stund.",
