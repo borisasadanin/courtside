@@ -92,6 +92,7 @@ function createMockMinio() {
 function createMockOscManager() {
   return {
     getState: vi.fn().mockReturnValue("running" as const),
+    isUp: () => true,
     getInfo: vi.fn().mockReturnValue({ url: "https://restreamer.example.com", rtmpHost: "mock-rtmp.example.com" }),
     getCachedState: vi.fn().mockReturnValue({
       state: "running",

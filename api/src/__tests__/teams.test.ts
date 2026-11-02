@@ -374,6 +374,7 @@ describe("starting a stream", () => {
     };
     const osc = {
       getState: () => "running",
+      isUp: () => true,
       getInfo: () => ({ url: "https://restreamer.example.com", rtmpHost: "rtmp.example.com" }),
       streamStarted: vi.fn(),
     };

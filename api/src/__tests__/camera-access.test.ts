@@ -25,6 +25,7 @@ beforeAll(async () => {
     getCachedState: () => ({ state: "stopped", info: null }),
     getShutdownInSeconds: () => null,
     getState: () => "stopped",
+    isUp: () => false,
   };
   initServices({} as never, minio as never, oscManager as never);
 

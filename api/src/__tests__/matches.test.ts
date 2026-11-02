@@ -355,6 +355,7 @@ describe("match routes, streams and announcements", () => {
   }
   const osc = {
     getState: () => "running",
+    isUp: () => true,
     getInfo: () => ({ url: "https://restreamer.example.com", rtmpHost: "rtmp.example.com" }),
     streamStarted: vi.fn(),
   };

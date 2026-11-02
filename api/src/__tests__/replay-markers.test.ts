@@ -132,6 +132,7 @@ describe("pause types on the recording", () => {
     };
     const osc = {
       getState: vi.fn().mockReturnValue("running"),
+      isUp: () => true,
       getInfo: vi.fn().mockReturnValue({ url: "https://restreamer.example.com", rtmpHost: "rtmp.example.com" }),
       streamStarted: vi.fn(), streamEnded: vi.fn(), streamPaused: vi.fn(), streamResumed: vi.fn(),
       pausedStreamEnded: vi.fn(), syncActiveCount: vi.fn(), ensureRunning: vi.fn(),

@@ -24,6 +24,17 @@ From the moment the tag is pushed, new platforms get it (within five minutes).
   i webbläsaren, och första gången väljs svenska för den som har svenska i webbläsaren. Allt översätts:
   tittarsidan, repriserna, Hantera, felmeddelanden från servern och klippsidan. En länk som delas från den
   engelska sidan får förhandsvisning och delningsbild på engelska. Kameraappen är fortfarande bara på svenska.
+
+## v0.6.1 — 2026-11-02
+
+- **Rättning:** en sändning går att starta medan sändningsmotorn står redo och räknar ner till avstängning.
+  Sedan v0.5.0 nekades den med "Sändningsmotorn håller på att stängas ner" ända tills motorn stängdes av,
+  om motorn hade startats innan någon tryckte på Sänd
+
+## v0.6.0 — 2026-11-02
+
+Matchen i centrum: lag, loggor, bilder, schema och en egen länk per match.
+
 - Under Repriser är highlights hopfällda under avslutade matcher. Tryck på *Höjdpunkter* för att se dem.
   Under en pågående match står de utfällda, så att nya klipp syns direkt. Det du själv fällt ut eller ihop
   står kvar när nya klipp kommer, och en match som tar slut medan du tittar fälls inte ihop framför dig
@@ -37,10 +48,12 @@ From the moment the tag is pushed, new platforms get it (within five minutes).
 - **Lag.** Under *Hantera → Lag* lägger ni in föreningens lag och motståndarnas loggor. Lag som skrivs in i
   kameraappen läggs till av sig själva, och dubbletter kan slås ihop
 - **Matchschema.** Lägg in kommande matcher under *Hantera → Matcher*: lag och datum, och om ni vill tid och
-  plats. Tittarna ser nästa match på startsidan, och kommande matcher också under en pågående sändning, och kan lägga in dem i kalendern. Repriserna samlas per match,
-  också när två kameror filmar samma match. Med kameraappen 1.4.0 väljer den som filmar dagens match i appen
+  plats. Tittarna ser nästa match på startsidan och kan lägga in den i kalendern. Under en pågående sändning
+  syns de kommande matcherna under livekorten. Repriserna samlas per match, också när två kameror filmar samma
+  match. Med kameraappen 1.4.0 väljer den som filmar dagens match i appen
 - **Dela en match.** Varje match har en egen länk. Delas den i lagets chatt visas en bild med lagens loggor,
-  datum, plats och resultatet när matchen är slut. Före matchen står också tiden. Bilden visar inga personer, och matchen kräver fortfarande tittarkoden
+  datum, plats och resultatet när matchen är slut. Före matchen står också tiden. Bilden visar inga personer,
+  och matchen kräver fortfarande tittarkoden
 - **Flera matcher samtidigt.** När en match tar slut eller pausar fortsätter sidan visa de andra som live, och en
   annonserad match syns som ett eget kort
 

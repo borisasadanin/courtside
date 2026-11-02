@@ -24,11 +24,11 @@ Rättas något i en version som inte nått någon telefon än, räcker det att k
 Ändra versionen så här: 1.1.0 → 1.1.1 för rättningar, 1.1.0 → 1.2.0 för nya
 funktioner.
 
-## 1.4.0 — ej släppt
+## 1.4.0 — 2026-11-02
 
 - Startskärmen visar **Dagens matcher** ur klubbens schema. Tryck på en match så fylls lagen i, och
   sändningen hamnar på rätt match bland repriserna. Finns bara en match i dag är den redan vald
-- **Annan match** fungerar som förut: du skriver lagen själv. Kräver en plattform med matchschema; med en
+- **Annan match** fungerar som förut: du skriver lagen själv. Kräver plattformen v0.6.0; med en
   äldre plattform syns inga matcher och allt fungerar som i dag
 
 ## 1.3.0 — 2026-11-01
