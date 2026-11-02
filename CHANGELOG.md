@@ -18,6 +18,12 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## Ej släppt
+
+- Under Repriser är highlights hopfällda under avslutade matcher. Tryck på *Höjdpunkter* för att se dem.
+  Under en pågående match står de utfällda, så att nya klipp syns direkt. Det du själv fällt ut eller ihop
+  står kvar när nya klipp kommer, och en match som tar slut medan du tittar fälls inte ihop framför dig
+
 ## v0.5.0 — 2026-11-01
 
 Matchresultat på repriserna.

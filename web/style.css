@@ -891,20 +891,44 @@ main {
 
 .match-highlights {
   border-top: 1px solid var(--line);
-  padding-top: 14px;
+  padding-top: 4px;
   margin-top: 14px;
 }
 
+/* A button: the highlights fold away under a finished match (ABL-044). */
 .match-highlights-label {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-height: 44px;
+  padding: 0 8px 0 0;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  font: inherit;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--accent-ink);
-  margin-bottom: 10px;
   text-transform: uppercase;
+  cursor: pointer;
+}
+
+.match-highlights-label:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.match-highlights-chevron {
+  transition: transform 0.15s ease;
+}
+
+.match-highlights-label[aria-expanded="true"] .match-highlights-chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-highlights-chevron { transition: none; }
 }
 
 .match-highlights-count {
@@ -920,6 +944,11 @@ main {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 6px;
+}
+
+.match-highlights-chips[hidden] {
+  display: none;
 }
 
 /* Highlight: a chip in the club tone, with share and download beside it.

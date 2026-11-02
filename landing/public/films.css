@@ -120,7 +120,6 @@
 
 .film-live .viewers::before { content: "👁 "; }
 .film-live .a2 .viewers { left: 16%; top: 6%; }
-.film-live .a2 .score { right: 3.5%; top: 6%; }
 .film-live .a2 .devices { position: absolute; right: 3%; top: 18%; flex-direction: column; align-items: flex-end; display: flex; gap: 8px; z-index: 3; }
 .film-live .a2 .devices span {
   background: rgba(10,10,10,.8); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; color: #e4e4e7;
