@@ -80,6 +80,15 @@ export class OscInstanceManager {
     return { state: this.state, info: this.cachedInfo };
   }
 
+  /**
+   * Up and taking streams: running, or counting down to shut down because
+   * nobody streams yet, which reports as "stopping". A new stream cancels the
+   * countdown. Not while the instance is actually being removed.
+   */
+  isUp(): boolean {
+    return !!this.cachedInfo && (this.state === "running" || (this.state === "stopping" && this.gracePeriodEndsAt !== null));
+  }
+
   /** Seconds until an idle instance is shut down, or null when no shutdown is pending. */
   getShutdownInSeconds(): number | null {
     if (this.gracePeriodEndsAt === null) return null;

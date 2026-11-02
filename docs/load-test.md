@@ -47,6 +47,7 @@ Kör sedan med `LOAD_TEST_STREAMS=3`. Ctrl-C avbryter snyggt: strömmarna stoppa
 | `COURTSIDE_URL` | – | Installationens adress |
 | `COURTSIDE_DEVICE_TOKEN` | – | En parad kameras token |
 | `COURTSIDE_VIEWER_PIN` | – | Tittarkoden. Utan den mäts inte DVR-fördröjning och inspelningarna kontrolleras inte |
+| `COURTSIDE_API_KEY` | – | Installationens `API_KEY` ur dess parameter store, i stället för tittarkoden |
 | `LOAD_TEST_STREAMS` | 2 | Antal kameror |
 | `LOAD_TEST_MINUTES` | 30 | Hur länge de sänder |
 | `LOAD_TEST_SIZE` | 1920x1080 | Upplösning, som appens Medel och Hög |

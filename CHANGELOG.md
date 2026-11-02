@@ -18,6 +18,12 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.6.1 — 2026-11-02
+
+- **Rättning:** en sändning går att starta medan sändningsmotorn står redo och räknar ner till avstängning.
+  Sedan v0.5.0 nekades den med "Sändningsmotorn håller på att stängas ner" ända tills motorn stängdes av,
+  om motorn hade startats innan någon tryckte på Sänd
+
 ## v0.6.0 — 2026-11-02
 
 Matchen i centrum: lag, loggor, bilder, schema och en egen länk per match.

@@ -28,6 +28,7 @@ import broadcastRoutes from "../routes/broadcast-routes.js";
 
 const osc = {
   getState: vi.fn().mockReturnValue("running"),
+  isUp: () => true,
   getInfo: vi.fn().mockReturnValue({ url: "https://restreamer.example.com", rtmpHost: "rtmp.example.com" }),
   ensureRunning: vi.fn(),
   streamStarted: vi.fn(),
