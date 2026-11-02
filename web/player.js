@@ -2,6 +2,8 @@
 // Orchestrates all modules. No business logic lives here.
 
 import { state, dom, initDom } from "./modules/state.js";
+import { CONFIG } from "./modules/config.js";
+import { applyStatic, sendLanguageToApi } from "./modules/i18n.js";
 import { loadClub } from "./modules/club.js";
 import { initPrivacy } from "./modules/privacy.js";
 import { initAuth, checkAuthAndStart } from "./modules/auth.js";
@@ -140,6 +142,10 @@ function handleClosePlayer(wasVod) {
 // ============================
 
 async function init() {
+  // 0. Language first: the page's own text, and the language API errors come back in
+  applyStatic();
+  sendLanguageToApi(CONFIG.API_URL);
+
   // 1. Initialise DOM references
   initDom();
 
