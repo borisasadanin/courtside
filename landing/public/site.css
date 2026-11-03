@@ -456,7 +456,7 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
 
 .included {
   border: 1px solid rgba(255, 154, 92, 0.35); border-radius: 20px; padding: clamp(1.25rem, 3vw, 2.5rem);
-  background: linear-gradient(180deg, rgba(255, 95, 2, 0.12), rgba(255, 95, 2, 0.02)); margin-bottom: 2.5rem;
+  background: linear-gradient(180deg, rgba(255, 95, 2, 0.12), rgba(255, 95, 2, 0.02)); margin: 4rem 0 0;
 }
 .included-head { text-align: center; margin-bottom: 1.75rem; }
 .included-head h3 { font-size: clamp(22px, 3vw, 30px); margin: 0 0 0.35rem; }
@@ -485,7 +485,7 @@ footer a { color: var(--text-muted); text-decoration: underline; text-underline-
 .price-explain .card { text-align: center; }
 .price-explain .pe-big { margin: 0; color: #fff; font-size: 34px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
 .price-explain .pe-label { margin: 0.2rem 0 0.75rem; color: var(--accent, #ff5f02); font-size: 15px; font-weight: 700; }
-.host { max-width: 900px; margin: 3rem auto 3.5rem; }
+.host { max-width: 900px; margin: 4rem auto 0; }
 .plans-head { margin-top: 3rem; }
 .host-head { text-align: center; margin-bottom: 1.25rem; }
 .host-head h3 { margin: 0 0 0.25rem; }

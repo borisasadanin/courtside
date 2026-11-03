@@ -143,10 +143,10 @@ export const sv = {
     incFoot: "15 € är Open Source Clouds Personal-plan exkl. moms och betalas till OSC för driften. Courtside körs i ert eget OSC-konto.",
     plans: {
       personal: { flag: "Passar de flesta", name: "Personal", price: "15", per: "€ / månad för drift", vat: "exkl. moms", for: "Laget eller den mindre föreningen som sänder sina hemmamatcher.",
-        rows: [["Courtside", "Gratis"], ["Matcher", "Ungefär 10 i månaden (2–3 i veckan)"], ["Pris per match", "≈ 1,50 €"], ["Allt i listan ovan", "✓"], ["Egen domän", "–"], ["E-post på föreningens domän", "–"], ["Tokens per dygn", "40"]],
+        rows: [["Courtside", "Gratis"], ["Matcher", "Ungefär 10 i månaden (2–3 i veckan)"], ["Pris per match", "≈ 1,50 €"], ["Alla funktioner", "✓"], ["Egen domän", "–"], ["E-post på föreningens domän", "–"], ["Tokens per dygn", "40"]],
         cta: "Kom igång med Personal" },
       pro: { flag: "För stora föreningar", name: "Professional", price: "69", per: "€ / månad för drift", vat: "exkl. moms", for: "Föreningen med många lag som sänder både hemma och borta.",
-        rows: [["Courtside", "Gratis"], ["Matcher", "Plats för hundratals i månaden"], ["Pris per match", "Sjunker ju mer ni sänder"], ["Allt i listan ovan", "✓"], ["Egen domän, t.ex. live.dinforening.se", "✓"], ["E-post på föreningens domän", "✓"], ["Tokens per dygn", "300"]],
+        rows: [["Courtside", "Gratis"], ["Matcher", "Plats för hundratals i månaden"], ["Pris per match", "Sjunker ju mer ni sänder"], ["Alla funktioner", "✓"], ["Egen domän, t.ex. live.dinforening.se", "✓"], ["E-post på föreningens domän", "✓"], ["Tokens per dygn", "300"]],
         cta: "Kom igång med Professional" },
     },
     host: {
@@ -396,10 +396,10 @@ export const en = {
     incFoot: "€15 is Open Source Cloud's Personal plan excl. VAT, paid to OSC for hosting. Courtside runs in your own OSC account.",
     plans: {
       personal: { flag: "Right for most clubs", name: "Personal", price: "15", per: "€ / month for hosting", vat: "excl. VAT", for: "The team or smaller club streaming its home games.",
-        rows: [["Courtside", "Free"], ["Games", "About 10 a month (2–3 a week)"], ["Price per game", "≈ €1.50"], ["Everything listed above", "✓"], ["Your own domain", "–"], ["Email on your club's domain", "–"], ["Tokens per day", "40"]],
+        rows: [["Courtside", "Free"], ["Games", "About 10 a month (2–3 a week)"], ["Price per game", "≈ €1.50"], ["Every feature", "✓"], ["Your own domain", "–"], ["Email on your club's domain", "–"], ["Tokens per day", "40"]],
         cta: "Start with Personal" },
       pro: { flag: "For large clubs", name: "Professional", price: "69", per: "€ / month for hosting", vat: "excl. VAT", for: "The club with many teams streaming home and away.",
-        rows: [["Courtside", "Free"], ["Games", "Room for hundreds a month"], ["Price per game", "Drops the more you stream"], ["Everything listed above", "✓"], ["Your own domain, e.g. live.yourclub.com", "✓"], ["Email on your club's domain", "✓"], ["Tokens per day", "300"]],
+        rows: [["Courtside", "Free"], ["Games", "Room for hundreds a month"], ["Price per game", "Drops the more you stream"], ["Every feature", "✓"], ["Your own domain, e.g. live.yourclub.com", "✓"], ["Email on your club's domain", "✓"], ["Tokens per day", "300"]],
         cta: "Start with Professional" },
     },
     host: {
