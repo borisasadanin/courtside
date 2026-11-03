@@ -8,8 +8,35 @@ const proofBadge = readFileSync(here("proof-badge.html"), "utf8");
 const livePanel = readFileSync(here("live-panel.html"), "utf8");
 const filmsSrc = readFileSync(here("films.html"), "utf8");
 
+const SITE = "https://courtside.apps.osaas.io";
 const START = (t) => `/auth/signin?returnTo=${encodeURIComponent(t.path + "?start=1")}`;
 const chip = (i) => `<div class="chip" aria-hidden="true">${chips[i]}</div>`;
+
+/** What search engines read about the page: the product, the site and the FAQ. */
+function structuredData(t) {
+  const text = (h) => h.replace(/<[^>]+>/g, "");
+  const url = SITE + t.path;
+  const data = {
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "WebSite", "@id": `${url}#website`, url, name: "Courtside", inLanguage: t.lang },
+      {
+        "@type": "SoftwareApplication", name: "Courtside", url, description: t.description,
+        image: `${SITE}${t.image}`, inLanguage: t.lang,
+        applicationCategory: "MultimediaApplication", operatingSystem: "iOS, Web",
+        isAccessibleForFree: true, license: "https://www.apache.org/licenses/LICENSE-2.0",
+        offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },
+      },
+      {
+        "@type": "FAQPage", "@id": `${url}#faq`, inLanguage: t.lang,
+        mainEntity: t.faq.items.map(([q, a]) => ({
+          "@type": "Question", name: text(q), acceptedAnswer: { "@type": "Answer", text: text(a) },
+        })),
+      },
+    ],
+  };
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
 
 /** One of the films in films.html, with its {{key.path}} text filled in. */
 function film(name, t) {
@@ -40,14 +67,27 @@ export function page(t) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${t.title}</title>
   <meta name="description" content="${t.description}">
+  <meta name="theme-color" content="#0a0a0a">
+  <link rel="canonical" href="${SITE}${t.path}">
+  <link rel="alternate" hreflang="sv" href="${SITE}/">
+  <link rel="alternate" hreflang="en" href="${SITE}/en/">
+  <link rel="alternate" hreflang="x-default" href="${SITE}/">
+  <meta property="og:site_name" content="Courtside">
   <meta property="og:title" content="${t.title}">
   <meta property="og:description" content="${t.description}">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://courtside.apps.osaas.io/courtside.png">
+  <meta property="og:url" content="${SITE}${t.path}">
+  <meta property="og:locale" content="${t.locale}">
+  <meta property="og:locale:alternate" content="${t.other.path === "/" ? "sv_SE" : "en_GB"}">
+  <meta property="og:image" content="${SITE}${t.image}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="${t.imageAlt}">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="/courtside.png" type="image/png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/">
-  <link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/">
+  <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <script type="application/ld+json">${structuredData(t)}</script>
   <link rel="stylesheet" href="/fonts/inter.css">
   <link rel="stylesheet" href="/site.css">
   <link rel="stylesheet" href="/films.css">

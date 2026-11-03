@@ -7,8 +7,9 @@
 
 export const sv = {
   lang: "sv", path: "/", other: { path: "/en/", label: "English", flag: "🇬🇧", code: "EN" },
-  title: "Courtside – sänd lagets matcher live från mobilen",
-  description: "En förälder, en iPhone och ett stativ. Matchen live i webbläsaren, highlights direkt och hela matchen sparad. Från 15 € i månaden för hela föreningen, i ert eget konto.",
+  title: "Courtside – livesänd lagets matcher från mobilen",
+  description: "Livesänd lagets matcher med en iPhone. Matchen i webbläsaren, highlights direkt och allt sparat. Ingen app för tittarna, ingen reklam. Drift från 15 € i månaden.",
+  locale: "sv_SE", image: "/og-image.png", imageAlt: "Courtside – livesändning för idrottsföreningar",
   nav: { top: "Courtside, till toppen", menu: "Huvudmeny", how: "Så funkar det", features: "Funktioner", price: "Pris", faq: "Frågor", contact: "Kontakt", start: "Kom igång", lang: "Byt språk till engelska" },
 
   inst: {
@@ -260,8 +261,9 @@ export const sv = {
 
 export const en = {
   lang: "en", path: "/en/", other: { path: "/", label: "Svenska", flag: "🇸🇪", code: "SV" },
-  title: "Courtside – stream your team's games live from a phone",
-  description: "One parent, one iPhone, one tripod. The game live in any browser, instant highlights and every game saved. From €15 a month for the whole club, in your own account.",
+  title: "Courtside – livestream your team's games from a phone",
+  description: "Livestream your team's games from an iPhone. Watch in any browser, instant highlights and every game saved. No viewer app, no ads. Hosting from €15 a month.",
+  locale: "en_GB", image: "/og-image-en.png", imageAlt: "Courtside – live streaming for sports clubs",
   nav: { top: "Courtside, back to top", menu: "Main menu", how: "How it works", features: "Features", price: "Pricing", faq: "FAQ", contact: "Contact", start: "Get started", lang: "Switch language to Swedish" },
 
   inst: {

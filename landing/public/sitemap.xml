@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://courtside.apps.osaas.io/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/"/>
+  </url>
+  <url>
+    <loc>https://courtside.apps.osaas.io/en/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/"/>
+  </url>
+  <url>
+    <loc>https://courtside.apps.osaas.io/data/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/data/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/data/"/>
+  </url>
+  <url>
+    <loc>https://courtside.apps.osaas.io/en/data/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/data/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/data/"/>
+  </url>
+  <url>
+    <loc>https://courtside.apps.osaas.io/gdpr/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.6</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/gdpr/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/gdpr/"/>
+  </url>
+  <url>
+    <loc>https://courtside.apps.osaas.io/en/gdpr/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.6</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/gdpr/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/gdpr/"/>
+  </url>
+  <url>
+    <loc>https://courtside.apps.osaas.io/gdpr/skylt/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/gdpr/skylt/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/gdpr/sign/"/>
+  </url>
+  <url>
+    <loc>https://courtside.apps.osaas.io/en/gdpr/sign/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/gdpr/skylt/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/gdpr/sign/"/>
+  </url>
+  <url>
+    <loc>https://courtside.apps.osaas.io/integritet/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/integritet/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/privacy/"/>
+  </url>
+  <url>
+    <loc>https://courtside.apps.osaas.io/en/privacy/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/integritet/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/privacy/"/>
+  </url>
+  <url>
+    <loc>https://courtside.apps.osaas.io/support/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/support/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/support/"/>
+  </url>
+  <url>
+    <loc>https://courtside.apps.osaas.io/en/support/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://courtside.apps.osaas.io/support/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://courtside.apps.osaas.io/en/support/"/>
+  </url>
+</urlset>
