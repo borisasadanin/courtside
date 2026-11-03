@@ -20,9 +20,12 @@ export interface Message {
 }
 
 export interface Mail {
+  /** Default CONTACT_TO. */
+  to?: string;
   subject: string;
   text: string;
-  replyTo: { name: string; address: string };
+  /** Default CONTACT_TO, so an answer to a receipt reaches whoever runs this page. */
+  replyTo?: { name: string; address: string };
 }
 
 /** What the page shows: a field to fix, or why nothing was sent. */
@@ -76,6 +79,41 @@ export function compose(m: Message): Mail {
   };
 }
 
+/**
+ * The receipt.  Nothing the visitor typed is in it, so the form cannot be used
+ * to send someone else a message of one's own.
+ */
+export function receipt(m: Message): Mail {
+  const text = m.lang === "en"
+    ? [
+        "Hi,",
+        "",
+        "Thanks for your message to Courtside. We have received it and will reply as soon as we can.",
+        "",
+        "If you have something to add, just reply to this email.",
+        "",
+        "Courtside",
+        "",
+        "Did you get this without writing to us? Then someone entered your address by mistake, and you can ignore it.",
+      ]
+    : [
+        "Hej!",
+        "",
+        "Tack för ert meddelande till Courtside. Vi har fått det och svarar så fort vi kan.",
+        "",
+        "Har ni något att lägga till kan ni svara på det här mejlet.",
+        "",
+        "Courtside",
+        "",
+        "Har ni fått det här utan att ha skrivit till oss? Då har någon skrivit in er adress av misstag, och ni kan bortse från det.",
+      ];
+  return {
+    to: m.email,
+    subject: m.lang === "en" ? "We got your message" : "Vi har fått ert meddelande",
+    text: text.join("\n"),
+  };
+}
+
 /** Remembers recent messages per visitor and in total. */
 export function limiter(perIp = PER_IP, inTotal = IN_TOTAL, windowMs = WINDOW_MS) {
   const seen = new Map<string, number[]>();
@@ -111,7 +149,13 @@ export function smtpFromEnv(env = process.env): Send | undefined {
   });
   const from = EMAIL_FROM || SMTP_USER;
   return async (mail) => {
-    await transport.sendMail({ from: { name: "Courtside", address: from! }, to: CONTACT_TO, ...mail });
+    await transport.sendMail({
+      from: { name: "Courtside", address: from! },
+      to: mail.to ?? CONTACT_TO,
+      replyTo: mail.replyTo ?? CONTACT_TO,
+      subject: mail.subject,
+      text: mail.text,
+    });
   };
 }
 
@@ -125,10 +169,12 @@ export function contact(send: Send | undefined, allow = limiter(), onError: (err
     if (!allow(ip)) return { status: 429, body: { error: "rate" } };
     try {
       await send(compose(c.msg));
-      return { status: 200, body: { ok: true } };
     } catch (err) {
       onError(err);
       return { status: 502, body: { error: "failed" } };
     }
+    // The message has arrived; a receipt that does not is only logged.
+    await send(receipt(c.msg)).catch(onError);
+    return { status: 200, body: { ok: true } };
   };
 }
