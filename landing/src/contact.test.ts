@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { check, compose, contact, limiter, Mail, smtpFromEnv } from "./contact.js";
+import { check, compose, contact, limiter, Mail, receipt, smtpFromEnv } from "./contact.js";
 
 const now = 1_000_000;
 const form = (extra: Record<string, unknown> = {}) => ({
@@ -42,6 +42,20 @@ describe("compose", () => {
   });
 });
 
+describe("receipt", () => {
+  it("goes to the visitor in their language, without what they wrote", () => {
+    const m = { name: "Anna", email: "anna@example.se", club: "Älta IF", message: "Köp billiga klockor här", lang: "sv" as const };
+    const r = receipt(m);
+    expect(r.to).toBe("anna@example.se");
+    expect(r.replyTo).toBeUndefined();
+    expect(r.subject).toBe("Vi har fått ert meddelande");
+    expect(r.text).toContain("svarar så fort vi kan");
+    expect(r.text).not.toContain("Anna");
+    expect(r.text).not.toContain("klockor");
+    expect(receipt({ ...m, lang: "en" }).text).toContain("reply as soon as we can");
+  });
+});
+
 describe("limiter", () => {
   it("lets a visitor send a few, then waits out the window", () => {
     const allow = limiter(2, 100, 1000);
@@ -59,11 +73,19 @@ describe("limiter", () => {
 describe("contact", () => {
   const body = () => form({ t: Date.now() - 10_000 });
 
-  it("sends the message", async () => {
+  it("sends the message, then a receipt", async () => {
     const sent: Mail[] = [];
     const r = await contact(async (m) => { sent.push(m); })(body(), "1.2.3.4");
     expect(r).toEqual({ status: 200, body: { ok: true } });
-    expect(sent).toHaveLength(1);
+    expect(sent.map((m) => m.to)).toEqual([undefined, "anna@example.se"]);
+  });
+
+  it("still answers ok when only the receipt fails", async () => {
+    const errors: unknown[] = [];
+    const send = async (m: Mail) => { if (m.to) throw new Error("bounce"); };
+    const r = await contact(send, undefined, (e) => errors.push(e))(body(), "1.2.3.4");
+    expect(r.status).toBe(200);
+    expect(errors).toHaveLength(1);
   });
 
   it("tells a bot all went well but sends nothing", async () => {

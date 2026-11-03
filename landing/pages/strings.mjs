@@ -219,7 +219,7 @@ export const sv = {
     sub: "Har ni frågor, önskemål om nya funktioner eller vill ha hjälp att komma igång? Skriv några rader så svarar vi så snart vi kan.",
     name: "Namn", email: "E-post", club: "Förening", optional: "frivilligt", message: "Meddelande",
     hp: "Lämna det här fältet tomt", send: "Skicka", privacy: "Vi använder bara uppgifterna för att svara er.",
-    doneH: "Tack, meddelandet är skickat!", doneP: "Vi svarar till e-postadressen ni angav.",
+    doneH: "Tack, meddelandet är skickat!", doneP: "Ni får ett kvitto till e-postadressen ni angav, och vi svarar så fort vi kan.",
   },
 
   end: {
@@ -472,7 +472,7 @@ export const en = {
     sub: "Questions, ideas for new features, or want help getting started? Write a few lines and we'll get back to you as soon as we can.",
     name: "Name", email: "Email", club: "Club", optional: "optional", message: "Message",
     hp: "Leave this field empty", send: "Send", privacy: "We only use these details to reply to you.",
-    doneH: "Thanks, your message is on its way!", doneP: "We'll reply to the email address you gave.",
+    doneH: "Thanks, your message is on its way!", doneP: "You'll get a receipt at the email address you gave, and we'll reply as soon as we can.",
   },
 
   end: {
