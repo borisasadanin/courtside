@@ -62,9 +62,9 @@ export function page(t) {
       Courtside
     </a>
     <nav class="site-nav" aria-label="${t.nav.menu}">
-      <a href="#sa-funkar-det">${t.nav.how}</a>
       <a href="#funktioner">${t.nav.features}</a>
       <a href="#pris">${t.nav.price}</a>
+      <a href="#sa-funkar-det">${t.nav.how}</a>
       <a href="#faq">${t.nav.faq}</a>
       <a href="#kontakt">${t.nav.contact}</a>
     </nav>
@@ -188,52 +188,6 @@ export function page(t) {
     </div>
   </section>
 
-  <!-- HOW -->
-  <section id="sa-funkar-det" aria-labelledby="how-h2">
-    <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">${t.how.eyebrow}</span>
-        <h2 id="how-h2">${t.how.h2}</h2>
-        <p class="subline">${t.how.sub}</p>
-      </div>
-      <div class="how-grid">
-        <div class="steps">
-          ${t.how.steps.map(([h, b, time], i) => `
-          <div class="step">
-            <div class="step-num">${i + 1}</div>
-            <h3>${h}</h3>
-            <p>${b}</p>
-            <span class="time">${time}</span>
-          </div>`).join("")}
-        </div>
-        <div class="how-film">${film("film-setup", t)}</div>
-      </div>
-      <div class="section-cta">
-        <a class="btn btn-primary" href="${start}" data-start>${t.how.cta}</a>
-        <p class="muted">${t.how.small}</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- WHO -->
-  <section id="for-vem" aria-labelledby="who-h2">
-    <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">${t.who.eyebrow}</span>
-        <h2 id="who-h2">${t.who.h2}</h2>
-        <p class="subline">${t.who.sub}</p>
-      </div>
-      <div class="card-grid four">
-        ${t.who.cards.map(([h, b, q], i) => `
-        <article class="card">
-          ${chip(i)}
-          <h3>${h}</h3>
-          <p>${b}</p>${q ? `\n          <p class="quote">${q}</p>` : ""}
-        </article>`).join("")}
-      </div>
-    </div>
-  </section>
-
   <!-- FEATURES -->
   <section id="funktioner" aria-labelledby="feat-h2">
     <div class="wrap">
@@ -273,45 +227,6 @@ export function page(t) {
     </div>
   </section>
 
-  <!-- OWNERSHIP -->
-  <section class="trust" id="agarskap" aria-labelledby="trust-h2">
-    <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">${t.own.eyebrow}</span>
-        <h2 id="trust-h2">${t.own.h2}</h2>
-        <p class="subline">${t.own.sub}</p>
-      </div>
-      <div class="card-grid four">
-        ${t.own.cards.map(([h, b], i) => `
-        <article class="card">
-          ${chip([10, 11, 1, 12][i])}
-          <h3>${h}</h3>
-          <p>${b}</p>
-        </article>`).join("")}
-      </div>
-    </div>
-  </section>
-
-  <!-- COMPARE -->
-  <section id="jamfor" aria-labelledby="cmp-h2">
-    <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">${t.cmp.eyebrow}</span>
-        <h2 id="cmp-h2">${t.cmp.h2}</h2>
-        <p class="subline">${t.cmp.sub}</p>
-      </div>
-      <div class="table-scroll">
-        <table class="cmp">
-          <thead><tr>${t.cmp.head.map((h, i) => `<th scope="col"${i === 1 ? ' class="us"' : ""}>${h}</th>`).join("")}</tr></thead>
-          <tbody>
-            ${t.cmp.rows.map((r) => `<tr><th scope="row">${r[0]}</th><td class="us">${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("\n            ")}
-          </tbody>
-        </table>
-      </div>
-      <div class="section-cta"><a class="btn btn-secondary" href="#pris">${t.cmp.cta}</a></div>
-    </div>
-  </section>
-
   <!-- PRICE -->
   <section id="pris" aria-labelledby="price-h2">
     <div class="wrap">
@@ -328,31 +243,6 @@ export function page(t) {
           <p class="pe-label">${label}</p>
           <p>${body}</p>
         </article>`).join("")}
-      </div>
-
-      <div class="host" id="pris-drift">
-        <div class="host-head">
-          <h3>${p.host.h}</h3>
-          <p>${p.host.sub}</p>
-        </div>
-        <div class="card-grid two">
-          ${[["osc", " us"], ["self", ""]].map(([k, cls]) => `
-          <article class="card host-card${cls}">
-            <h4>${p.host[k].h}</h4>
-            <ul>${p.host[k].items.map(([h, b]) => `<li><strong>${h}</strong> ${b}</li>`).join("")}</ul>
-          </article>`).join("")}
-        </div>
-      </div>
-
-      <div class="included" id="pris-ingar">
-        <div class="included-head">
-          <h3>${p.incH}</h3>
-          <p>${p.incIntro}</p>
-        </div>
-        <ul class="included-list">
-          ${p.included.map(([h, b]) => `<li><strong>${h}</strong><span>${b}</span></li>`).join("\n          ")}
-        </ul>
-        <p class="note">${p.incFoot}</p>
       </div>
 
       <div class="host-head plans-head">
@@ -419,6 +309,116 @@ export function page(t) {
         </div>`).join("")}
       </div>
       <p class="note">${p.note}</p>
+
+      <div class="included" id="pris-ingar">
+        <div class="included-head">
+          <h3>${p.incH}</h3>
+          <p>${p.incIntro}</p>
+        </div>
+        <ul class="included-list">
+          ${p.included.map(([h, b]) => `<li><strong>${h}</strong><span>${b}</span></li>`).join("\n          ")}
+        </ul>
+        <p class="note">${p.incFoot}</p>
+      </div>
+
+      <div class="host" id="pris-drift">
+        <div class="host-head">
+          <h3>${p.host.h}</h3>
+          <p>${p.host.sub}</p>
+        </div>
+        <div class="card-grid two">
+          ${[["osc", " us"], ["self", ""]].map(([k, cls]) => `
+          <article class="card host-card${cls}">
+            <h4>${p.host[k].h}</h4>
+            <ul>${p.host[k].items.map(([h, b]) => `<li><strong>${h}</strong> ${b}</li>`).join("")}</ul>
+          </article>`).join("")}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW -->
+  <section id="sa-funkar-det" aria-labelledby="how-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">${t.how.eyebrow}</span>
+        <h2 id="how-h2">${t.how.h2}</h2>
+        <p class="subline">${t.how.sub}</p>
+      </div>
+      <div class="how-grid">
+        <div class="steps">
+          ${t.how.steps.map(([h, b, time], i) => `
+          <div class="step">
+            <div class="step-num">${i + 1}</div>
+            <h3>${h}</h3>
+            <p>${b}</p>
+            <span class="time">${time}</span>
+          </div>`).join("")}
+        </div>
+        <div class="how-film">${film("film-setup", t)}</div>
+      </div>
+      <div class="section-cta">
+        <a class="btn btn-primary" href="${start}" data-start>${t.how.cta}</a>
+        <p class="muted">${t.how.small}</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHO -->
+  <section id="for-vem" aria-labelledby="who-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">${t.who.eyebrow}</span>
+        <h2 id="who-h2">${t.who.h2}</h2>
+        <p class="subline">${t.who.sub}</p>
+      </div>
+      <div class="card-grid four">
+        ${t.who.cards.map(([h, b, q], i) => `
+        <article class="card">
+          ${chip(i)}
+          <h3>${h}</h3>
+          <p>${b}</p>${q ? `\n          <p class="quote">${q}</p>` : ""}
+        </article>`).join("")}
+      </div>
+    </div>
+  </section>
+
+  <!-- OWNERSHIP -->
+  <section class="trust" id="agarskap" aria-labelledby="trust-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">${t.own.eyebrow}</span>
+        <h2 id="trust-h2">${t.own.h2}</h2>
+        <p class="subline">${t.own.sub}</p>
+      </div>
+      <div class="card-grid four">
+        ${t.own.cards.map(([h, b], i) => `
+        <article class="card">
+          ${chip([10, 11, 1, 12][i])}
+          <h3>${h}</h3>
+          <p>${b}</p>
+        </article>`).join("")}
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section id="jamfor" aria-labelledby="cmp-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">${t.cmp.eyebrow}</span>
+        <h2 id="cmp-h2">${t.cmp.h2}</h2>
+        <p class="subline">${t.cmp.sub}</p>
+      </div>
+      <div class="table-scroll">
+        <table class="cmp">
+          <thead><tr>${t.cmp.head.map((h, i) => `<th scope="col"${i === 1 ? ' class="us"' : ""}>${h}</th>`).join("")}</tr></thead>
+          <tbody>
+            ${t.cmp.rows.map((r) => `<tr><th scope="row">${r[0]}</th><td class="us">${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("\n            ")}
+          </tbody>
+        </table>
+      </div>
+      <div class="section-cta"><a class="btn btn-secondary" href="#pris">${t.cmp.cta}</a></div>
     </div>
   </section>
 
