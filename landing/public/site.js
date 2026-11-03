@@ -68,7 +68,13 @@ var T = ({
       lost: "Vi tappade bort installationen, troligen för att den här sidan startades om. Titta under Era plattformar om den finns där. Annars, försök igen."
     },
     tryAgain: "Försök igen",
-    badShortName: "Kortnamnet ska vara 3–21 små bokstäver eller siffror och börja med en bokstav."
+    badShortName: "Kortnamnet ska vara 3–21 små bokstäver eller siffror och börja med en bokstav.",
+    contact: {
+      sending: "Skickar…",
+      name: "Skriv ert namn.", email: "Skriv en giltig e-postadress.", message: "Skriv lite mer, minst tio tecken.",
+      rate: "Ni har skickat flera meddelanden på kort tid. Vänta en stund och försök igen.",
+      failed: "Det gick inte att skicka just nu. Försök igen om en stund, eller mejla sales@eyevinn.se."
+    }
   },
   en: {
     locale: "en-GB", perMonth: " €/month",
@@ -136,7 +142,13 @@ var T = ({
       lost: "We lost track of the installation, most likely because this page was restarted. Look under Your platforms to see if it is there. Otherwise, try again."
     },
     tryAgain: "Try again",
-    badShortName: "The short name must be 3–21 lowercase letters or digits and start with a letter."
+    badShortName: "The short name must be 3–21 lowercase letters or digits and start with a letter.",
+    contact: {
+      sending: "Sending…",
+      name: "Enter your name.", email: "Enter a valid email address.", message: "Write a little more, at least ten characters.",
+      rate: "You've sent several messages in a short time. Wait a while and try again.",
+      failed: "The message couldn't be sent right now. Try again in a while, or email sales@eyevinn.se."
+    }
   }
 })[document.documentElement.lang === "en" ? "en" : "sv"];
   (function () {
@@ -606,3 +618,48 @@ var T = ({
       }
     }).catch(function () {});
   })();
+
+// The contact form: posts to /api/contact and shows a thank-you in its place.
+(function () {
+  var form = document.getElementById("contact-form");
+  if (!form) return;
+  var shown = Date.now();
+  var error = document.getElementById("contact-error");
+  var send = document.getElementById("contact-send");
+  var label = send.textContent;
+  var fields = { name: "c-name", email: "c-email", message: "c-message" };
+
+  function fail(problem) {
+    error.textContent = T.contact[problem] || T.contact.failed;
+    Object.keys(fields).forEach(function (k) { document.getElementById(fields[k]).removeAttribute("aria-invalid"); });
+    if (fields[problem]) {
+      var el = document.getElementById(fields[problem]);
+      el.setAttribute("aria-invalid", "true");
+      el.focus();
+    }
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = function (id) { return document.getElementById(id).value; };
+    var data = {
+      name: v("c-name"), email: v("c-email"), club: v("c-club"), message: v("c-message"),
+      website: v("c-website"), t: shown, lang: document.documentElement.lang === "en" ? "en" : "sv"
+    };
+    error.textContent = "";
+    send.disabled = true;
+    send.textContent = T.contact.sending;
+    fetch("/api/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (r) {
+        if (r.ok) {
+          form.hidden = true;
+          var done = document.getElementById("contact-done");
+          done.hidden = false;
+          done.focus();
+        } else fail(r.error);
+      })
+      .catch(function () { fail("failed"); })
+      .then(function () { send.disabled = false; send.textContent = label; });
+  });
+})();

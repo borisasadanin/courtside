@@ -66,6 +66,7 @@ export function page(t) {
       <a href="#funktioner">${t.nav.features}</a>
       <a href="#pris">${t.nav.price}</a>
       <a href="#faq">${t.nav.faq}</a>
+      <a href="#kontakt">${t.nav.contact}</a>
     </nav>
     <div class="header-actions">
       <a class="lang-switch" href="${t.other.path}" hreflang="${t.other.code.toLowerCase()}" lang="${t.other.code.toLowerCase()}" aria-label="${t.nav.lang}" title="${t.other.label}"><span aria-hidden="true">${t.other.flag}</span> ${t.other.code}</a>
@@ -320,25 +321,13 @@ export function page(t) {
         <p class="subline">${p.sub}</p>
       </div>
 
-      <div class="included" id="pris-ingar">
-        <div class="included-head">
-          <h3>${p.incH}</h3>
-          <p>${p.incIntro}</p>
-        </div>
-        <ul class="included-list">
-          ${p.included.map(([h, b]) => `<li><strong>${h}</strong><span>${b}</span></li>`).join("\n          ")}
-        </ul>
-        <p class="note">${p.incFoot}</p>
-      </div>
-
-      <div class="plans" id="pris-planer">${plan("personal", true, "personal")}${plan("pro", false, "professional")}
-      </div>
-      <div class="try-free card">
-        <div>
-          <h3>${p.tryH}</h3>
-          <p>${p.tryP}</p>
-        </div>
-        <a class="btn btn-secondary" href="${start}" data-start>${p.tryCta}</a>
+      <div class="card-grid three price-explain">
+        ${p.explain.map(([big, label, body]) => `
+        <article class="card">
+          <p class="pe-big">${big}</p>
+          <p class="pe-label">${label}</p>
+          <p>${body}</p>
+        </article>`).join("")}
       </div>
 
       <div class="host" id="pris-drift">
@@ -353,6 +342,31 @@ export function page(t) {
             <ul>${p.host[k].items.map(([h, b]) => `<li><strong>${h}</strong> ${b}</li>`).join("")}</ul>
           </article>`).join("")}
         </div>
+      </div>
+
+      <div class="included" id="pris-ingar">
+        <div class="included-head">
+          <h3>${p.incH}</h3>
+          <p>${p.incIntro}</p>
+        </div>
+        <ul class="included-list">
+          ${p.included.map(([h, b]) => `<li><strong>${h}</strong><span>${b}</span></li>`).join("\n          ")}
+        </ul>
+        <p class="note">${p.incFoot}</p>
+      </div>
+
+      <div class="host-head plans-head">
+        <h3>${p.plansH}</h3>
+        <p>${p.plansP}</p>
+      </div>
+      <div class="plans" id="pris-planer">${plan("personal", true, "personal")}${plan("pro", false, "professional")}
+      </div>
+      <div class="try-free card">
+        <div>
+          <h3>${p.tryH}</h3>
+          <p>${p.tryP}</p>
+        </div>
+        <a class="btn btn-secondary" href="${start}" data-start>${p.tryCta}</a>
       </div>
 
       <p class="calc-explain" id="pris-raknare">${p.calcExplain}</p>
@@ -432,6 +446,35 @@ export function page(t) {
     </div>
   </section>
 
+  <!-- CONTACT -->
+  <section id="kontakt" aria-labelledby="contact-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">${t.contact.eyebrow}</span>
+        <h2 id="contact-h2">${t.contact.h2}</h2>
+        <p class="subline">${t.contact.sub}</p>
+      </div>
+      <form class="contact card" id="contact-form" novalidate>
+        <div class="contact-row">
+          <div class="field"><label for="c-name">${t.contact.name}</label><input type="text" id="c-name" name="name" autocomplete="name" maxlength="100" required></div>
+          <div class="field"><label for="c-email">${t.contact.email}</label><input type="email" id="c-email" name="email" autocomplete="email" maxlength="200" required></div>
+        </div>
+        <div class="field"><label for="c-club">${t.contact.club} <span class="hint">(${t.contact.optional})</span></label><input type="text" id="c-club" name="club" autocomplete="organization" maxlength="120"></div>
+        <div class="field"><label for="c-message">${t.contact.message}</label><textarea id="c-message" name="message" rows="5" maxlength="5000" required></textarea></div>
+        <div class="hp" aria-hidden="true"><label for="c-website">${t.contact.hp}</label><input type="text" id="c-website" name="website" tabindex="-1" autocomplete="off"></div>
+        <p class="form-error" id="contact-error" role="alert"></p>
+        <div class="contact-actions">
+          <button type="submit" class="btn btn-primary" id="contact-send">${t.contact.send}</button>
+          <p class="muted">${t.contact.privacy}</p>
+        </div>
+      </form>
+      <div class="contact card contact-done" id="contact-done" role="status" tabindex="-1" hidden>
+        <h3>${t.contact.doneH}</h3>
+        <p>${t.contact.doneP}</p>
+      </div>
+    </div>
+  </section>
+
   <!-- CTA -->
   <section class="cta-band" id="kom-igang" aria-labelledby="cta-h2">
     <div class="wrap">
@@ -440,7 +483,7 @@ export function page(t) {
       <p class="auth-notice" id="auth-notice" role="alert" hidden></p>
       <div class="actions">
         <a class="btn btn-primary" href="${start}" data-start>${t.end.cta}</a>
-        <a class="btn btn-secondary" href="${t.end.mail}">${t.end.cta2}</a>
+        <a class="btn btn-secondary" href="#kontakt">${t.end.cta2}</a>
       </div>
       <p class="muted" style="margin-top:1rem">${t.end.small}</p>
     </div>

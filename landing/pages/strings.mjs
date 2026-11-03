@@ -9,7 +9,7 @@ export const sv = {
   lang: "sv", path: "/", other: { path: "/en/", label: "English", flag: "🇬🇧", code: "EN" },
   title: "Courtside – sänd lagets matcher live från mobilen",
   description: "En förälder, en iPhone och ett stativ. Matchen live i webbläsaren, highlights direkt och hela matchen sparad. Från 15 € i månaden för hela föreningen, i ert eget konto.",
-  nav: { top: "Courtside, till toppen", menu: "Huvudmeny", how: "Så funkar det", features: "Funktioner", price: "Pris", faq: "Frågor", start: "Kom igång", lang: "Byt språk till engelska" },
+  nav: { top: "Courtside, till toppen", menu: "Huvudmeny", how: "Så funkar det", features: "Funktioner", price: "Pris", faq: "Frågor", contact: "Kontakt", start: "Kom igång", lang: "Byt språk till engelska" },
 
   inst: {
     h: "Er Courtside", signout: "Logga ut", listH: "Era plattformar", empty: "Ni har ingen Courtside ännu. När den är skapad står er adress här, den som ni delar med alla som vill titta.",
@@ -115,8 +115,14 @@ export const sv = {
   },
 
   price: {
-    eyebrow: "Pris och drift", h2: "Courtside är gratis. Ni betalar bara för driften.",
-    sub: "Programvaran kostar ingenting. Det som kostar är servrarna som sänder och sparar matcherna. På Open Source Cloud är det 15 € i månaden för hela föreningen. Det räcker till ungefär 10 matcher i månaden, runt 1,50 € per match. Inga avgifter per lag eller per tittare.",
+    eyebrow: "Pris", h2: "Courtside är gratis. Ni betalar bara för driften.",
+    sub: "Det finns ingen licens och inget abonnemang för Courtside. Det enda som kostar är driften, alltså servrarna som sänder och sparar era matcher. Och den kostar bara så mycket som ni sänder och spelar in.",
+    explain: [
+      ["0 €", "för Courtside", "Programvaran är gratis och öppen källkod. Alla funktioner ingår. Inga licenser, inga avgifter per lag eller per tittare."],
+      ["Drift", "efter hur mycket ni sänder", "Ni betalar för servrarna som sänder och sparar matcherna, inget annat. Sänder ni lite kostar det lite. Ett lag med hemmamatcher klarar sig på 15 € i månaden."],
+      ["Uppdateringar", "ingår på Open Source Cloud", "Nya versioner kommer till er, och ett klick räcker för att uppdatera. Kör ni själva får ni hämta, bygga och installera varje ny version på egen hand."],
+    ],
+    plansH: "Välj driftplan", plansP: "Planen betalas till Open Source Cloud och avgör hur mycket ni kan sända. Courtside ingår gratis i båda.",
     incH: "Det här ingår, utan kostnad", incIntro: "Allt. Det finns inga betalfunktioner att låsa upp. Driftplanen avgör bara hur mycket ni kan sända.",
     included: [
       ["En egen webbadress för föreningen", "med er logga, ert namn och er klubbfärg"],
@@ -136,24 +142,25 @@ export const sv = {
     ],
     incFoot: "15 € är Open Source Clouds Personal-plan exkl. moms och betalas till OSC för driften. Courtside körs i ert eget OSC-konto.",
     plans: {
-      personal: { flag: "Passar de flesta", name: "Personal", price: "15", per: "€ / månad", vat: "exkl. moms", for: "Laget eller den mindre föreningen som sänder sina hemmamatcher.",
+      personal: { flag: "Passar de flesta", name: "Personal", price: "15", per: "€ / månad för drift", vat: "exkl. moms", for: "Laget eller den mindre föreningen som sänder sina hemmamatcher.",
         rows: [["Courtside", "Gratis"], ["Matcher", "Ungefär 10 i månaden (2–3 i veckan)"], ["Pris per match", "≈ 1,50 €"], ["Allt i listan ovan", "✓"], ["Egen domän", "–"], ["E-post på föreningens domän", "–"], ["Tokens per dygn", "40"]],
         cta: "Kom igång med Personal" },
-      pro: { flag: "För stora föreningar", name: "Professional", price: "69", per: "€ / månad", vat: "exkl. moms", for: "Föreningen med många lag som sänder både hemma och borta.",
+      pro: { flag: "För stora föreningar", name: "Professional", price: "69", per: "€ / månad för drift", vat: "exkl. moms", for: "Föreningen med många lag som sänder både hemma och borta.",
         rows: [["Courtside", "Gratis"], ["Matcher", "Plats för hundratals i månaden"], ["Pris per match", "Sjunker ju mer ni sänder"], ["Allt i listan ovan", "✓"], ["Egen domän, t.ex. live.dinforening.se", "✓"], ["E-post på föreningens domän", "✓"], ["Tokens per dygn", "300"]],
         cta: "Kom igång med Professional" },
     },
     host: {
-      h: "Varför köra på Open Source Cloud?", sub: "Courtside är gratis var ni än kör den. Skillnaden är vem som sköter driften.",
+      h: "Därför lönar det sig att köra på Open Source Cloud", sub: "Courtside är lika gratis var ni än kör den. Skillnaden är vem som sköter driften och uppdateringarna.",
       osc: { h: "Kör på Open Source Cloud", items: [
+        ["Nya versioner kommer till er.", "När vi släpper en uppdatering dyker knappen Uppdatera upp i er Courtside. Ett klick, så har ni de nya funktionerna. Det kostar inget extra."],
         ["Igång på några minuter.", "Logga in, välj ett namn och klicka på Skapa. Alla nycklar och kopplingar ställs in åt er."],
-        ["Uppdateringar och nya funktioner ingår.", "När en ny version släpps dyker knappen Uppdatera upp, och ett klick räcker. Det kostar inget extra."],
-        ["Ni betalar bara när ni sänder.", "Sändningsmotorn startas till matchen och stängs efteråt."],
+        ["Ni betalar bara för det ni använder.", "Sändningsmotorn startas till matchen och stängs efteråt."],
         ["Filmerna stannar i Sverige.", "De lagras i Stockholm enligt OSC:s biträdesavtal."],
       ] },
       self: { h: "Kör själva", items: [
         ["Koden är er att använda.", 'Den finns öppet <a href="https://github.com/borisasadanin/courtside" rel="noopener">på GitHub</a>, och ni får ladda ner och köra den var ni vill.'],
-        ["Ni sköter driften.", "Servrar, sändningsmotor, lagring och uppdateringar är ert ansvar."],
+        ["Varje uppdatering är ert jobb.", "Nya versioner kommer inte av sig själva. Ni får hämta, bygga och installera dem, varje gång."],
+        ["Ni sköter driften.", "Servrar, sändningsmotor och lagring är ert ansvar."],
         ["Drift kostar också där.", "Servrar, lagring och trafik kostar pengar hos alla leverantörer, plus tiden det tar att hålla allt igång."],
       ] },
     },
@@ -207,6 +214,14 @@ export const sv = {
     ],
   },
 
+  contact: {
+    eyebrow: "Kontakt", h2: "Hör av er",
+    sub: "Har ni frågor, önskemål om nya funktioner eller vill ha hjälp att komma igång? Skriv några rader så svarar vi så snart vi kan.",
+    name: "Namn", email: "E-post", club: "Förening", optional: "frivilligt", message: "Meddelande",
+    hp: "Lämna det här fältet tomt", send: "Skicka", privacy: "Vi använder bara uppgifterna för att svara er.",
+    doneH: "Tack, meddelandet är skickat!", doneP: "Vi svarar till e-postadressen ni angav.",
+  },
+
   end: {
     h2: "Nästa hemmamatch kan vara live.", sub: "Sätt upp Courtside en kväll i veckan och sänd på helgen. Gratis att använda, 15 € i månaden i drift för hela föreningen.",
     cta: "Kom igång", cta2: "Prata med oss", small: "Prova gratis med OSC:s gratisnivå.",
@@ -247,7 +262,7 @@ export const en = {
   lang: "en", path: "/en/", other: { path: "/", label: "Svenska", flag: "🇸🇪", code: "SV" },
   title: "Courtside – stream your team's games live from a phone",
   description: "One parent, one iPhone, one tripod. The game live in any browser, instant highlights and every game saved. From €15 a month for the whole club, in your own account.",
-  nav: { top: "Courtside, back to top", menu: "Main menu", how: "How it works", features: "Features", price: "Pricing", faq: "FAQ", start: "Get started", lang: "Switch language to Swedish" },
+  nav: { top: "Courtside, back to top", menu: "Main menu", how: "How it works", features: "Features", price: "Pricing", faq: "FAQ", contact: "Contact", start: "Get started", lang: "Switch language to Swedish" },
 
   inst: {
     h: "Your Courtside", signout: "Sign out", listH: "Your platforms", empty: "You don't have a Courtside yet. Once it is created, your address shows here, the one you share with everyone who wants to watch.",
@@ -353,8 +368,14 @@ export const en = {
   },
 
   price: {
-    eyebrow: "Pricing and hosting", h2: "Courtside is free. You only pay for hosting.",
-    sub: "The software costs nothing. What costs money is the servers that stream and store your games. On Open Source Cloud that's €15 a month for the whole club. Enough for about 10 games a month, around €1.50 a game. No fees per team or per viewer.",
+    eyebrow: "Pricing", h2: "Courtside is free. You only pay for hosting.",
+    sub: "There's no licence and no subscription for Courtside. The only thing that costs money is hosting, the servers that stream and store your games. And it only costs as much as you stream and record.",
+    explain: [
+      ["€0", "for Courtside", "The software is free and open source. Every feature is included. No licences, no fees per team or per viewer."],
+      ["Hosting", "based on how much you stream", "You pay for the servers that stream and store your games, nothing else. Stream a little and it costs a little. A team streaming its home games gets by on €15 a month."],
+      ["Updates", "included on Open Source Cloud", "New versions come to you, and one click is all it takes to update. Host it yourself and you fetch, build and install every new version on your own."],
+    ],
+    plansH: "Choose a hosting plan", plansP: "The plan is paid to Open Source Cloud and decides how much you can stream. Courtside is free on both.",
     incH: "All of this is included, free", incIntro: "Everything. There are no paid features to unlock. Your hosting plan only decides how much you can stream.",
     included: [
       ["Your club's own web address", "with your logo, name and club colour"],
@@ -374,24 +395,25 @@ export const en = {
     ],
     incFoot: "€15 is Open Source Cloud's Personal plan excl. VAT, paid to OSC for hosting. Courtside runs in your own OSC account.",
     plans: {
-      personal: { flag: "Right for most clubs", name: "Personal", price: "15", per: "€ / month", vat: "excl. VAT", for: "The team or smaller club streaming its home games.",
+      personal: { flag: "Right for most clubs", name: "Personal", price: "15", per: "€ / month for hosting", vat: "excl. VAT", for: "The team or smaller club streaming its home games.",
         rows: [["Courtside", "Free"], ["Games", "About 10 a month (2–3 a week)"], ["Price per game", "≈ €1.50"], ["Everything listed above", "✓"], ["Your own domain", "–"], ["Email on your club's domain", "–"], ["Tokens per day", "40"]],
         cta: "Start with Personal" },
-      pro: { flag: "For large clubs", name: "Professional", price: "69", per: "€ / month", vat: "excl. VAT", for: "The club with many teams streaming home and away.",
+      pro: { flag: "For large clubs", name: "Professional", price: "69", per: "€ / month for hosting", vat: "excl. VAT", for: "The club with many teams streaming home and away.",
         rows: [["Courtside", "Free"], ["Games", "Room for hundreds a month"], ["Price per game", "Drops the more you stream"], ["Everything listed above", "✓"], ["Your own domain, e.g. live.yourclub.com", "✓"], ["Email on your club's domain", "✓"], ["Tokens per day", "300"]],
         cta: "Start with Professional" },
     },
     host: {
-      h: "Why host on Open Source Cloud?", sub: "Courtside is free wherever you run it. The difference is who looks after the hosting.",
+      h: "Why it pays to host on Open Source Cloud", sub: "Courtside is just as free wherever you run it. The difference is who looks after hosting and updates.",
       osc: { h: "Host on Open Source Cloud", items: [
+        ["New versions come to you.", "When we release an update, an Update button appears in your Courtside. One click and you have the new features. No extra cost."],
         ["Up and running in minutes.", "Sign in, choose a name and click Create. All keys and connections are set up for you."],
-        ["Updates and new features included.", "When a new version is released, an Update button appears and one click is all it takes. No extra cost."],
-        ["You only pay while you stream.", "The streaming engine starts for the game and shuts down afterwards."],
+        ["You only pay for what you use.", "The streaming engine starts for the game and shuts down afterwards."],
         ["Your videos stay in Sweden.", "They are stored in Stockholm under OSC's data processing agreement."],
       ] },
       self: { h: "Host it yourself", items: [
         ["The code is yours to use.", 'It\'s openly available <a href="https://github.com/borisasadanin/courtside" rel="noopener">on GitHub</a>, and you may download it and run it wherever you like.'],
-        ["You run the hosting.", "Servers, streaming engine, storage and updates are your responsibility."],
+        ["Every update is your job.", "New versions don't arrive on their own. You fetch, build and install them yourself, every time."],
+        ["You run the hosting.", "Servers, streaming engine and storage are your responsibility."],
         ["Hosting costs money there too.", "Servers, storage and traffic cost money with every provider, plus the time it takes to keep it all running."],
       ] },
     },
@@ -443,6 +465,14 @@ export const en = {
       ["Do we need someone who knows IT?", "No. Whoever sets up Courtside signs in, chooses a name and clicks Create. All keys and connections are handled automatically. After that it's one button on the phone."],
       ["Does it work for sports other than basketball?", "Streaming and recording work for any sport, but periods, breaks and clip length are tuned for basketball today. More sports are next."],
     ],
+  },
+
+  contact: {
+    eyebrow: "Contact", h2: "Get in touch",
+    sub: "Questions, ideas for new features, or want help getting started? Write a few lines and we'll get back to you as soon as we can.",
+    name: "Name", email: "Email", club: "Club", optional: "optional", message: "Message",
+    hp: "Leave this field empty", send: "Send", privacy: "We only use these details to reply to you.",
+    doneH: "Thanks, your message is on its way!", doneP: "We'll reply to the email address you gave.",
   },
 
   end: {

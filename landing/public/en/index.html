@@ -31,6 +31,7 @@
       <a href="#funktioner">Features</a>
       <a href="#pris">Pricing</a>
       <a href="#faq">FAQ</a>
+      <a href="#kontakt">Contact</a>
     </nav>
     <div class="header-actions">
       <a class="lang-switch" href="/" hreflang="sv" lang="sv" aria-label="Switch language to Swedish" title="Svenska"><span aria-hidden="true">🇸🇪</span> SV</a>
@@ -519,9 +520,46 @@
   <section id="pris" aria-labelledby="price-h2">
     <div class="wrap">
       <div class="section-head">
-        <span class="eyebrow">Pricing and hosting</span>
+        <span class="eyebrow">Pricing</span>
         <h2 id="price-h2">Courtside is free. You only pay for hosting.</h2>
-        <p class="subline">The software costs nothing. What costs money is the servers that stream and store your games. On Open Source Cloud that's €15 a month for the whole club. Enough for about 10 games a month, around €1.50 a game. No fees per team or per viewer.</p>
+        <p class="subline">There's no licence and no subscription for Courtside. The only thing that costs money is hosting, the servers that stream and store your games. And it only costs as much as you stream and record.</p>
+      </div>
+
+      <div class="card-grid three price-explain">
+        
+        <article class="card">
+          <p class="pe-big">€0</p>
+          <p class="pe-label">for Courtside</p>
+          <p>The software is free and open source. Every feature is included. No licences, no fees per team or per viewer.</p>
+        </article>
+        <article class="card">
+          <p class="pe-big">Hosting</p>
+          <p class="pe-label">based on how much you stream</p>
+          <p>You pay for the servers that stream and store your games, nothing else. Stream a little and it costs a little. A team streaming its home games gets by on €15 a month.</p>
+        </article>
+        <article class="card">
+          <p class="pe-big">Updates</p>
+          <p class="pe-label">included on Open Source Cloud</p>
+          <p>New versions come to you, and one click is all it takes to update. Host it yourself and you fetch, build and install every new version on your own.</p>
+        </article>
+      </div>
+
+      <div class="host" id="pris-drift">
+        <div class="host-head">
+          <h3>Why it pays to host on Open Source Cloud</h3>
+          <p>Courtside is just as free wherever you run it. The difference is who looks after hosting and updates.</p>
+        </div>
+        <div class="card-grid two">
+          
+          <article class="card host-card us">
+            <h4>Host on Open Source Cloud</h4>
+            <ul><li><strong>New versions come to you.</strong> When we release an update, an Update button appears in your Courtside. One click and you have the new features. No extra cost.</li><li><strong>Up and running in minutes.</strong> Sign in, choose a name and click Create. All keys and connections are set up for you.</li><li><strong>You only pay for what you use.</strong> The streaming engine starts for the game and shuts down afterwards.</li><li><strong>Your videos stay in Sweden.</strong> They are stored in Stockholm under OSC's data processing agreement.</li></ul>
+          </article>
+          <article class="card host-card">
+            <h4>Host it yourself</h4>
+            <ul><li><strong>The code is yours to use.</strong> It's openly available <a href="https://github.com/borisasadanin/courtside" rel="noopener">on GitHub</a>, and you may download it and run it wherever you like.</li><li><strong>Every update is your job.</strong> New versions don't arrive on their own. You fetch, build and install them yourself, every time.</li><li><strong>You run the hosting.</strong> Servers, streaming engine and storage are your responsibility.</li><li><strong>Hosting costs money there too.</strong> Servers, storage and traffic cost money with every provider, plus the time it takes to keep it all running.</li></ul>
+          </article>
+        </div>
       </div>
 
       <div class="included" id="pris-ingar">
@@ -548,11 +586,15 @@
         <p class="note">€15 is Open Source Cloud's Personal plan excl. VAT, paid to OSC for hosting. Courtside runs in your own OSC account.</p>
       </div>
 
+      <div class="host-head plans-head">
+        <h3>Choose a hosting plan</h3>
+        <p>The plan is paid to Open Source Cloud and decides how much you can stream. Courtside is free on both.</p>
+      </div>
       <div class="plans" id="pris-planer">
         <article class="plan-card featured" id="card-personal">
           <span class="plan-flag" id="flag-personal">Right for most clubs</span>
           <h3>Personal</h3>
-          <p class="plan-price"><b>15</b> € / month <small>excl. VAT</small></p>
+          <p class="plan-price"><b>15</b> € / month for hosting <small>excl. VAT</small></p>
           <p class="for">The team or smaller club streaming its home games.</p>
           <dl class="plan-rows"><div><dt>Courtside</dt><dd>Free</dd></div><div><dt>Games</dt><dd>About 10 a month (2–3 a week)</dd></div><div><dt>Price per game</dt><dd>≈ €1.50</dd></div><div><dt>Everything listed above</dt><dd>✓</dd></div><div><dt>Your own domain</dt><dd class="no">–</dd></div><div><dt>Email on your club's domain</dt><dd class="no">–</dd></div><div><dt>Tokens per day</dt><dd>40</dd></div></dl>
           <button type="button" class="btn btn-primary btn-block" data-plan="PERSONAL">Start with Personal</button>
@@ -560,7 +602,7 @@
         <article class="plan-card" id="card-professional">
           <span class="plan-flag" id="flag-professional">For large clubs</span>
           <h3>Professional</h3>
-          <p class="plan-price"><b>69</b> € / month <small>excl. VAT</small></p>
+          <p class="plan-price"><b>69</b> € / month for hosting <small>excl. VAT</small></p>
           <p class="for">The club with many teams streaming home and away.</p>
           <dl class="plan-rows"><div><dt>Courtside</dt><dd>Free</dd></div><div><dt>Games</dt><dd>Room for hundreds a month</dd></div><div><dt>Price per game</dt><dd>Drops the more you stream</dd></div><div><dt>Everything listed above</dt><dd>✓</dd></div><div><dt>Your own domain, e.g. live.yourclub.com</dt><dd>✓</dd></div><div><dt>Email on your club's domain</dt><dd>✓</dd></div><div><dt>Tokens per day</dt><dd>300</dd></div></dl>
           <button type="button" class="btn btn-secondary btn-block" data-plan="PROFESSIONAL">Start with Professional</button>
@@ -572,24 +614,6 @@
           <p>OSC's free tier gives you 100 tokens. That's enough to set up Courtside and stream a practice game before you decide.</p>
         </div>
         <a class="btn btn-secondary" href="/auth/signin?returnTo=%2Fen%2F%3Fstart%3D1" data-start>Try it free</a>
-      </div>
-
-      <div class="host" id="pris-drift">
-        <div class="host-head">
-          <h3>Why host on Open Source Cloud?</h3>
-          <p>Courtside is free wherever you run it. The difference is who looks after the hosting.</p>
-        </div>
-        <div class="card-grid two">
-          
-          <article class="card host-card us">
-            <h4>Host on Open Source Cloud</h4>
-            <ul><li><strong>Up and running in minutes.</strong> Sign in, choose a name and click Create. All keys and connections are set up for you.</li><li><strong>Updates and new features included.</strong> When a new version is released, an Update button appears and one click is all it takes. No extra cost.</li><li><strong>You only pay while you stream.</strong> The streaming engine starts for the game and shuts down afterwards.</li><li><strong>Your videos stay in Sweden.</strong> They are stored in Stockholm under OSC's data processing agreement.</li></ul>
-          </article>
-          <article class="card host-card">
-            <h4>Host it yourself</h4>
-            <ul><li><strong>The code is yours to use.</strong> It's openly available <a href="https://github.com/borisasadanin/courtside" rel="noopener">on GitHub</a>, and you may download it and run it wherever you like.</li><li><strong>You run the hosting.</strong> Servers, streaming engine, storage and updates are your responsibility.</li><li><strong>Hosting costs money there too.</strong> Servers, storage and traffic cost money with every provider, plus the time it takes to keep it all running.</li></ul>
-          </article>
-        </div>
       </div>
 
       <p class="calc-explain" id="pris-raknare">Open Source Cloud bills in tokens: Courtside uses 31 a day for the website and storage and about 7 per hour of streaming, and the Personal plan gives you 40 a day.</p>
@@ -739,6 +763,35 @@
     </div>
   </section>
 
+  <!-- CONTACT -->
+  <section id="kontakt" aria-labelledby="contact-h2">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Contact</span>
+        <h2 id="contact-h2">Get in touch</h2>
+        <p class="subline">Questions, ideas for new features, or want help getting started? Write a few lines and we'll get back to you as soon as we can.</p>
+      </div>
+      <form class="contact card" id="contact-form" novalidate>
+        <div class="contact-row">
+          <div class="field"><label for="c-name">Name</label><input type="text" id="c-name" name="name" autocomplete="name" maxlength="100" required></div>
+          <div class="field"><label for="c-email">Email</label><input type="email" id="c-email" name="email" autocomplete="email" maxlength="200" required></div>
+        </div>
+        <div class="field"><label for="c-club">Club <span class="hint">(optional)</span></label><input type="text" id="c-club" name="club" autocomplete="organization" maxlength="120"></div>
+        <div class="field"><label for="c-message">Message</label><textarea id="c-message" name="message" rows="5" maxlength="5000" required></textarea></div>
+        <div class="hp" aria-hidden="true"><label for="c-website">Leave this field empty</label><input type="text" id="c-website" name="website" tabindex="-1" autocomplete="off"></div>
+        <p class="form-error" id="contact-error" role="alert"></p>
+        <div class="contact-actions">
+          <button type="submit" class="btn btn-primary" id="contact-send">Send</button>
+          <p class="muted">We only use these details to reply to you.</p>
+        </div>
+      </form>
+      <div class="contact card contact-done" id="contact-done" role="status" tabindex="-1" hidden>
+        <h3>Thanks, your message is on its way!</h3>
+        <p>We'll reply to the email address you gave.</p>
+      </div>
+    </div>
+  </section>
+
   <!-- CTA -->
   <section class="cta-band" id="kom-igang" aria-labelledby="cta-h2">
     <div class="wrap">
@@ -747,7 +800,7 @@
       <p class="auth-notice" id="auth-notice" role="alert" hidden></p>
       <div class="actions">
         <a class="btn btn-primary" href="/auth/signin?returnTo=%2Fen%2F%3Fstart%3D1" data-start>Get started</a>
-        <a class="btn btn-secondary" href="mailto:sales@eyevinn.se?subject=Courtside%20for%20our%20club">Talk to us</a>
+        <a class="btn btn-secondary" href="#kontakt">Talk to us</a>
       </div>
       <p class="muted" style="margin-top:1rem">Try it free on OSC's free tier.</p>
     </div>
