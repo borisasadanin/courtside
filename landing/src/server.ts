@@ -22,6 +22,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Fastify, { FastifyReply, FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
+import compress from "@fastify/compress";
 import fastifyStatic from "@fastify/static";
 import * as oauth from "./oauth.js";
 import { oscFor } from "./osc.js";
@@ -115,8 +116,14 @@ function store(s: Session, t: oauth.Tokens) {
 
 const app = Fastify({ logger: true, trustProxy: true });
 await app.register(cookie);
+await app.register(compress, { threshold: 1024 });
+// Pages, styles and scripts keep their names when they change, so they are
+// checked on every visit. Fonts and images may stay in the browser a while.
+const keep: Record<string, number> = { ".woff2": 30 * 86400, ".png": 86400 };
 await app.register(fastifyStatic, {
   root: path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public"),
+  cacheControl: false,
+  setHeaders: (res, file) => res.setHeader("Cache-Control", `public, max-age=${keep[path.extname(file)] ?? 0}`),
 });
 
 app.addHook("onSend", async (_req, reply) => {

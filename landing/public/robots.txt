@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /auth/
+Disallow: /api/
+
+Sitemap: https://courtside.apps.osaas.io/sitemap.xml
