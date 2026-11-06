@@ -1,6 +1,5 @@
 name: CourtsideCamera
 options:
-  bundleIdPrefix: $(COURTSIDE_BUNDLE_PREFIX)
   deploymentTarget:
     iOS: "16.0"
   xcodeVersion: "16.0"
@@ -36,6 +35,6 @@ targets:
         INFOPLIST_FILE: CourtsideCamera/Info.plist
         CURRENT_PROJECT_VERSION: 6
         MARKETING_VERSION: 1.4.0
-        PRODUCT_BUNDLE_IDENTIFIER: $(COURTSIDE_BUNDLE_PREFIX).CourtsideCamera
+        PRODUCT_BUNDLE_IDENTIFIER: $(COURTSIDE_BUNDLE_ID)
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         DEVELOPMENT_TEAM: ""

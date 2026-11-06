@@ -7,8 +7,10 @@ Allt som går att förbereda utan Eyevinns konto. När kontot finns: fyll i det 
 
 - Inbjudan till App Store Connect (App Manager eller Admin), eller en API-nyckel (`.p8`, Key ID, Issuer ID)
 - Eyevinns Team ID → `DEVELOPMENT_TEAM` i Xcode
-- Godkänt bundle ID, förslag `se.eyevinn.courtside.camera` → `COURTSIDE_BUNDLE_PREFIX = se.eyevinn.courtside`
-  och `PRODUCT_BUNDLE_IDENTIFIER` i `camera/project.yml`
+- Bundle ID **`se.eyevinn.sportscam`** (bestämt; neutralt så att appen kan växa till fler sporter och
+  överleva ett namnbyte). Sätts som `COURTSIDE_BUNDLE_ID` i `camera/Config.xcconfig` först när
+  `DEVELOPMENT_TEAM` är Eyevinns: bygger man det med ett personligt gratisteam registreras ID:t där och
+  blir upptaget för Eyevinns team. Går inte att byta efter första uppladdningen till App Store Connect.
 - Kontrollera att appnamnet är ledigt
 
 ## Redan klart i bygget
