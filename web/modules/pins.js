@@ -10,6 +10,7 @@ import { CONFIG } from "./config.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { deactivateAdmin } from "./admin.js";
+import { t } from "./i18n.js";
 
 function headers() {
   return { "X-Admin-Token": state.adminToken, "Content-Type": "application/json" };
@@ -25,54 +26,53 @@ export async function renderPins() {
     if (res.status === 401) return deactivateAdmin();
     info = await res.json();
   } catch {
-    el.innerHTML = '<p class="teardown-text">Kunde inte läsa koderna.</p>';
+    el.innerHTML = `<p class="teardown-text">${t("pins.loadError")}</p>`;
     return;
   }
 
   const current = info.viewerPin
-    ? `Tittarkoden är <b class="pins-current">${escapeHtml(info.viewerPin)}</b>.`
-    : "Ingen tittarkod: alla med adressen kan titta.";
+    ? t("pins.currentViewerPin", { pin: escapeHtml(info.viewerPin) })
+    : t("pins.noViewerPin");
   if (!info.changeable) {
     el.innerHTML = `<p class="teardown-text">${current} ${escapeHtml(info.reason || "")}</p>`;
     return;
   }
 
   el.innerHTML = `
-    <p class="teardown-text">${current} Glömda koder går inte att läsa ut, men ni kan sätta nya här.
-      De gamla slutar gälla direkt.</p>
-    <label class="branding-field">Ny tittarkod (4–8 siffror)
+    <p class="teardown-text">${current} ${t("pins.intro")}</p>
+    <label class="branding-field">${t("pins.newViewerPin")}
       <input type="tel" id="pinsViewer" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off">
     </label>
     <div class="branding-save-row">
-      <button class="admin-pair-btn" id="pinsViewerSave">Byt tittarkod</button>
-      ${info.viewerPin ? '<button class="branding-link" id="pinsViewerRemove" type="button">Ta bort tittarkoden</button>' : ""}
+      <button class="admin-pair-btn" id="pinsViewerSave">${t("pins.changeViewerPin")}</button>
+      ${info.viewerPin ? `<button class="branding-link" id="pinsViewerRemove" type="button">${t("pins.removeViewerPin")}</button>` : ""}
       <span class="branding-status" id="pinsViewerStatus" role="status"></span>
     </div>
-    <label class="branding-field pins-admin">Nuvarande admin-kod
+    <label class="branding-field pins-admin">${t("pins.currentAdminPin")}
       <input type="password" id="pinsAdminCurrent" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="current-password">
     </label>
-    <label class="branding-field">Ny admin-kod (6–8 siffror)
+    <label class="branding-field">${t("pins.newAdminPin")}
       <input type="tel" id="pinsAdmin" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off">
     </label>
     <div class="branding-save-row">
-      <button class="admin-pair-btn" id="pinsAdminSave">Byt admin-kod</button>
+      <button class="admin-pair-btn" id="pinsAdminSave">${t("pins.changeAdminPin")}</button>
       <span class="branding-status" id="pinsAdminStatus" role="status"></span>
     </div>`;
 
   document.getElementById("pinsViewerSave").addEventListener("click", () => {
     const viewerPin = document.getElementById("pinsViewer").value.trim();
-    if (!viewerPin) return say("pinsViewerStatus", "Skriv en ny tittarkod.", true);
-    save({ viewerPin }, "pinsViewerStatus", "Tittarkoden är bytt. Tittarna behöver ange den nya koden.");
+    if (!viewerPin) return say("pinsViewerStatus", t("pins.viewerPinMissing"), true);
+    save({ viewerPin }, "pinsViewerStatus", t("pins.viewerPinChanged"));
   });
   document.getElementById("pinsViewerRemove")?.addEventListener("click", () => {
-    if (!window.confirm("Utan tittarkod kan alla som har adressen se era matcher. Det är oftast barn på filmen. Ta bara bort koden om föräldrarna vet om det och ni har stöd för att visa matcherna öppet. Ta bort koden?")) return;
-    save({ viewerPin: "", openAccess: true }, "pinsViewerStatus", "Tittarkoden är borttagen. Alla med adressen kan titta.");
+    if (!window.confirm(t("pins.confirmRemove"))) return;
+    save({ viewerPin: "", openAccess: true }, "pinsViewerStatus", t("pins.viewerPinRemoved"));
   });
   document.getElementById("pinsAdminSave").addEventListener("click", () => {
     const currentAdminPin = document.getElementById("pinsAdminCurrent").value.trim();
     const adminPin = document.getElementById("pinsAdmin").value.trim();
-    if (!currentAdminPin || !adminPin) return say("pinsAdminStatus", "Fyll i både nuvarande och ny admin-kod.", true);
-    save({ currentAdminPin, adminPin }, "pinsAdminStatus", "Admin-koden är bytt.");
+    if (!currentAdminPin || !adminPin) return say("pinsAdminStatus", t("pins.adminPinsMissing"), true);
+    save({ currentAdminPin, adminPin }, "pinsAdminStatus", t("pins.adminPinChanged"));
   });
 }
 
@@ -83,7 +83,7 @@ function say(id, text, error = false) {
 }
 
 async function save(body, statusId, done) {
-  say(statusId, "Sparar…");
+  say(statusId, t("common.saving"));
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/admin/pins`, {
       method: "PUT",
@@ -92,7 +92,7 @@ async function save(body, statusId, done) {
     });
     if (res.status === 401) return deactivateAdmin();
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return say(statusId, data.error || `Det gick inte (HTTP ${res.status}).`, true);
+    if (!res.ok) return say(statusId, data.error || t("common.httpError", { status: res.status }), true);
 
     // The old sessions died with the old codes; keep this browser signed in.
     state.viewerToken = data.token;
@@ -102,6 +102,6 @@ async function save(body, statusId, done) {
     await renderPins();
     say(statusId, done);
   } catch {
-    say(statusId, "Kunde inte nå servern. Försök igen.", true);
+    say(statusId, t("pins.serverError"), true);
   }
 }

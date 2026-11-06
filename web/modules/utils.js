@@ -1,6 +1,7 @@
 // === Shared utility functions ===
 
 import { CONFIG } from "./config.js";
+import { t, locale } from "./i18n.js";
 
 /**
  * Resolve a media URL returned by the backend.
@@ -32,17 +33,17 @@ export function formatDuration(seconds) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}h ${m}min`;
-  if (m > 0) return `${m} min`;
-  return `${s} sek`;
+  if (h > 0) return t("common.hoursMinutes", { h, m });
+  if (m > 0) return t("common.minutes", { n: m });
+  return t("common.seconds", { n: s });
 }
 
-/** Format a date string into Swedish locale (e.g. "15 mar. 2026") */
+/** Format a date string in the chosen language (e.g. "15 mar. 2026") */
 export function formatDate(dateStr) {
   if (!dateStr) return "";
   try {
     const d = new Date(dateStr + "T12:00:00");
-    return d.toLocaleDateString("sv-SE", {
+    return d.toLocaleDateString(locale(), {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -53,14 +54,14 @@ export function formatDate(dateStr) {
 }
 
 /**
- * Format a date string with weekday in Swedish (e.g. "Lördag 28 mars 2026").
+ * Format a date string with weekday (e.g. "Lördag 28 mars 2026", "Saturday 28 March 2026").
  * Uses T12:00:00 to avoid timezone-day-shift issues.
  */
 export function formatDateFull(dateStr) {
   if (!dateStr) return "";
   try {
     const d = new Date(dateStr + "T12:00:00");
-    const str = d.toLocaleDateString("sv-SE", {
+    const str = d.toLocaleDateString(locale(), {
       weekday: "long",
       day: "numeric",
       month: "long",

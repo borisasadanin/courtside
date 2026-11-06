@@ -7,6 +7,7 @@
  * club changes its look without touching the OSC configuration or restarting.
  */
 import { clubManifest, type ClubPrivacy } from "./club-config.js";
+import type { Text } from "./i18n.js";
 
 export const BRANDING_KEY = "config/club.json";
 export const LOGO_KEY = "config/logo";
@@ -36,13 +37,13 @@ interface BrandingStorage {
  * A logo sent as a data URL, checked for type and size. Returns the image, or
  * an error message for the admin. Team logos (teams.ts) use it too.
  */
-export function decodeLogo(dataUrl: string): { bytes: Buffer; type: string } | string {
+export function decodeLogo(dataUrl: string): { bytes: Buffer; type: string } | Text {
   const match = /^data:([a-z/]+);base64,(.+)$/.exec(dataUrl ?? "");
-  if (!match || !LOGO_TYPES.includes(match[1])) return "Logotypen ska vara PNG, JPG eller WebP.";
+  if (!match || !LOGO_TYPES.includes(match[1])) return { sv: "Logotypen ska vara PNG, JPG eller WebP.", en: "The logo must be PNG, JPG or WebP." };
 
   const bytes = Buffer.from(match[2], "base64");
-  if (bytes.length === 0) return "Bilden är tom.";
-  if (bytes.length > MAX_LOGO_BYTES) return "Bilden är för stor (max 1 MB).";
+  if (bytes.length === 0) return { sv: "Bilden är tom.", en: "The image is empty." };
+  if (bytes.length > MAX_LOGO_BYTES) return { sv: "Bilden är för stor (max 1 MB).", en: "The image is too large (max 1 MB)." };
   return { bytes, type: match[1] };
 }
 
@@ -69,29 +70,29 @@ export class Branding {
   }
 
   /** Validate and store name, tagline and colour. Returns an error message, or null. */
-  async update(input: { name?: string; tagline?: string; accentColor?: string }): Promise<string | null> {
+  async update(input: { name?: string; tagline?: string; accentColor?: string }): Promise<Text | null> {
     const name = (input.name ?? "").trim();
     const tagline = (input.tagline ?? "").trim();
     const accentColor = (input.accentColor ?? "").trim();
 
-    if (!name || name.length > 60) return "Namnet ska vara 1–60 tecken.";
-    if (tagline.length > 140) return "Beskrivningen får vara högst 140 tecken.";
-    if (!COLOUR.test(accentColor)) return "Färgen ska anges som #RRGGBB.";
+    if (!name || name.length > 60) return { sv: "Namnet ska vara 1–60 tecken.", en: "The name must be 1–60 characters." };
+    if (tagline.length > 140) return { sv: "Beskrivningen får vara högst 140 tecken.", en: "The description can be at most 140 characters." };
+    if (!COLOUR.test(accentColor)) return { sv: "Färgen ska anges som #RRGGBB.", en: "Colours are written as #RRGGBB." };
 
     await this.save({ ...this.record, name, tagline, accentColor });
     return null;
   }
 
   /** Validate and store who answers for the recordings. Returns an error message, or null. */
-  async updatePrivacy(input: Partial<ClubPrivacy>): Promise<string | null> {
+  async updatePrivacy(input: Partial<ClubPrivacy>): Promise<Text | null> {
     const controller = (input.controller ?? "").trim();
     const contact = (input.contact ?? "").trim();
     const policyUrl = (input.policyUrl ?? "").trim();
 
-    if (controller.length > 100) return "Föreningens namn får vara högst 100 tecken.";
-    if (contact && (contact.length > 120 || !EMAIL.test(contact))) return "Kontakten ska vara en e-postadress.";
+    if (controller.length > 100) return { sv: "Föreningens namn får vara högst 100 tecken.", en: "The club's name can be at most 100 characters." };
+    if (contact && (contact.length > 120 || !EMAIL.test(contact))) return { sv: "Kontakten ska vara en e-postadress.", en: "The contact must be an email address." };
     if (policyUrl && (policyUrl.length > 300 || !/^https:\/\/[^\s"<>]+$/.test(policyUrl))) {
-      return "Länken ska börja med https://.";
+      return { sv: "Länken ska börja med https://.", en: "The link must start with https://." };
     }
 
     await this.save({ ...this.record, privacy: { controller, contact, policyUrl } });
@@ -99,9 +100,9 @@ export class Branding {
   }
 
   /** Store a logo sent as a data URL. Returns an error message, or null. */
-  async setLogo(dataUrl: string): Promise<string | null> {
+  async setLogo(dataUrl: string): Promise<Text | null> {
     const logo = decodeLogo(dataUrl);
-    if (typeof logo === "string") return logo;
+    if ("sv" in logo) return logo;
 
     await this.storage.uploadBuffer(LOGO_KEY, logo.bytes, logo.type);
     await this.save({ ...this.record, logoType: logo.type });

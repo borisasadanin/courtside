@@ -13,6 +13,7 @@ import { renderUpdate } from "./update.js";
 import { showImage } from "./images.js";
 import { renderTeamsAdmin } from "./team-admin.js";
 import { renderMatchesAdmin } from "./match-admin.js";
+import { t, locale } from "./i18n.js";
 
 // Callback injected by the orchestrator
 let onSwitchTab = null;
@@ -72,7 +73,7 @@ function renderShare() {
   a.href = location.origin;
   a.textContent = location.host;
   const copy = document.getElementById("adminShareCopy");
-  copy.onclick = () => navigator.clipboard.writeText(location.origin).then(() => { copy.textContent = "Adressen är kopierad"; });
+  copy.onclick = () => navigator.clipboard.writeText(location.origin).then(() => { copy.textContent = t("admin.shareCopied"); });
 }
 
 export async function loadAdminStorage() {
@@ -112,27 +113,27 @@ export async function loadAdminStorage() {
       : 0;
     const barClass = usedPercent > 90 ? "danger" : usedPercent > 70 ? "warning" : "";
     dom.adminStorageSummary.innerHTML = `
-      <div class="storage-total">${escapeHtml(totalFormatted)} av ${escapeHtml(capacityFormatted)}</div>
-      <div class="storage-label">Lagringsutrymme anv\u00e4nt (${escapeHtml(String(data.vodCount))} repriser)</div>
+      <div class="storage-total">${escapeHtml(t("admin.storageTotal", { used: totalFormatted, capacity: capacityFormatted }))}</div>
+      <div class="storage-label">${escapeHtml(t("admin.storageLabel", { n: data.vodCount }))}</div>
       <div class="storage-bar-container">
         <div class="storage-bar">
           <div class="storage-bar-fill ${barClass}" style="width: ${usedPercent.toFixed(1)}%"></div>
         </div>
         <div class="storage-stats">
-          <span>${usedPercent.toFixed(0)}% anv\u00e4nt</span>
-          <span>${escapeHtml(formatBytes(data.capacityBytes - data.totalBytes))} ledigt</span>
+          <span>${escapeHtml(t("admin.storageUsed", { pct: usedPercent.toFixed(0) }))}</span>
+          <span>${escapeHtml(t("admin.storageFree", { size: formatBytes(data.capacityBytes - data.totalBytes) }))}</span>
         </div>
       </div>
     `;
 
     const vodSub = document.getElementById("adminRowVodSub");
-    if (vodSub) vodSub.textContent = `${data.vodCount} st · ${totalFormatted}`;
+    if (vodSub) vodSub.textContent = t("admin.rowVodSub", { n: data.vodCount, size: totalFormatted });
 
     // Render VOD list
     const orphans = data.orphanClips || [];
     if (data.vods.length === 0 && orphans.length === 0) {
       dom.adminVodList.innerHTML =
-        '<p style="color: var(--text-muted); text-align: center; padding: 20px;">Inga repriser</p>';
+        `<p style="color: var(--text-muted); text-align: center; padding: 20px;">${escapeHtml(t("admin.noReplays"))}</p>`;
       return;
     }
 
@@ -148,7 +149,7 @@ export async function loadAdminStorage() {
         return `
       <div class="admin-vod-item" data-id="${escapeHtml(v.id)}">
         <div class="admin-vod-info">
-          <div class="admin-vod-title">${escapeHtml(v.matchTitle || "Inspelning")}</div>
+          <div class="admin-vod-title">${escapeHtml(v.matchTitle || t("admin.recording"))}</div>
           <div class="admin-vod-meta">
             ${teams ? `<span>${teams}</span>` : ""}
             ${date ? `<span>${escapeHtml(date)}</span>` : ""}
@@ -156,10 +157,10 @@ export async function loadAdminStorage() {
           </div>
           <div class="admin-vod-result" data-result="${escapeHtml(v.id)}"></div>
           <div class="admin-vod-cover" data-cover="${escapeHtml(v.id)}"></div>
-          ${renderClipList(v.clips || [], `${(v.clips || []).length} klipp`)}
+          ${renderClipList(v.clips || [], t("admin.clipCount", { n: (v.clips || []).length }))}
         </div>
         <div class="admin-vod-size">${escapeHtml(size)}</div>
-        <button class="admin-vod-delete" data-id="${escapeHtml(v.id)}" data-title="${escapeHtml(v.matchTitle || "")}">Ta bort</button>
+        <button class="admin-vod-delete" data-id="${escapeHtml(v.id)}" data-title="${escapeHtml(v.matchTitle || "")}">${escapeHtml(t("common.delete"))}</button>
       </div>`;
       })
       .join("") +
@@ -167,9 +168,9 @@ export async function loadAdminStorage() {
         ? `
       <div class="admin-vod-item">
         <div class="admin-vod-info">
-          <div class="admin-vod-title">Klipp fr\u00e5n borttagna matcher</div>
-          <div class="admin-vod-meta"><span>Matchen \u00e4r borttagen men klippen g\u00e5r fortfarande att se via delade l\u00e4nkar.</span></div>
-          ${renderClipList(orphans, `${orphans.length} klipp`, true)}
+          <div class="admin-vod-title">${escapeHtml(t("admin.orphanTitle"))}</div>
+          <div class="admin-vod-meta"><span>${escapeHtml(t("admin.orphanText"))}</span></div>
+          ${renderClipList(orphans, t("admin.clipCount", { n: orphans.length }), true)}
         </div>
       </div>`
         : "");
@@ -194,7 +195,7 @@ export async function loadAdminStorage() {
     });
   } catch {
     dom.adminStorageSummary.innerHTML =
-      '<p style="color: var(--red);">Kunde inte ladda lagringsinformation</p>';
+      `<p style="color: var(--red);">${escapeHtml(t("admin.storageError"))}</p>`;
   }
 }
 
@@ -208,30 +209,30 @@ export async function loadAdminStorage() {
  */
 function renderResult(el, vod) {
   const result = vod.result;
-  const home = vod.homeTeam || "Eget lag";
-  const away = vod.awayTeam || "Motståndare";
+  const home = vod.homeTeam || t("admin.ownTeam");
+  const away = vod.awayTeam || t("admin.opponent");
 
   const summary = document.createElement("div");
   summary.className = "admin-result-summary";
   const value = document.createElement("span");
   if (result) {
-    value.append("Resultat ");
+    value.append(t("admin.result"));
     const score = document.createElement("b");
     score.className = "admin-result-score";
     score.textContent = `${result.home}\u2009\u2013\u2009${result.away}`;
     value.append(score);
     const by = document.createElement("span");
     by.className = "admin-result-by";
-    by.textContent = result.setBy === "admin" ? " · ändrat i Hantera" : " · satt av kameran";
+    by.textContent = result.setBy === "admin" ? t("admin.resultByAdmin") : t("admin.resultByCamera");
     value.append(by);
   } else {
     value.className = "admin-result-none";
-    value.textContent = "Inget resultat";
+    value.textContent = t("admin.noResult");
   }
   const edit = document.createElement("button");
   edit.type = "button";
   edit.className = "branding-link";
-  edit.textContent = result ? "Ändra resultat" : "Lägg till resultat";
+  edit.textContent = result ? t("admin.editResult") : t("admin.addResult");
   summary.append(value, edit);
 
   const form = document.createElement("form");
@@ -246,9 +247,9 @@ function renderResult(el, vod) {
       </label>
     </div>
     <div class="branding-save-row">
-      <button class="admin-pair-btn" type="submit">Spara</button>
-      <button class="branding-link" type="button" data-action="cancel">Avbryt</button>
-      ${result ? '<button class="branding-link" type="button" data-action="remove">Ta bort resultat</button>' : ""}
+      <button class="admin-pair-btn" type="submit">${escapeHtml(t("common.save"))}</button>
+      <button class="branding-link" type="button" data-action="cancel">${escapeHtml(t("common.cancel"))}</button>
+      ${result ? `<button class="branding-link" type="button" data-action="remove">${escapeHtml(t("admin.removeResult"))}</button>` : ""}
       <span class="branding-status" role="status"></span>
     </div>`;
 
@@ -291,13 +292,13 @@ function renderResult(el, vod) {
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Kunde inte spara resultatet");
+        throw new Error(err.message || t("admin.resultError"));
       }
       const updated = { ...vod, result: method === "PUT" ? await res.json() : undefined };
       el.replaceChildren();
       renderResult(el, updated);
     } catch (e) {
-      say(e.message || "Kunde inte spara resultatet");
+      say(e.message || t("admin.resultError"));
       form.querySelectorAll("button").forEach((b) => { b.disabled = false; });
       refresh();
     }
@@ -329,7 +330,7 @@ function renderCoverChoice(el, vod) {
   const open = document.createElement("button");
   open.type = "button";
   open.className = "branding-link";
-  open.textContent = "Byt omslagsbild";
+  open.textContent = t("admin.changeCover");
 
   const picker = document.createElement("div");
   picker.className = "admin-cover-picker hidden";
@@ -338,15 +339,15 @@ function renderCoverChoice(el, vod) {
   const row = document.createElement("div");
   row.className = "branding-save-row";
   row.innerHTML = `
-    <button class="branding-link" type="button" data-action="close">Stäng</button>
+    <button class="branding-link" type="button" data-action="close">${escapeHtml(t("common.close"))}</button>
     <span class="branding-status" role="status"></span>`;
   picker.append(options, row);
   const status = row.querySelector(".branding-status");
   const say = (text, error = false) => { status.textContent = text; status.classList.toggle("error", error); };
 
   // One button per choice; the one in use is pressed.
-  const choices = [{ clipId: null, label: "Automatisk" }].concat(
-    clips.map((c, i) => ({ clipId: c.id, label: c.label || `Höjdpunkt ${i + 1}`, thumbnailUrl: c.thumbnailUrl })),
+  const choices = [{ clipId: null, label: t("admin.coverAuto") }].concat(
+    clips.map((c, i) => ({ clipId: c.id, label: c.label || t("admin.highlightN", { n: i + 1 }), thumbnailUrl: c.thumbnailUrl })),
   );
   const buttons = choices.map((choice) => {
     const b = document.createElement("button");
@@ -386,13 +387,13 @@ function renderCoverChoice(el, vod) {
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Kunde inte spara omslagsbilden");
+        throw new Error(err.message || t("admin.coverError"));
       }
       vod.coverClipId = clipId ?? undefined;
       refresh();
-      say("Sparat");
+      say(t("common.saved"));
     } catch (e) {
-      say(e.message || "Kunde inte spara omslagsbilden", true);
+      say(e.message || t("admin.coverError"), true);
     }
     buttons.forEach((b) => { b.disabled = false; });
   }
@@ -418,12 +419,12 @@ function renderClipList(clips, summary, open = false) {
   const items = clips
     .map((c) => {
       const d = new Date(c.createdAt);
-      const time = isNaN(d) ? "" : d.toLocaleString("sv-SE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      const time = isNaN(d) ? "" : d.toLocaleString(locale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
       return `
         <li class="admin-clip-item">
-          <span class="admin-clip-label">${escapeHtml(c.label || "H\u00f6jdpunkt")}</span>
+          <span class="admin-clip-label">${escapeHtml(c.label || t("admin.highlight"))}</span>
           ${time ? `<span class="admin-clip-time">${escapeHtml(time)}</span>` : ""}
-          <button class="admin-vod-delete admin-clip-delete" data-clip="${escapeHtml(c.id)}">Ta bort</button>
+          <button class="admin-vod-delete admin-clip-delete" data-clip="${escapeHtml(c.id)}">${escapeHtml(t("common.delete"))}</button>
         </li>`;
     })
     .join("");
@@ -446,30 +447,30 @@ async function renderDeletions() {
     if (!res.ok) throw new Error(res.status);
     const entries = await res.json();
     if (entries.length === 0) {
-      el.innerHTML = '<p class="admin-deletions-empty">Inget har tagits bort \u00e4n.</p>';
+      el.innerHTML = `<p class="admin-deletions-empty">${escapeHtml(t("admin.deletionsEmpty"))}</p>`;
       return;
     }
     const rows = entries
       .map((e) => {
-        const at = new Date(e.at).toLocaleString("sv-SE", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        const at = new Date(e.at).toLocaleString(locale(), { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
         const what = e.what === "match"
-          ? `Match${e.clips ? ` och ${e.clips} klipp` : ""}`
-          : "Klipp";
+          ? t("admin.deletedMatch", { clips: e.clips })
+          : t("admin.deletedClip");
         return `
         <li>
           <span class="admin-deletion-at">${escapeHtml(at)}</span>
           <span>${escapeHtml(what)}${e.match ? ` \u00b7 ${escapeHtml(e.match)}` : ""}</span>
-          ${e.onRequest ? '<span class="admin-deletion-request">p\u00e5 beg\u00e4ran</span>' : ""}
+          ${e.onRequest ? `<span class="admin-deletion-request">${escapeHtml(t("admin.onRequest"))}</span>` : ""}
         </li>`;
       })
       .join("");
     el.innerHTML = `
       <details class="admin-deletions">
-        <summary>${entries.length} borttagningar</summary>
+        <summary>${escapeHtml(t("admin.deletionsCount", { n: entries.length }))}</summary>
         <ul>${rows}</ul>
       </details>`;
   } catch {
-    el.innerHTML = '<p class="admin-deletions-empty">Kunde inte l\u00e4sa raderingsloggen.</p>';
+    el.innerHTML = `<p class="admin-deletions-empty">${escapeHtml(t("admin.deletionsError"))}</p>`;
   }
 }
 
@@ -479,18 +480,18 @@ async function handleDelete(btn, path, item) {
   // Two-click confirm
   if (!btn.classList.contains("confirming")) {
     btn.classList.add("confirming");
-    btn.textContent = "Bekr\u00e4fta?";
+    btn.textContent = t("admin.confirm");
     setTimeout(() => {
       if (btn.classList.contains("confirming")) {
         btn.classList.remove("confirming");
-        btn.textContent = "Ta bort";
+        btn.textContent = t("common.delete");
       }
     }, 3000);
     return;
   }
 
   btn.disabled = true;
-  btn.textContent = "Tar bort...";
+  btn.textContent = t("admin.deleting");
 
   try {
     const onRequest = document.getElementById("adminOnRequest")?.checked;
@@ -515,18 +516,18 @@ async function handleDelete(btn, path, item) {
         loadAdminStorage();
       }, 300);
     } else {
-      btn.textContent = "Misslyckades";
+      btn.textContent = t("admin.failed");
       btn.disabled = false;
       setTimeout(() => {
-        btn.textContent = "Ta bort";
+        btn.textContent = t("common.delete");
         btn.classList.remove("confirming");
       }, 2000);
     }
   } catch {
-    btn.textContent = "Fel";
+    btn.textContent = t("admin.error");
     btn.disabled = false;
     setTimeout(() => {
-      btn.textContent = "Ta bort";
+      btn.textContent = t("common.delete");
       btn.classList.remove("confirming");
     }, 2000);
   }

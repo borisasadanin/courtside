@@ -8,6 +8,7 @@ import { authHeaders, showPinScreen } from "./auth.js";
 import { openPlayer, pauseLabel } from "./player.js";
 import { showImage } from "./images.js";
 import { club } from "./club.js";
+import { t } from "./i18n.js";
 import { loadMatches, findMatch, upcomingMatches, describeMatch, downloadIcs } from "./matches.js";
 import { loadTeams } from "./teams.js";
 import { matchTeams, matchHead, matchName, spokenTeams, upcomingHead, teamFilter, focusedTeamFilter, focusTeamFilter, TEAM_FILTER_EVENT } from "./match-card.js";
@@ -48,24 +49,24 @@ async function fetchBroadcastState() {
 const BROADCAST_MESSAGES = {
   // Only when the list could not be read: the status is derived from every match
   live: {
-    title: "En match sänds just nu",
-    sub: "Den dyker upp här strax.",
+    title: t("streams.liveTitle"),
+    sub: t("streams.liveSub"),
   },
   idle: {
-    title: "Ingen sänder just nu",
-    sub: "Matchen dyker upp här av sig själv när en kamera börjar sända. Du behöver inte ladda om sidan.",
+    title: t("page.emptyTitle"),
+    sub: t("page.emptySub"),
   },
   upcoming: {
-    title: "En basketmatch startar snart!",
-    sub: "Sändningen börjar inom kort",
+    title: t("streams.upcomingTitle"),
+    sub: t("streams.upcomingSub"),
   },
   paused: {
-    title: "Matchen är pausad",
-    sub: "Sändningen fortsätter snart",
+    title: t("streams.pausedTitle"),
+    sub: t("streams.pausedSub"),
   },
   ended: {
-    title: "Tack för att du tittade!",
-    sub: "Matchen är slut",
+    title: t("streams.endedTitle"),
+    sub: t("streams.endedSub"),
   },
 };
 
@@ -142,13 +143,13 @@ function renderSchedule(status, announced, liveIds = []) {
   if (headline) {
     const next = document.createElement("div");
     next.className = "empty-schedule-title";
-    next.textContent = "Nästa match";
+    next.textContent = t("streams.nextMatch");
     el.append(next, upcomingCard(headline));
   }
   if (later.length > 0) {
     const title = document.createElement("div");
     title.className = "empty-schedule-title";
-    title.textContent = headline ? "Sedan" : "Kommande matcher";
+    title.textContent = headline ? t("streams.later") : t("streams.upcomingMatches");
     const items = document.createElement("ul");
     items.className = "empty-schedule-list";
     for (const match of later) {
@@ -188,8 +189,8 @@ function calendarButton(match) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "calendar-btn";
-  btn.textContent = "Lägg till i kalendern";
-  btn.setAttribute("aria-label", `Lägg till ${match.ownTeam.name} mot ${match.opponent.name} i kalendern`);
+  btn.textContent = t("streams.addToCalendar");
+  btn.setAttribute("aria-label", t("streams.addToCalendarLabel", { own: match.ownTeam.name, opponent: match.opponent.name }));
   btn.addEventListener("click", () => downloadIcs(match, { clubName: club.name }));
   return btn;
 }
@@ -212,7 +213,7 @@ function updateHeaderStatus(streams, broadcastState) {
 /** A card per match announced from a camera but not started yet. */
 function announcedCard(u) {
   const match = findMatch(u.matchId);
-  const pill = { cls: "upcoming", text: "SNART", spoken: "startar snart" };
+  const pill = { cls: "upcoming", text: t("streams.soon"), spoken: t("streams.soonSpoken") };
   const card = document.createElement("div");
   card.className = "stream-card upcoming";
   if (match) {
@@ -227,21 +228,21 @@ function announcedCard(u) {
   card.innerHTML = `
       <span class="stream-card-poster">
         <span class="stream-card-top">
-          <span class="stream-card-badge upcoming">SNART</span>
+          <span class="stream-card-badge upcoming">${escapeHtml(t("streams.soon"))}</span>
         </span>
       </span>
       <span class="stream-card-body">
-        <span class="stream-card-name">${escapeHtml(u.message || "Nästa match")}</span>
+        <span class="stream-card-name">${escapeHtml(u.message || t("streams.nextMatch"))}</span>
       </span>`;
   return card;
 }
 
 /** What a stream's status line starts with, and how a screen reader says it. */
 const STREAM_STATUS = {
-  live: { cls: "live", text: "LIVE", spoken: "live" },
-  waiting: { cls: "waiting", text: "STARTAR", spoken: "startar" },
-  stopped: { cls: "stopped", text: "AVBRUTEN", spoken: "avbruten" },
-  paused: { cls: "paused", text: "PAUS", spoken: "paus" },
+  live: { cls: "live", text: t("streams.live"), spoken: t("streams.liveSpoken") },
+  waiting: { cls: "waiting", text: t("streams.waiting"), spoken: t("streams.waitingSpoken") },
+  stopped: { cls: "stopped", text: t("streams.stopped"), spoken: t("streams.stoppedSpoken") },
+  paused: { cls: "paused", text: t("streams.paused"), spoken: t("streams.pausedSpoken") },
 };
 
 /**
@@ -272,18 +273,18 @@ function streamCard(s, { withCamera }) {
         ${s.posterUrl ? `<img class="stream-card-image" alt="" data-poster="${escapeHtml(s.posterUrl)}">` : ""}
         ${teams ? "" : `<span class="stream-card-top">
           <span class="stream-card-badge ${status.cls}">${escapeHtml(status.text)}</span>
-          ${s.viewers > 0 ? `<span class="stream-card-viewers">${escapeHtml(String(s.viewers))} tittare</span>` : ""}
+          ${s.viewers > 0 ? `<span class="stream-card-viewers">${escapeHtml(t("streams.viewers", { n: s.viewers }))}</span>` : ""}
         </span>`}
         ${isStopped ? "" : `<span class="stream-card-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg></span>`}
       </span>
       <span class="stream-card-body">
         ${teams ? "" : `<span class="stream-card-name">${escapeHtml(s.name)}</span>`}
-        ${isStopped ? "" : `<span class="stream-card-cta">Titta${s.status === "live" ? " live" : ""}</span>`}
+        ${isStopped ? "" : `<span class="stream-card-cta">${escapeHtml(s.status === "live" ? t("streams.watchLive") : t("streams.watch"))}</span>`}
       </span>`;
 
   if (teams) {
-    const period = (s.status === "live" || isPaused) && s.period ? `Period ${s.period}` : "";
-    const viewers = s.viewers > 0 ? `${s.viewers} tittare` : "";
+    const period = (s.status === "live" || isPaused) && s.period ? t("streams.period", { n: s.period }) : "";
+    const viewers = s.viewers > 0 ? t("streams.viewers", { n: s.viewers }) : "";
     const spoken = [spokenTeams(teams), status.spoken, period.toLowerCase(), viewers, withCamera && s.name]
       .filter(Boolean).join(", ");
     const head = matchHead(teams, { tag: "span", pill: status, parts: [period, viewers], spoken });

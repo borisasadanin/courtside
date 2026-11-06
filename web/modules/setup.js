@@ -6,6 +6,7 @@
 
 import { CONFIG } from "./config.js";
 import { state } from "./state.js";
+import { t } from "./i18n.js";
 
 /** After a reset an empty viewer PIN keeps the old one, so it opens nothing. */
 let keepsViewerPin = false;
@@ -19,7 +20,7 @@ export async function isSetupRequired() {
     // After a reset, an empty viewer PIN keeps the one viewers already have.
     if (data.keepsViewerPin) {
       const hint = document.getElementById("setupViewerPinHint");
-      if (hint) hint.textContent = "Lämna tom för att behålla den tittarkod ni redan har.";
+      if (hint) hint.textContent = t("setup.keepViewerPinHint");
       keepsViewerPin = true;
       document.getElementById("setupOpenRow")?.classList.add("hidden");
     }
@@ -74,14 +75,14 @@ export function showSetup(onDone) {
       viewerPin: viewerPin.value.trim(),
       openAccess: document.getElementById("setupOpenAccess").checked,
     };
-    if (!body.code) return fail("Fyll i uppsättningskoden.");
-    if (!/^\d{6,8}$/.test(body.adminPin)) return fail("Admin-koden ska vara 6–8 siffror.");
+    if (!body.code) return fail(t("setup.codeMissing"));
+    if (!/^\d{6,8}$/.test(body.adminPin)) return fail(t("setup.adminPinFormat"));
     // It is usually children on the film: an empty field alone does not open watching to anyone.
     if (!body.viewerPin && !body.openAccess && !keepsViewerPin) {
-      return fail("Välj en tittarkod, eller kryssa i att alla som har adressen får titta.");
+      return fail(t("setup.viewerPinOrOpen"));
     }
-    if (body.viewerPin && !/^\d{4,8}$/.test(body.viewerPin)) return fail("Tittarkoden ska vara 4–8 siffror.");
-    if (body.viewerPin && body.viewerPin === body.adminPin) return fail("Tittarkoden och admin-koden måste vara olika.");
+    if (body.viewerPin && !/^\d{4,8}$/.test(body.viewerPin)) return fail(t("setup.viewerPinFormat"));
+    if (body.viewerPin && body.viewerPin === body.adminPin) return fail(t("setup.pinsMustDiffer"));
 
     submit.disabled = true;
     try {
@@ -91,7 +92,7 @@ export function showSetup(onDone) {
         body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) return fail(data.error || "Det gick inte att spara — försök igen.");
+      if (!res.ok) return fail(data.error || t("setup.saveFailed"));
 
       state.viewerToken = data.token;
       state.adminToken = data.adminToken;
@@ -103,7 +104,7 @@ export function showSetup(onDone) {
       view.classList.add("hidden");
       onDone();
     } catch {
-      fail("Kunde inte ansluta — försök igen.");
+      fail(t("setup.connectError"));
     }
   });
 }

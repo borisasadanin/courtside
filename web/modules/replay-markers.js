@@ -7,6 +7,7 @@ import { dom } from "./state.js";
 import { authHeaders } from "./auth.js";
 import { fetchClipsForStream } from "./highlights.js";
 import { escapeHtml, formatTime, mediaUrl } from "./utils.js";
+import { t } from "./i18n.js";
 
 /** Clips made before ABL-046 start about this long before they were saved (CLIP_DURATION_SECONDS in the API). */
 const CLIP_SECONDS = 8;
@@ -224,9 +225,9 @@ function renderBarMarkers(periods, timeouts, highlights) {
   };
 
   // The first period starts at 0:00: no marker needed there
-  for (const p of periods.slice(1)) add("period", p.start, `Period ${p.number}`);
-  for (const t of timeouts) add("timeout", t.start, "Timeout");
-  for (const h of highlights) add("highlight", h.start, h.clip.label || `Höjdpunkt ${h.number}`, h.clip);
+  for (const p of periods.slice(1)) add("period", p.start, t("replay-markers.period", { n: p.number }));
+  for (const to of timeouts) add("timeout", to.start, t("replay-markers.timeout"));
+  for (const h of highlights) add("highlight", h.start, h.clip.label || t("replay-markers.highlight", { n: h.number }), h.clip);
   bar.appendChild(tip);
 }
 
@@ -258,7 +259,7 @@ function renderNav(periods, highlights) {
   if (periods.length > 1) {
     for (const p of periods) {
       // The label starts with the visible text, so voice control finds it
-      const btn = navButton(`P${p.number}`, `P${p.number}, period ${p.number} från ${formatTime(p.start)}`);
+      const btn = navButton(`P${p.number}`, t("replay-markers.periodButton", { n: p.number, time: formatTime(p.start) }));
       btn.classList.add("replay-nav-period");
       btn.dataset.start = String(p.start);
       btn.addEventListener("click", () => seek(p.start));
@@ -267,7 +268,7 @@ function renderNav(periods, highlights) {
   }
 
   if (highlights.length > 0) {
-    const star = navButton("", `Höjdpunkter, ${highlights.length}`);
+    const star = navButton("", t("replay-markers.highlights", { n: highlights.length }));
     star.classList.add("replay-nav-star");
     star.innerHTML = `${STAR_SVG}<span>${highlights.length}</span>`;
     star.setAttribute("aria-controls", "replayHighlights");
@@ -281,7 +282,7 @@ function renderNav(periods, highlights) {
     for (const h of highlights) {
       const li = document.createElement("li");
       const btn = navButton("");
-      const label = h.clip.label || `Höjdpunkt ${h.number}`;
+      const label = h.clip.label || t("replay-markers.highlight", { n: h.number });
       btn.innerHTML =
         `<span class="replay-highlights-num">${STAR_SVG}${h.number}</span>` +
         `<span class="replay-highlights-label">${escapeHtml(label)}</span>` +

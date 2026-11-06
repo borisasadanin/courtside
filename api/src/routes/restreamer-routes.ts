@@ -7,6 +7,7 @@
 import type { FastifyInstance } from "fastify";
 import { requireBroadcasterAuth } from "../auth.js";
 import { restreamer, oscManager } from "../state.js";
+import { say, type Text } from "../i18n.js";
 
 export default async function restreamerRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/restreamer/status — Return cached state instantly (background polling keeps it fresh)
@@ -25,7 +26,7 @@ export default async function restreamerRoutes(app: FastifyInstance): Promise<vo
       // Verify it's actually alive — if not, force-recreate in background
       const alive = await oscManager.quickHealthProbe();
       if (alive) {
-        return reply.send({ state: "running", message: "Restreamer körs", info: oscManager.getInfo() });
+        return reply.send({ state: "running", message: say(request, { sv: "Restreamer körs", en: "Restreamer is running" }), info: oscManager.getInfo() });
       }
       // Broken instance — force-recreate in background
       request.log.info("Restreamer reports running but is unresponsive, force-recreating...");
@@ -34,7 +35,7 @@ export default async function restreamerRoutes(app: FastifyInstance): Promise<vo
       }).catch((err) => {
         request.log.error(err, "Background Restreamer force-recreate failed");
       });
-      return reply.send({ state: "starting", message: "Restreamer svarar inte, återskapar..." });
+      return reply.send({ state: "starting", message: say(request, { sv: "Restreamer svarar inte, återskapar...", en: "Restreamer is not responding, recreating..." }) });
     }
 
     if (currentState === "stopping") {
@@ -44,7 +45,7 @@ export default async function restreamerRoutes(app: FastifyInstance): Promise<vo
       }).catch((err) => {
         request.log.error(err, "Background Restreamer start failed");
       });
-      return reply.send({ state: "starting", message: "Avbryter nedstängning, startar om..." });
+      return reply.send({ state: "starting", message: say(request, { sv: "Avbryter nedstängning, startar om...", en: "Cancelling shutdown, restarting..." }) });
     }
 
     if (currentState !== "starting") {
@@ -55,7 +56,7 @@ export default async function restreamerRoutes(app: FastifyInstance): Promise<vo
         request.log.error(err, "Background Restreamer start failed");
       });
     }
-    return reply.send({ state: "starting", message: "Restreamer startar..." });
+    return reply.send({ state: "starting", message: say(request, { sv: "Restreamer startar...", en: "Restreamer is starting..." }) });
   });
 
   // DELETE /api/restreamer/stop — Stop the Restreamer instance, unless someone
@@ -69,7 +70,7 @@ export default async function restreamerRoutes(app: FastifyInstance): Promise<vo
     if (activeStreams > 0 || pausedStreams > 0) {
       return reply.code(409).send({
         error: "streams_active",
-        message: streamsActiveMessage(activeStreams, pausedStreams),
+        message: say(request, streamsActiveMessage(activeStreams, pausedStreams)),
         activeStreams,
         pausedStreams,
       });
@@ -86,9 +87,19 @@ export default async function restreamerRoutes(app: FastifyInstance): Promise<vo
 }
 
 /** Why the engine stays on, in words for whoever pressed stop. */
-function streamsActiveMessage(active: number, paused: number): string {
-  const parts: string[] = [];
-  if (active > 0) parts.push(active === 1 ? "en sändning pågår" : `${active} sändningar pågår`);
-  if (paused > 0) parts.push(paused === 1 ? "en match är pausad" : `${paused} matcher är pausade`);
-  return `Sändningsmotorn kan inte stängas av: ${parts.join(" och ")}. Avsluta sändningen först.`;
+function streamsActiveMessage(active: number, paused: number): Text {
+  const sv: string[] = [];
+  const en: string[] = [];
+  if (active > 0) {
+    sv.push(active === 1 ? "en sändning pågår" : `${active} sändningar pågår`);
+    en.push(active === 1 ? "a broadcast is running" : `${active} broadcasts are running`);
+  }
+  if (paused > 0) {
+    sv.push(paused === 1 ? "en match är pausad" : `${paused} matcher är pausade`);
+    en.push(paused === 1 ? "a match is paused" : `${paused} matches are paused`);
+  }
+  return {
+    sv: `Sändningsmotorn kan inte stängas av: ${sv.join(" och ")}. Avsluta sändningen först.`,
+    en: `The broadcast engine cannot be turned off: ${en.join(" and ")}. End the broadcast first.`,
+  };
 }

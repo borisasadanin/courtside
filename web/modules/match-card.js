@@ -16,6 +16,7 @@
 
 import { teamFor, teamBadge, teamKey } from "./teams.js";
 import { formatMatchWhen, localToday } from "./matches.js";
+import { t, locale } from "./i18n.js";
 
 /**
  * A match's two teams, own team first: the schedule's, or else the names on
@@ -29,7 +30,7 @@ export function matchTeams(match, homeTeam, awayTeam) {
 
 /** "Älta mot Hornets" */
 export function spokenTeams(teams) {
-  return `${teams.own.name} mot ${teams.opponent.name}`;
+  return t("match-card.spokenTeams", { own: teams.own.name, opponent: teams.opponent.name });
 }
 
 /** "Älta – Hornets", for the player's title. */
@@ -114,9 +115,9 @@ export function playedOn(date, today = localToday()) {
 /** "lördag 8 november 14:00", or "i dag 14:00": the date written out, for screen readers. */
 export function spokenWhen(match, today = localToday()) {
   const short = formatMatchWhen({ date: match.date }, today);
-  const day = short === "i dag" || short === "i morgon"
+  const day = short === t("matches.today") || short === t("matches.tomorrow")
     ? short
-    : new Date(`${match.date}T12:00:00`).toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long" });
+    : new Date(`${match.date}T12:00:00`).toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long" });
   return match.time ? `${day} ${match.time}` : day;
 }
 
@@ -187,15 +188,16 @@ export function teamFilter(items, ownOf, onChange) {
       return team?.name && filterKey(team) === chosen;
     })
     : items;
+  // Team names are the club's own (Swedish), so they sort the Swedish way in either language.
   const options = [...teams].sort((a, b) => a[1].localeCompare(b[1], "sv", { numeric: true }));
-  return { row: filterRow([["", "Alla"], ...options], chosen, onChange), shown, chosen, keys: options.map(([k]) => k) };
+  return { row: filterRow([["", t("match-card.filterAll")], ...options], chosen, onChange), shown, chosen, keys: options.map(([k]) => k) };
 }
 
 function filterRow(options, chosen, onChange) {
   const row = document.createElement("div");
   row.className = "team-filter";
   row.setAttribute("role", "group");
-  row.setAttribute("aria-label", "Visa lag");
+  row.setAttribute("aria-label", t("match-card.filterLabel"));
   for (const [key, name] of options) {
     const btn = document.createElement("button");
     btn.type = "button";

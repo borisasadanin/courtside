@@ -64,6 +64,20 @@ describe("GET /c/:id", () => {
     expect(short.body).toBe(long.body);
   });
 
+  it("is in English for a link shared from the English site", async () => {
+    const headers = { host: "club.apps.osaas.io", "user-agent": "WhatsApp/2.23" };
+    const sv = await app.inject({ url: `/c/${CLIP.id}`, headers });
+    expect(sv.body).toContain('<html lang="sv">');
+    expect(sv.body).toContain("Höjdpunkt från matchen");
+
+    const en = await app.inject({ url: `/c/${CLIP.id}?lang=en`, headers });
+    expect(en.body).toContain('<html lang="en">');
+    expect(en.body).toContain('og:description" content="Highlight from the match — ');
+    expect(en.body).not.toContain("Höjdpunkt");
+    // The clip's own label is the admin's words, in whatever language they wrote it.
+    expect(en.body).toContain('og:title" content="Trepoängare');
+  });
+
   it("404s an unknown clip as a page, not JSON", async () => {
     const res = await app.inject({ url: "/c/doesnotexist" });
     expect(res.statusCode).toBe(404);

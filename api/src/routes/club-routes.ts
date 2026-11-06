@@ -9,6 +9,7 @@ import type { FastifyInstance } from "fastify";
 import { clubManifest } from "../club-config.js";
 import { requireAdminAuth } from "../auth.js";
 import type { Branding } from "../club-branding.js";
+import { say } from "../i18n.js";
 
 export default async function clubRoutes(
   app: FastifyInstance,
@@ -43,7 +44,7 @@ export default async function clubRoutes(
     async (request, reply) => {
       if (!requireAdminAuth(request, reply)) return;
       const error = await branding.update(request.body || {});
-      if (error) return reply.code(400).send({ error });
+      if (error) return reply.code(400).send({ error: say(request, error) });
       return reply.send(clubManifest);
     },
   );
@@ -54,7 +55,7 @@ export default async function clubRoutes(
     async (request, reply) => {
       if (!requireAdminAuth(request, reply)) return;
       const error = await branding.updatePrivacy(request.body || {});
-      if (error) return reply.code(400).send({ error });
+      if (error) return reply.code(400).send({ error: say(request, error) });
       return reply.send(clubManifest);
     },
   );
@@ -66,7 +67,7 @@ export default async function clubRoutes(
     async (request, reply) => {
       if (!requireAdminAuth(request, reply)) return;
       const error = await branding.setLogo(request.body?.dataUrl ?? "");
-      if (error) return reply.code(400).send({ error });
+      if (error) return reply.code(400).send({ error: say(request, error) });
       return reply.send(clubManifest);
     },
   );

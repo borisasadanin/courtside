@@ -8,6 +8,7 @@ import { getBroadcastState, reportStatus, VALID_STATUSES } from "../broadcast-st
 import type { BroadcastStatus } from "../broadcast-state.js";
 import { matches, streamMeta } from "../state.js";
 import { clubDate, matchTitle } from "../matches.js";
+import { say } from "../i18n.js";
 
 export default async function broadcastRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/broadcast — Public (no auth), the installation's status derived from every match
@@ -27,7 +28,10 @@ export default async function broadcastRoutes(app: FastifyInstance): Promise<voi
     if (!status || !VALID_STATUSES.includes(status as BroadcastStatus)) {
       return reply.code(400).send({
         error: "invalid_status",
-        message: `Status måste vara en av: ${VALID_STATUSES.join(", ")}`,
+        message: say(request, {
+          sv: `Status måste vara en av: ${VALID_STATUSES.join(", ")}`,
+          en: `Status must be one of: ${VALID_STATUSES.join(", ")}`,
+        }),
       });
     }
 

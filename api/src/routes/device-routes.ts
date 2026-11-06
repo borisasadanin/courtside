@@ -14,6 +14,7 @@ import type { FastifyInstance } from "fastify";
 import { requireAdminAuth } from "../auth.js";
 import { devices } from "../state.js";
 import { clubManifest } from "../club-config.js";
+import { say } from "../i18n.js";
 
 /** The app's URL scheme, registered in camera/CourtsideCamera/Info.plist. */
 export function pairingLink(apiUrl: string, code: string): string {
@@ -53,14 +54,14 @@ export default async function deviceRoutes(app: FastifyInstance): Promise<void> 
     async (request, reply) => {
       const { code, name } = request.body || {};
       if (!code || typeof code !== "string") {
-        return reply.code(400).send({ error: "missing_code", message: "Parningskod saknas" });
+        return reply.code(400).send({ error: "missing_code", message: say(request, { sv: "Parningskod saknas", en: "Pairing code missing" }) });
       }
 
       const result = await devices.pair(code, typeof name === "string" ? name : "");
       if (!result) {
         return reply.code(401).send({
           error: "invalid_code",
-          message: "Koden stämmer inte eller har gått ut. Be om en ny.",
+          message: say(request, { sv: "Koden stämmer inte eller har gått ut. Be om en ny.", en: "The code is wrong or has expired. Ask for a new one." }),
         });
       }
 

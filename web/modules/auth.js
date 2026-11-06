@@ -5,6 +5,7 @@ import { state, dom } from "./state.js";
 import { stopListPolling } from "./streams.js";
 import { stopVodPolling } from "./vod.js";
 import { isSetupRequired, showSetup } from "./setup.js";
+import { t } from "./i18n.js";
 
 // Callbacks injected by the orchestrator via initAuth()
 let onAuthSuccess = null; // called after successful PIN or when no PIN required
@@ -23,10 +24,10 @@ let pinRequired = true;
 
 /** Show the PIN overlay and hide everything else */
 export function showPinScreen() {
-  document.getElementById("pinTitle").textContent = pinRequired ? "Privat sändning" : "Admin";
+  document.getElementById("pinTitle").textContent = pinRequired ? t("page.pinTitle") : t("auth.adminTitle");
   document.getElementById("pinDesc").textContent = pinRequired
-    ? "Ange koden för att se matcher"
-    : "Ange admin-koden. Matcherna kan alla se utan kod.";
+    ? t("page.pinDesc")
+    : t("auth.adminDesc");
   document.getElementById("pinSkip").classList.toggle("hidden", pinRequired);
   stopListPolling();
   stopVodPolling();
@@ -95,7 +96,7 @@ async function submitPin() {
       if (onAuthSuccess) onAuthSuccess();
     }
   } catch {
-    dom.pinError.textContent = "Kunde inte ansluta \u2014 f\u00f6rs\u00f6k igen";
+    dom.pinError.textContent = t("auth.connectError");
     dom.pinError.classList.remove("hidden");
   }
   dom.pinSubmit.disabled = false;

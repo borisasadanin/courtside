@@ -16,6 +16,9 @@
  * Rendered when first asked for and kept in memory. The version, a hash of
  * everything drawn, goes into the og:image URL, so a chat app fetches the
  * picture again when the result or a logo changes.
+ *
+ * In Swedish, or in English for a link shared from the English site
+ * (`?lang=en`): only the date is in words.
  */
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
@@ -27,6 +30,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import type { Match, MatchTeam } from "./matches.js";
+import type { Lang } from "./i18n.js";
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -44,7 +48,7 @@ export const SHARE_HEIGHT = 630;
 /** Bump when the layout changes, so every chat app fetches the new picture. */
 const LAYOUT_VERSION = 2;
 
-/** How many matches' pictures are kept in memory. */
+/** How many pictures, one per match and language, are kept in memory. */
 const MAX_CACHED = 50;
 
 type Rgb = [number, number, number];
@@ -79,22 +83,31 @@ export interface ShareDrawing {
   opponent: ShareTeam;
   /** Own team first. */
   result?: { home: number; away: number };
+  /** Swedish when absent. */
+  lang?: Lang;
 }
 
 const WEEKDAYS = ["söndag", "måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag"];
 const MONTHS = ["januari", "februari", "mars", "april", "maj", "juni", "juli", "augusti", "september", "oktober", "november", "december"];
 
-/** "lördag 1 november 2026" */
-export function formatShareDate(date: string): string {
+/** "lördag 1 november 2026", or in English "Saturday, 1 November 2026" */
+export function formatShareDate(date: string, lang: Lang = "sv"): string {
   const d = new Date(`${date}T12:00:00Z`);
   if (isNaN(d.getTime())) return date;
+  if (lang === "en") {
+    return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  }
   return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-/** The date, with the time for a match still to be played: "lördag 8 november 2026 kl. 14:00". */
-export function shareWhen(match: Pick<Match, "date" | "time" | "status">): string {
-  const date = formatShareDate(match.date);
-  return match.status === "planned" && match.time ? `${date} kl. ${match.time}` : date;
+/**
+ * The date, with the time for a match still to be played:
+ * "lördag 8 november 2026 kl. 14:00", "Saturday, 8 November 2026 at 14:00".
+ */
+export function shareWhen(match: Pick<Match, "date" | "time" | "status">, lang: Lang = "sv"): string {
+  const date = formatShareDate(match.date, lang);
+  if (match.status !== "planned" || !match.time) return date;
+  return `${date} ${lang === "en" ? "at" : "kl."} ${match.time}`;
 }
 
 /** "P12 72 – 65 Hornets", or "P12 – Hornets" before there is a result. */
@@ -346,7 +359,8 @@ export async function renderShareImage(d: ShareDrawing): Promise<Buffer> {
   // Header: the club on the left, the date on the right.
   const header = 92;
   texts.push({ ...fitText(d.club.toUpperCase(), 560, 36, 26), color: readableOnBackground(accent), x: 72, align: "left", baseline: header });
-  const when = d.time ? `${formatShareDate(d.date)} · ${d.time}` : formatShareDate(d.date);
+  const date = formatShareDate(d.date, d.lang);
+  const when = d.time ? `${date} · ${d.time}` : date;
   texts.push({ ...fitText(when.toUpperCase(), 520, 36, 26), color: MUTED, x: W - 72, align: "right", baseline: header });
 
   // Badges: the logo on a white plate, or the short name on the team's colour.
@@ -448,8 +462,8 @@ interface ShareSources {
 }
 
 /**
- * Each match's picture, rendered when first asked for and kept while what it
- * shows stays the same.
+ * Each match's picture in each language, rendered when first asked for and
+ * kept while what it shows stays the same.
  *
  * An own team without a logo of its own shows the club's: P12 is the club's
  * team, and the club logo says so better than "P12" on a colour.
@@ -464,7 +478,7 @@ export class ShareImages {
   ) {}
 
   /** A hash of everything the picture shows: it changes when the picture does. */
-  version(match: Match): string {
+  version(match: Match, lang: Lang = "sv"): string {
     const club = this.sources.club();
     const team = (t: MatchTeam) => [t.name, t.shortName, t.color, t.logoUrl ?? ""];
     const clubLogo = match.ownTeam.logoUrl ? "" : this.sources.clubLogoVersion() ?? "";
@@ -479,31 +493,33 @@ export class ShareImages {
       team(match.ownTeam),
       team(match.opponent),
       match.result ? [match.result.home, match.result.away] : null,
+      lang,
     ];
     return crypto.createHash("sha256").update(JSON.stringify(drawn)).digest("hex").slice(0, 12);
   }
 
   /** The match's picture as it is now, with its version. */
-  async image(match: Match): Promise<{ version: string; png: Buffer }> {
-    const version = this.version(match);
-    const cached = this.cache.get(match.id);
+  async image(match: Match, lang: Lang = "sv"): Promise<{ version: string; png: Buffer }> {
+    const version = this.version(match, lang);
+    const id = `${match.id}:${lang}`;
+    const cached = this.cache.get(id);
     if (cached?.version === version) return cached;
 
-    const key = `${match.id}:${version}`;
+    const key = `${id}:${version}`;
     let rendering = this.pending.get(key);
     if (!rendering) {
-      rendering = this.draw(match).finally(() => this.pending.delete(key));
+      rendering = this.draw(match, lang).finally(() => this.pending.delete(key));
       this.pending.set(key, rendering);
     }
     const png = await rendering;
-    this.cache.delete(match.id);
-    this.cache.set(match.id, { version, png });
+    this.cache.delete(id);
+    this.cache.set(id, { version, png });
     // Oldest first in a Map: drop from the front.
     while (this.cache.size > MAX_CACHED) this.cache.delete(this.cache.keys().next().value!);
     return { version, png };
   }
 
-  private async draw(match: Match): Promise<Buffer> {
+  private async draw(match: Match, lang: Lang): Promise<Buffer> {
     const club = this.sources.club();
     const [ownLogo, opponentLogo] = await Promise.all([
       this.logoOf(match.ownTeam).then((logo) => logo ?? this.sources.clubLogo().catch(() => null)),
@@ -518,6 +534,7 @@ export class ShareImages {
       own: teamDrawing(match.ownTeam, ownLogo),
       opponent: teamDrawing(match.opponent, opponentLogo),
       ...(match.result && { result: match.result }),
+      lang,
     };
     try {
       return await this.render(drawing);

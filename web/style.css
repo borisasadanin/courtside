@@ -1825,6 +1825,33 @@ footer {
   color: var(--red);
 }
 
+/* SV/EN switch, the same as on the landing page (issue #30) */
+.lang-switch {
+  margin-left: auto;
+  background: none;
+  border: 1px solid #333;
+  border-radius: 999px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  white-space: nowrap;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.lang-switch:hover,
+.lang-switch:focus-visible {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.lang-switch + .header-logout-btn {
+  margin-left: 0;
+}
+
 /* --- Admin view --- */
 
 .admin-header {

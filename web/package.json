@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "license": "Apache-2.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "node build.mjs",
+    "test": "node --test i18n.test.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {

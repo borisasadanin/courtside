@@ -19,6 +19,7 @@ import { saveStreamMetaSoon } from "../stream-meta-store.js";
 import { forgetLivePicture, recordingStopped, withLivePictures } from "../match-images.js";
 import { matches } from "../state.js";
 import { clubDate, type MatchSummary } from "../matches.js";
+import { say, type Text } from "../i18n.js";
 
 /** DVR playlist URL for a stream (relative path — frontend prepends API base). */
 function dvrUrl(id: string): string {
@@ -72,7 +73,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
 
     const { name, deviceId, opponent, team, matchId } = request.body || {};
     if (!name || typeof name !== "string" || name.trim().length === 0) {
-      return reply.code(400).send({ error: "missing_name", message: "Namn saknas" });
+      return reply.code(400).send({ error: "missing_name", message: say(request, { sv: "Namn saknas", en: "Name missing" }) });
     }
 
     // A match picked from the schedule (ABL-048), looked up before anything
@@ -90,7 +91,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       if (!scheduled && lookedUp) {
         return reply.code(404).send({
           error: "match_not_found",
-          message: "Matchen finns inte i schemat längre. Välj en annan match, eller Annan match.",
+          message: say(request, { sv: "Matchen finns inte i schemat längre. Välj en annan match, eller Annan match.", en: "The game is no longer in the schedule. Choose another game, or Other game." }),
         });
       }
     }
@@ -113,20 +114,26 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       });
       return reply.code(409).send({
         error: "restreamer_not_ready",
-        message: "Sändningsmotorn startar automatiskt. Försök igen om ca 1 minut.",
+        message: say(request, { sv: "Sändningsmotorn startar automatiskt. Försök igen om ca 1 minut.", en: "The broadcast engine is starting by itself. Try again in about 1 minute." }),
       });
     }
     const oscInfo = oscManager.getInfo();
     // Started and counting down for lack of a stream is up: this stream is
     // the one it waits for (ensureRunning starts the countdown again).
     if (!oscManager.isUp() || !oscInfo) {
-      const stateMessages: Record<string, string> = {
-        starting: "Sändningsmotorn startar. Vänta tills den är redo och försök igen (~1 min).",
-        stopping: "Sändningsmotorn håller på att stängas ner. Försök igen om en stund.",
+      const stateMessages: Record<string, Text> = {
+        starting: {
+          sv: "Sändningsmotorn startar. Vänta tills den är redo och försök igen (~1 min).",
+          en: "The broadcast engine is starting. Wait until it is ready and try again (~1 min).",
+        },
+        stopping: {
+          sv: "Sändningsmotorn håller på att stängas ner. Försök igen om en stund.",
+          en: "The broadcast engine is shutting down. Try again in a while.",
+        },
       };
       return reply.code(409).send({
         error: "restreamer_not_ready",
-        message: stateMessages[oscState] || "Sändningsmotorn är inte redo.",
+        message: say(request, stateMessages[oscState] || { sv: "Sändningsmotorn är inte redo.", en: "The broadcast engine is not ready." }),
       });
     }
     restreamer.rtmpHost = oscInfo.rtmpHost;
@@ -246,7 +253,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       request.log.error(err, "Failed to create stream");
       return reply.code(500).send({
         error: "stream_creation_failed",
-        message: "Kunde inte skapa strömmen. Försök igen.",
+        message: say(request, { sv: "Kunde inte skapa strömmen. Försök igen.", en: "Could not create the stream. Try again." }),
       });
     }
   });
@@ -262,18 +269,18 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
 
     const requestedType = request.body?.type ?? "period";
     if (!PAUSE_TYPES.includes(requestedType as PauseType)) {
-      return reply.code(400).send({ error: "invalid_pause_type", message: "Okänd paustyp" });
+      return reply.code(400).send({ error: "invalid_pause_type", message: say(request, { sv: "Okänd paustyp", en: "Unknown pause type" }) });
     }
     const pauseType = requestedType as PauseType;
 
     if (!meta) {
-      return reply.code(404).send({ error: "not_found", message: "Strömmen hittades inte" });
+      return reply.code(404).send({ error: "not_found", message: say(request, { sv: "Strömmen hittades inte", en: "Stream not found" }) });
     }
     if (meta.stoppedAt) {
-      return reply.code(409).send({ error: "already_stopped", message: "Strömmen är redan stoppad" });
+      return reply.code(409).send({ error: "already_stopped", message: say(request, { sv: "Strömmen är redan stoppad", en: "The stream has already been stopped" }) });
     }
     if (meta.pausedAt) {
-      return reply.code(409).send({ error: "already_paused", message: "Strömmen är redan pausad" });
+      return reply.code(409).send({ error: "already_paused", message: say(request, { sv: "Strömmen är redan pausad", en: "The stream is already paused" }) });
     }
 
     // Stop collecting segments and build part manifest BEFORE killing Restreamer
@@ -315,13 +322,13 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     const meta = streamMeta.get(id);
 
     if (!meta) {
-      return reply.code(404).send({ error: "not_found", message: "Strömmen hittades inte" });
+      return reply.code(404).send({ error: "not_found", message: say(request, { sv: "Strömmen hittades inte", en: "Stream not found" }) });
     }
     if (!meta.pausedAt) {
-      return reply.code(409).send({ error: "not_paused", message: "Strömmen är inte pausad" });
+      return reply.code(409).send({ error: "not_paused", message: say(request, { sv: "Strömmen är inte pausad", en: "The stream is not paused" }) });
     }
     if (meta.stoppedAt) {
-      return reply.code(409).send({ error: "already_stopped", message: "Strömmen är redan stoppad" });
+      return reply.code(409).send({ error: "already_stopped", message: say(request, { sv: "Strömmen är redan stoppad", en: "The stream has already been stopped" }) });
     }
 
     // Ensure Restreamer is running. The health poll restarts a lost instance on
@@ -336,7 +343,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       }
       return reply.code(409).send({
         error: "restreamer_not_ready",
-        message: "Sändningsmotorn är inte redo. Försök igen.",
+        message: say(request, { sv: "Sändningsmotorn är inte redo. Försök igen.", en: "The broadcast engine is not ready. Try again." }),
       });
     }
     restreamer.rtmpHost = oscInfo.rtmpHost;
@@ -383,7 +390,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       request.log.error(err, "Failed to create Restreamer process on resume");
       return reply.code(500).send({
         error: "resume_failed",
-        message: "Kunde inte återuppta strömmen. Försök igen.",
+        message: say(request, { sv: "Kunde inte återuppta strömmen. Försök igen.", en: "Could not resume the stream. Try again." }),
       });
     }
   });

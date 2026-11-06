@@ -12,12 +12,15 @@
  */
 import crypto from "node:crypto";
 import { mutableConfig } from "./config.js";
+import type { Text } from "./i18n.js";
 
 export const SETUP_KEY = "config/setup.json";
 
 /** Refusal when a viewer PIN is left out without saying that is meant. */
-export const OPEN_ACCESS_UNCONFIRMED =
-  "Välj en tittarkod, eller bekräfta att alla som har adressen får titta.";
+export const OPEN_ACCESS_UNCONFIRMED: Text = {
+  sv: "Välj en tittarkod, eller bekräfta att alla som har adressen får titta.",
+  en: "Choose a viewer code, or confirm that anyone with the address may watch.",
+};
 
 export interface SetupRecord {
   /** SHA-256 of the SETUP_CODE that was used. A different code reopens setup. */
@@ -119,17 +122,17 @@ export class Setup {
     adminPin?: string;
     viewerPin?: string;
     openAccess?: boolean;
-  }): Promise<string | null> {
-    if (!this.required) return "Installationen är redan uppsatt.";
-    if (!codeMatches(input.code ?? "", this.setupCode)) return "Fel uppsättningskod.";
+  }): Promise<Text | null> {
+    if (!this.required) return { sv: "Installationen är redan uppsatt.", en: "The installation is already set up." };
+    if (!codeMatches(input.code ?? "", this.setupCode)) return { sv: "Fel uppsättningskod.", en: "Wrong setup code." };
 
     const adminPin = (input.adminPin ?? "").trim();
     // After a reset an empty viewer PIN means "keep the one we have".
     const viewerPin = (input.viewerPin ?? "").trim() || this.previous?.viewerPin || "";
-    if (!ADMIN_PIN_PATTERN.test(adminPin)) return "Admin-koden ska vara 6–8 siffror.";
+    if (!ADMIN_PIN_PATTERN.test(adminPin)) return { sv: "Admin-koden ska vara 6–8 siffror.", en: "The admin code must be 6–8 digits." };
     if (!viewerPin && !input.openAccess) return OPEN_ACCESS_UNCONFIRMED;
-    if (viewerPin && !VIEWER_PIN_PATTERN.test(viewerPin)) return "Tittarkoden ska vara 4–8 siffror.";
-    if (viewerPin === adminPin) return "Tittarkoden och admin-koden måste vara olika.";
+    if (viewerPin && !VIEWER_PIN_PATTERN.test(viewerPin)) return { sv: "Tittarkoden ska vara 4–8 siffror.", en: "The viewer code must be 4–8 digits." };
+    if (viewerPin === adminPin) return { sv: "Tittarkoden och admin-koden måste vara olika.", en: "The viewer code and the admin code must be different." };
 
     const record: SetupRecord = {
       codeHash: sha256(this.normalised()),
@@ -152,9 +155,9 @@ export class Setup {
    * setup code they come from the environment, and a change here would be
    * lost at the next restart.
    */
-  pinsLocked(): string | null {
-    if (!this.setupCode) return "Koderna är satta i serverns inställningar och ändras där.";
-    if (this.required || !this.current) return "Installationen är inte uppsatt än.";
+  pinsLocked(): Text | null {
+    if (!this.setupCode) return { sv: "Koderna är satta i serverns inställningar och ändras där.", en: "The codes are set in the server's settings and are changed there." };
+    if (this.required || !this.current) return { sv: "Installationen är inte uppsatt än.", en: "The installation is not set up yet." };
     return null;
   }
 
@@ -169,7 +172,7 @@ export class Setup {
     adminPin?: string;
     viewerPin?: string;
     openAccess?: boolean;
-  }): Promise<string | null> {
+  }): Promise<Text | null> {
     const locked = this.pinsLocked();
     if (locked) return locked;
     const record = this.current!;
@@ -177,12 +180,12 @@ export class Setup {
     const adminPin = input.adminPin?.trim() || record.adminPin;
     const viewerPin = input.viewerPin === undefined ? record.viewerPin : input.viewerPin.trim();
     if (adminPin !== record.adminPin) {
-      if (!pinMatches(input.currentAdminPin ?? "", record.adminPin)) return "Fel nuvarande admin-kod.";
-      if (!ADMIN_PIN_PATTERN.test(adminPin)) return "Admin-koden ska vara 6–8 siffror.";
+      if (!pinMatches(input.currentAdminPin ?? "", record.adminPin)) return { sv: "Fel nuvarande admin-kod.", en: "Wrong current admin code." };
+      if (!ADMIN_PIN_PATTERN.test(adminPin)) return { sv: "Admin-koden ska vara 6–8 siffror.", en: "The admin code must be 6–8 digits." };
     }
     if (!viewerPin && record.viewerPin && !input.openAccess) return OPEN_ACCESS_UNCONFIRMED;
-    if (viewerPin && !VIEWER_PIN_PATTERN.test(viewerPin)) return "Tittarkoden ska vara 4–8 siffror.";
-    if (viewerPin === adminPin) return "Tittarkoden och admin-koden måste vara olika.";
+    if (viewerPin && !VIEWER_PIN_PATTERN.test(viewerPin)) return { sv: "Tittarkoden ska vara 4–8 siffror.", en: "The viewer code must be 4–8 digits." };
+    if (viewerPin === adminPin) return { sv: "Tittarkoden och admin-koden måste vara olika.", en: "The viewer code and the admin code must be different." };
 
     const next: SetupRecord = { ...record, adminPin, viewerPin, changedAt: new Date().toISOString() };
     // Stored first: if storage fails, the PINs in force stay the ones on record.

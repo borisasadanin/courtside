@@ -28,7 +28,8 @@ export default {
     const clipId = match[1];
 
     // Forward the request to the backend OG route (preserve user-agent for bot detection)
-    const backendUrl = `${BACKEND}/api/clips/${encodeURIComponent(clipId)}/og`;
+    // The query carries ?lang=en from English share links (issue #30).
+    const backendUrl = `${BACKEND}/api/clips/${encodeURIComponent(clipId)}/og${url.search}`;
     const res = await fetch(backendUrl, {
       headers: {
         "User-Agent": request.headers.get("User-Agent") || "",

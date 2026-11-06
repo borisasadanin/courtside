@@ -6,15 +6,16 @@
  * logos are public, like the club logo: they show no people, and a shared
  * match image (ABL-050) must be able to show them to anyone.
  */
-import type { FastifyInstance, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isValidAdminToken, requireAdminAuth, requireViewerOrBroadcasterAuth } from "../auth.js";
 import { teams } from "../state.js";
 import { TeamError, type TeamInput } from "../teams.js";
+import { say } from "../i18n.js";
 
 /** Answer a refused change with its message; anything else is a server error. */
-function refuse(reply: FastifyReply, err: unknown) {
+function refuse(request: FastifyRequest, reply: FastifyReply, err: unknown) {
   if (err instanceof TeamError) {
-    return reply.code(err.status).send({ error: err.message, ...(err.teamId && { teamId: err.teamId }) });
+    return reply.code(err.status).send({ error: say(request, err.text), ...(err.teamId && { teamId: err.teamId }) });
   }
   throw err;
 }
@@ -44,7 +45,7 @@ export default async function teamRoutes(app: FastifyInstance): Promise<void> {
     try {
       return reply.code(201).send(await teams.create(request.body || {}));
     } catch (err) {
-      return refuse(reply, err);
+      return refuse(request, reply, err);
     }
   });
 
@@ -54,7 +55,7 @@ export default async function teamRoutes(app: FastifyInstance): Promise<void> {
     try {
       return reply.send(await teams.update(request.params.id, request.body || {}));
     } catch (err) {
-      return refuse(reply, err);
+      return refuse(request, reply, err);
     }
   });
 
@@ -65,7 +66,7 @@ export default async function teamRoutes(app: FastifyInstance): Promise<void> {
       await teams.remove(request.params.id);
       return reply.code(204).send();
     } catch (err) {
-      return refuse(reply, err);
+      return refuse(request, reply, err);
     }
   });
 
@@ -78,7 +79,7 @@ export default async function teamRoutes(app: FastifyInstance): Promise<void> {
       try {
         return reply.send(await teams.setLogo(request.params.id, request.body?.dataUrl ?? ""));
       } catch (err) {
-        return refuse(reply, err);
+        return refuse(request, reply, err);
       }
     },
   );
@@ -89,7 +90,7 @@ export default async function teamRoutes(app: FastifyInstance): Promise<void> {
     try {
       return reply.send(await teams.removeLogo(request.params.id));
     } catch (err) {
-      return refuse(reply, err);
+      return refuse(request, reply, err);
     }
   });
 
@@ -99,7 +100,7 @@ export default async function teamRoutes(app: FastifyInstance): Promise<void> {
     try {
       return reply.send(await teams.merge(request.params.id, String(request.body?.from ?? "")));
     } catch (err) {
-      return refuse(reply, err);
+      return refuse(request, reply, err);
     }
   });
 }

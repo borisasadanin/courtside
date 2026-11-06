@@ -9,6 +9,12 @@ import { orphanClips, readDeletionLog } from "../erasure.js";
 import { runPreflight, overallStatus } from "../preflight.js";
 import { plan, removeData, removeSelf } from "../teardown.js";
 import { NotNow, startUpdate, updateInfo } from "../update.js";
+import { requestLang, say, type Text } from "../i18n.js";
+
+const OSC_UNREACHABLE: Text = {
+  sv: "Kunde inte nå Open Source Cloud. Försök igen om en stund.",
+  en: "Could not reach Open Source Cloud. Try again in a while.",
+};
 
 export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/admin/storage — Get storage usage info (admin)
@@ -56,7 +62,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
       return reply.send((await readDeletionLog(minio)).reverse());
     } catch (err) {
       request.log.error(err, "Failed to read the deletion log");
-      return reply.code(500).send({ error: "Kunde inte läsa raderingsloggen" });
+      return reply.code(500).send({ error: say(request, { sv: "Kunde inte läsa raderingsloggen", en: "Could not read the deletion log" }) });
     }
   });
 
@@ -73,11 +79,11 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
     if (!requireAdminAuth(request, reply)) return;
     try {
       const p = await plan();
-      if (typeof p === "string") return reply.send({ removable: false, reason: p });
+      if ("sv" in p) return reply.send({ removable: false, reason: say(request, p) });
       return reply.send({ removable: true, club: p.club, app: p.app.name, store: p.store, storage: p.storage, restreamer: p.restreamer });
     } catch (err) {
       request.log.error(err, "teardown plan failed");
-      return reply.send({ removable: false, reason: "Kunde inte nå Open Source Cloud. Försök igen om en stund." });
+      return reply.send({ removable: false, reason: say(request, OSC_UNREACHABLE) });
     }
   });
 
@@ -85,15 +91,18 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   // The body must name the club's short name, typed by the admin.
   app.post<{ Body: { confirm?: string } }>("/api/admin/platform/delete", async (request, reply) => {
     if (!requireAdminAuth(request, reply)) return;
-    const p = await plan().catch(() => "Kunde inte nå Open Source Cloud. Försök igen om en stund.");
-    if (typeof p === "string") return reply.code(409).send({ error: p });
-    if (request.body?.confirm !== p.club) return reply.code(400).send({ error: `Skriv ${p.club} för att bekräfta.` });
+    const p = await plan().catch(() => OSC_UNREACHABLE);
+    if ("sv" in p) return reply.code(409).send({ error: say(request, p) });
+    if (request.body?.confirm !== p.club) return reply.code(400).send({ error: say(request, { sv: `Skriv ${p.club} för att bekräfta.`, en: `Type ${p.club} to confirm.` }) });
 
     request.log.warn({ club: p.club }, "removing the whole installation on the admin's request");
-    const removed = await removeData(p, minio);
-    removed.push({ what: `Webbplatsen och servern (${p.app.name})`, ok: true, detail: "tas bort nu" });
-    removed.push({ what: `Adressen ${p.domain}`, ok: true, detail: "frigörs nu" });
-    removed.push({ what: "Courtsides åtkomst till ert OSC-konto", ok: true, detail: "återkallas nu" });
+    const lang = requestLang(request);
+    const removed = await removeData(p, minio, lang);
+    // Gone once the answer is sent, below.
+    const after = (what: Text, detail: Text) => removed.push({ what: what[lang], ok: true, detail: detail[lang] });
+    after({ sv: `Webbplatsen och servern (${p.app.name})`, en: `The website and the server (${p.app.name})` }, { sv: "tas bort nu", en: "being removed now" });
+    after({ sv: `Adressen ${p.domain}`, en: `The address ${p.domain}` }, { sv: "frigörs nu", en: "being released now" });
+    after({ sv: "Courtsides åtkomst till ert OSC-konto", en: "Courtside's access to your OSC account" }, { sv: "återkallas nu", en: "being revoked now" });
     reply.send({ club: p.club, removed });
     // After the answer is on its way: removing the app ends this process.
     setTimeout(() => void removeSelf(p, request.log), 1000);
@@ -102,7 +111,8 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/admin/update — Which release this runs, and whether a newer one is out
   app.get("/api/admin/update", async (request, reply) => {
     if (!requireAdminAuth(request, reply)) return;
-    return reply.header("Cache-Control", "no-cache").send(await updateInfo());
+    const info = await updateInfo();
+    return reply.header("Cache-Control", "no-cache").send({ ...info, reason: info.reason && say(request, info.reason) });
   });
 
   // POST /api/admin/update — Rebuild from the newest release (site down a few minutes)
@@ -113,9 +123,9 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
       request.log.info({ version }, "update started from the admin view");
       return reply.code(202).send({ version });
     } catch (err) {
-      if (err instanceof NotNow) return reply.code(409).send({ error: err.message });
+      if (err instanceof NotNow) return reply.code(409).send({ error: say(request, err.text) });
       request.log.error(err, "update failed");
-      return reply.code(502).send({ error: "Uppdateringen kunde inte startas. Försök igen om en stund." });
+      return reply.code(502).send({ error: say(request, { sv: "Uppdateringen kunde inte startas. Försök igen om en stund.", en: "The update could not be started. Try again in a while." }) });
     }
   });
 

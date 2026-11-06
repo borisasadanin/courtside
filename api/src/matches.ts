@@ -16,6 +16,7 @@ import type { Team, TeamRegistry } from "./teams.js";
 import { deriveColor, deriveShortName, normalizeName, teamKey } from "./teams.js";
 import { clubManifest } from "./club-config.js";
 import type { VodEntry } from "./types.js";
+import type { Text } from "./i18n.js";
 
 export const MATCHES_KEY = "config/matches.json";
 
@@ -100,8 +101,8 @@ type Teams = Pick<TeamRegistry, "get" | "findByName" | "ensure">;
 
 /** A refused change, with the message for the admin and the HTTP status to send. */
 export class MatchError extends Error {
-  constructor(message: string, readonly status: number) {
-    super(message);
+  constructor(readonly text: Text, readonly status: number) {
+    super(text.sv);
   }
 }
 
@@ -195,11 +196,11 @@ export class MatchSchedule {
     // Refused before a typed team is added to the registry
     const ownAsked = await this.teamAsked(input.ownTeamId, input.ownTeamName);
     const opponentAsked = await this.teamAsked(input.opponentId, input.opponentName);
-    if (!ownAsked || !opponentAsked) throw new MatchError("Välj eget lag och motståndare.", 400);
+    if (!ownAsked || !opponentAsked) throw new MatchError({ sv: "Välj eget lag och motståndare.", en: "Choose your own team and the opponent." }, 400);
     checkTwoTeams(ownAsked, opponentAsked);
     const ownTeam = await this.teamFromInput(input.ownTeamId, input.ownTeamName, true);
     const opponent = await this.teamFromInput(input.opponentId, input.opponentName, false);
-    if (!ownTeam || !opponent) throw new MatchError("Välj eget lag och motståndare.", 400);
+    if (!ownTeam || !opponent) throw new MatchError({ sv: "Välj eget lag och motståndare.", en: "Choose your own team and an opponent." }, 400);
     checkTwoTeams(ownTeam, opponent);
 
     const record = await this.exclusive(async (records) => {
@@ -231,7 +232,7 @@ export class MatchSchedule {
     const venue = input.venue === undefined ? undefined : checkVenue(input.venue);
     // Refused before a typed team is added to the registry
     const before = (await this.load()).find((m) => m.id === id);
-    if (!before) throw new MatchError("Matchen finns inte.", 404);
+    if (!before) throw new MatchError({ sv: "Matchen finns inte.", en: "The game does not exist." }, 404);
     checkTwoTeams(
       (await this.teamAsked(input.ownTeamId, input.ownTeamName)) ?? before.ownTeam,
       (await this.teamAsked(input.opponentId, input.opponentName)) ?? before.opponent,
@@ -241,7 +242,7 @@ export class MatchSchedule {
 
     const record = await this.exclusive(async (records) => {
       const current = records.find((m) => m.id === id);
-      if (!current) throw new MatchError("Matchen finns inte.", 404);
+      if (!current) throw new MatchError({ sv: "Matchen finns inte.", en: "The game does not exist." }, 404);
       const next: MatchRecord = {
         ...current,
         ...(date && { date }),
@@ -271,9 +272,9 @@ export class MatchSchedule {
     const vods = await this.storage.readVodIndex();
     await this.exclusive(async (records) => {
       const record = records.find((m) => m.id === id);
-      if (!record) throw new MatchError("Matchen finns inte.", 404);
+      if (!record) throw new MatchError({ sv: "Matchen finns inte.", en: "The game does not exist." }, 404);
       if (this.recordingsOf(id, vods).length > 0) {
-        throw new MatchError("Matchen har inspelningar. Ta bort dem under Inspelningar först.", 409);
+        throw new MatchError({ sv: "Matchen har inspelningar. Ta bort dem under Inspelningar först.", en: "The game has recordings. Delete them under Recordings first." }, 409);
       }
       return { records: records.filter((m) => m.id !== id), result: undefined };
     });
@@ -368,7 +369,7 @@ export class MatchSchedule {
   private async teamAsked(id: unknown, name: unknown): Promise<TeamRef | null> {
     if (typeof id === "string" && id) {
       const team = await this.teams.get(id);
-      if (!team) throw new MatchError("Laget finns inte.", 400);
+      if (!team) throw new MatchError({ sv: "Laget finns inte.", en: "The team does not exist." }, 400);
       return { id: team.id, name: team.name };
     }
     if (typeof name !== "string" || !normalizeName(name)) return null;
@@ -380,7 +381,7 @@ export class MatchSchedule {
   private async teamFromInput(id: unknown, name: unknown, own: boolean): Promise<TeamRef | null> {
     if (typeof id === "string" && id) {
       const team = await this.teams.get(id);
-      if (!team) throw new MatchError("Laget finns inte.", 400);
+      if (!team) throw new MatchError({ sv: "Laget finns inte.", en: "The team does not exist." }, 400);
       return { id: team.id, name: team.name };
     }
     if (typeof name === "string" && normalizeName(name)) {
@@ -466,29 +467,29 @@ export class MatchSchedule {
 }
 
 function checkDate(value: unknown): string {
-  if (!isMatchDate(value)) throw new MatchError("Välj ett datum.", 400);
+  if (!isMatchDate(value)) throw new MatchError({ sv: "Välj ett datum.", en: "Choose a date." }, 400);
   return value;
 }
 
 /** A time HH:MM, or "" for none. */
 function checkTime(value: unknown): string {
   if (value === undefined || value === null || value === "") return "";
-  if (typeof value !== "string" || !TIME.test(value)) throw new MatchError("Tiden ska anges som TT:MM.", 400);
+  if (typeof value !== "string" || !TIME.test(value)) throw new MatchError({ sv: "Tiden ska anges som TT:MM.", en: "Times are written as HH:MM." }, 400);
   return value;
 }
 
 /** A venue, or "" for none. */
 function checkVenue(value: unknown): string {
   if (value === null) return "";
-  if (typeof value !== "string") throw new MatchError("Platsen ska vara text.", 400);
+  if (typeof value !== "string") throw new MatchError({ sv: "Platsen ska vara text.", en: "The venue must be text." }, 400);
   const venue = normalizeName(value);
-  if (venue.length > MAX_VENUE) throw new MatchError(`Platsen får vara högst ${MAX_VENUE} tecken.`, 400);
+  if (venue.length > MAX_VENUE) throw new MatchError({ sv: `Platsen får vara högst ${MAX_VENUE} tecken.`, en: `The venue can be at most ${MAX_VENUE} characters.` }, 400);
   return venue;
 }
 
 function checkTwoTeams(own: TeamRef, opponent: TeamRef): void {
   const same = own.id && opponent.id ? own.id === opponent.id : teamKey(own.name) === teamKey(opponent.name);
-  if (same) throw new MatchError("Välj två olika lag.", 400);
+  if (same) throw new MatchError({ sv: "Välj två olika lag.", en: "Choose two different teams." }, 400);
 }
 
 function refOf(name: string, team: Team | null): TeamRef {

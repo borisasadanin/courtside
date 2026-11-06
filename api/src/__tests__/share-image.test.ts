@@ -157,6 +157,8 @@ describe("GET /match/:id", () => {
     const match = await matches.create({ date: "2026-11-08", time: "14:00", venue: "Sporthallen", ownTeamId: own.id, opponentId: opponent.id });
     const res = await app.inject({ url: `/match/${match.id}`, headers: crawler });
     expect(res.body).toContain('og:description" content="Söndag 8 november 2026 kl. 14:00 · Sporthallen · Test Courtside. Matchen sänds live."');
+    const en = await app.inject({ url: `/match/${match.id}?lang=en`, headers: crawler });
+    expect(en.body).toContain('og:description" content="Sunday, 8 November 2026 at 14:00 · Sporthallen · Test Courtside. The game will be streamed live."');
   });
 
   it("leaves the time out once the match is played", async () => {
@@ -175,6 +177,35 @@ describe("GET /match/:id", () => {
     const res = await app.inject({ url: `/match/${match.id}`, headers: crawler });
     expect(res.body).not.toContain("<script>");
     expect(res.body).toContain("P12 &#34;B&#34; &#60;script&#62; – Hornets &#38; Co");
+  });
+
+  it("is in English for a link shared from the English site", async () => {
+    const match = await newMatch();
+    const res = await app.inject({ url: `/match/${match.id}?lang=en`, headers: crawler });
+
+    expect(res.body).toContain('<html lang="en">');
+    expect(res.body).toContain(
+      '<meta property="og:description" content="Sunday, 1 November 2026 · Testhallen · Test Courtside. The game will be streamed live.">',
+    );
+    expect(res.body).not.toContain("sänds");
+    // The picture is the English one, and the link stays English when passed on.
+    expect(res.body).toMatch(
+      new RegExp(`<meta property="og:image" content="https://club\\.example\\.com/api/matches/${match.id}/share\\.png\\?v=[0-9a-f]{12}&#38;lang=en">`),
+    );
+    expect(res.body).toContain(`<meta property="og:url" content="https://club.example.com/match/${match.id}?lang=en">`);
+
+    storage.vods.push(recording("rec1", match.id, { result: { home: 72, away: 65 } as VodEntry["result"] }));
+    expect((await app.inject({ url: `/match/${match.id}?lang=en`, headers: crawler })).body).toContain("Watch the replay.");
+  });
+
+  it("stays Swedish without ?lang=en, whatever the crawler asks for", async () => {
+    const match = await newMatch();
+    for (const url of [`/match/${match.id}`, `/match/${match.id}?lang=fr`]) {
+      const res = await app.inject({ url, headers: { ...crawler, "accept-language": "en-US,en;q=0.9" } });
+      expect(res.body).toContain('<html lang="sv">');
+      expect(res.body).toContain("Matchen sänds live.");
+      expect(res.body).not.toContain("lang=en");
+    }
   });
 
   it("gives an unknown match the plain website, telling nothing", async () => {
@@ -245,9 +276,26 @@ describe("GET /api/matches/:id/share.png", () => {
     expect(stale.headers["cache-control"]).toBe("public, max-age=300");
   });
 
+  it("has its own English picture, cached under its own version", async () => {
+    const match = await newMatch();
+    const sv = new URL(await imageUrl(match.id));
+    const page = await app.inject({ url: `/match/${match.id}?lang=en`, headers: crawler });
+    const en = new URL(/<meta property="og:image" content="([^"]+)">/.exec(page.body)![1].replace(/&#38;/g, "&"));
+    expect(en.searchParams.get("lang")).toBe("en");
+    expect(en.searchParams.get("v")).not.toBe(sv.searchParams.get("v"));
+
+    const res = await app.inject({ url: en.pathname + en.search });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+    expect(pngSize(res.rawPayload)).toEqual({ width: 1200, height: 630 });
+  });
+
   it("404s an unknown match", async () => {
     const res = await app.inject({ url: "/api/matches/nosuchid/share.png" });
     expect(res.statusCode).toBe(404);
+    expect(res.json()).toEqual({ error: "match_not_found", message: "Matchen finns inte." });
+    const en = await app.inject({ url: "/api/matches/nosuchid/share.png", headers: { "accept-language": "en" } });
+    expect(en.json()).toEqual({ error: "match_not_found", message: "The game does not exist." });
   });
 });
 
@@ -296,6 +344,18 @@ describe("ShareImages", () => {
     expect(images.version(noLogo)).not.toBe(new ShareImages(sources(false)).version(noLogo));
   });
 
+  it("draws each language once, with the date in that language", async () => {
+    const render = vi.fn(async (_d: ShareDrawing) => Buffer.from("png"));
+    const images = new ShareImages(sources(), render);
+    await images.image(match);
+    await images.image(match, "en");
+    await images.image(match);
+    await images.image(match, "en");
+    expect(render).toHaveBeenCalledTimes(2);
+    expect(render.mock.calls.map(([d]) => d.lang)).toEqual(["sv", "en"]);
+    expect(images.version(match, "en")).not.toBe(images.version(match));
+  });
+
   it("draws the time only before the match, and the venue always", async () => {
     const render = vi.fn(async (_d: ShareDrawing) => Buffer.from("png"));
     const images = new ShareImages(sources(), render);
@@ -324,7 +384,12 @@ describe("ShareImages", () => {
 describe("text", () => {
   it("writes the date and title in Swedish", () => {
     expect(formatShareDate("2026-11-07")).toBe("lördag 7 november 2026");
+    expect(formatShareDate("2026-11-07", "sv")).toBe("lördag 7 november 2026");
     expect(shareTitle({ ownTeam: { name: "P12" }, opponent: { name: "AIK" } } as Match)).toBe("P12 – AIK");
+  });
+
+  it("writes the date in English for the English site", () => {
+    expect(formatShareDate("2026-11-07", "en")).toBe("Saturday, 7 November 2026");
   });
 
   it("shrinks a long name, then cuts it", () => {

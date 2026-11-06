@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import { createAdminToken, createViewerToken, requireAdminAuth } from "../auth.js";
 import { mutableConfig } from "../config.js";
 import type { Setup } from "../setup.js";
+import { say, type Text } from "../i18n.js";
 
 export default async function setupRoutes(
   app: FastifyInstance,
@@ -28,8 +29,8 @@ export default async function setupRoutes(
     async (request, reply) => {
       const error = await setup.complete(request.body || {});
       if (error) {
-        const status = error === "Fel uppsättningskod." ? 401 : error.startsWith("Installationen") ? 409 : 400;
-        return reply.code(status).send({ error });
+        const status = error.sv === "Fel uppsättningskod." ? 401 : error.sv.startsWith("Installationen") ? 409 : 400;
+        return reply.code(status).send({ error: say(request, error) });
       }
 
       // Tokens are signed with the PINs just chosen, so none from before setup
@@ -52,7 +53,7 @@ export default async function setupRoutes(
     return reply.header("Cache-Control", "no-store").send({
       viewerPin: mutableConfig.VIEWER_PIN,
       changeable: !locked,
-      reason: locked ?? undefined,
+      reason: locked ? say(request, locked) : undefined,
     });
   });
 
@@ -63,16 +64,16 @@ export default async function setupRoutes(
     { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
     async (request, reply) => {
       if (!requireAdminAuth(request, reply)) return;
-      let error: string | null;
+      let error: Text | null;
       try {
         error = await setup.changePins(request.body || {});
       } catch (err) {
         request.log.error(err, "storing new PINs failed");
-        return reply.code(502).send({ error: "Kunde inte spara koderna. Försök igen om en stund." });
+        return reply.code(502).send({ error: say(request, { sv: "Kunde inte spara koderna. Försök igen om en stund.", en: "Could not save the codes. Try again in a while." }) });
       }
       if (error) {
-        const status = error.startsWith("Fel nuvarande") ? 403 : setup.pinsLocked() ? 409 : 400;
-        return reply.code(status).send({ error });
+        const status = error.sv.startsWith("Fel nuvarande") ? 403 : setup.pinsLocked() ? 409 : 400;
+        return reply.code(status).send({ error: say(request, error) });
       }
 
       // Sessions are signed with the PINs, so every one from before is now

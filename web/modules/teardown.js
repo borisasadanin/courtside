@@ -8,6 +8,7 @@
 import { CONFIG } from "./config.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
+import { t } from "./i18n.js";
 
 function headers() {
   return { "X-Admin-Token": state.adminToken, "Content-Type": "application/json" };
@@ -16,30 +17,32 @@ function headers() {
 export async function renderTeardown() {
   const el = document.getElementById("adminTeardown");
   if (!el) return;
-  el.innerHTML = '<p class="teardown-text">Kontrollerar…</p>';
+  el.innerHTML = `<p class="teardown-text">${t("teardown.checking")}</p>`;
 
   let info;
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/admin/platform`, { headers: headers() });
     info = await res.json();
   } catch {
-    info = { removable: false, reason: "Kunde inte nå servern." };
+    info = { removable: false, reason: t("teardown.serverError") };
   }
   if (!info.removable) {
-    el.innerHTML = `<p class="teardown-text">${escapeHtml(info.reason || "Går inte att ta bort härifrån.")}</p>`;
+    el.innerHTML = `<p class="teardown-text">${escapeHtml(info.reason || t("teardown.notRemovable"))}</p>`;
     return;
   }
 
   el.innerHTML = `
-    <p class="teardown-text">Tar bort hela er Courtside från Open Source Cloud: alla inspelningar och highlights,
-      logotyp och inställningar, admin- och tittarkoder, kopplade kameror, sändningsmotorn
-      (${escapeHtml(info.restreamer)}), lagringen (${escapeHtml(info.storage)}), inställningarna och lösenorden
-      (${escapeHtml(info.store)}) och själva webbplatsen (${escapeHtml(info.app)}). Det går inte att ångra.</p>
-    <label class="branding-field">Skriv <b>${escapeHtml(info.club)}</b> för att bekräfta
+    <p class="teardown-text">${t("teardown.intro", {
+      restreamer: escapeHtml(info.restreamer),
+      storage: escapeHtml(info.storage),
+      store: escapeHtml(info.store),
+      app: escapeHtml(info.app),
+    })}</p>
+    <label class="branding-field">${t("teardown.confirmLabel", { club: escapeHtml(info.club) })}
       <input type="text" id="teardownConfirm" autocomplete="off" autocapitalize="off" spellcheck="false">
     </label>
     <div class="branding-save-row">
-      <button class="teardown-btn" id="teardownBtn" disabled>Ta bort allt permanent</button>
+      <button class="teardown-btn" id="teardownBtn" disabled>${t("teardown.removeButton")}</button>
       <span class="branding-status" id="teardownStatus" role="status"></span>
     </div>`;
 
@@ -50,12 +53,12 @@ export async function renderTeardown() {
 }
 
 async function remove(club, confirm) {
-  if (!window.confirm(`Sista chansen: allt i ${club} raderas permanent. Fortsätta?`)) return;
+  if (!window.confirm(t("teardown.lastChance", { club }))) return;
   const btn = document.getElementById("teardownBtn");
   const status = document.getElementById("teardownStatus");
   btn.disabled = true;
   status.classList.remove("error");
-  status.textContent = "Tar bort… det kan ta en minut.";
+  status.textContent = t("teardown.removing");
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/admin/platform/delete`, {
       method: "POST",
@@ -80,29 +83,28 @@ function showDone({ club, removed }) {
   ).join("");
   document.body.innerHTML = `
     <main class="teardown-done">
-      <h1>${failed.length ? "Nästan allt är borttaget" : "Er Courtside är borttagen"}</h1>
-      <p>${escapeHtml(club)} är borttagen från ert Open Source Cloud-konto tillsammans med all data:
-        alla inspelningar och highlights, logotypen, inställningarna, admin- och tittarkoderna,
-        alla lösenord och nycklar och kopplingarna till kamerorna. Webbplatsen slutar svara inom någon minut.</p>
+      <h1>${failed.length ? t("teardown.doneTitlePartial") : t("teardown.doneTitle")}</h1>
+      <p>${t("teardown.doneText", { club: escapeHtml(club) })}</p>
       <ul>${rows}</ul>
-      <p id="teardownSite" role="status">Väntar på att webbplatsen ska stängas…</p>
-      ${failed.length ? "<p>Det som inte gick att ta bort kan du ta bort själv i Open Source Cloud under My Apps och Services.</p>" : ""}
-      <p>Ert OSC-konto finns kvar. Vill ni börja om kan ni skapa en ny Courtside på
-        <a href="https://courtside.apps.osaas.io/">courtside.apps.osaas.io</a>. Kameraappen kan kopplas bort under kugghjulet.</p>
+      <p id="teardownSite" role="status">${t("teardown.waitingForSite")}</p>
+      ${failed.length ? `<p>${t("teardown.removeRestYourself")}</p>` : ""}
+      <p>${t("teardown.startOver")}</p>
     </main>`;
   watchSiteGo(removed);
 }
 
 /** The site removes itself after answering; tell the admin once it has. */
 function watchSiteGo(removed) {
-  const app = removed.find((r) => r.what.startsWith("Webbplatsen"))?.what.match(/\((.+)\)/)?.[1] || "appen";
+  // The server names the website row "Webbplatsen och servern (…)"; in English
+  // it starts with "Website" or "The website".
+  const app = removed.find((r) => /^(Webbplatsen|(The )?website)\b/i.test(r.what))?.what.match(/\((.+)\)/)?.[1] || t("teardown.appFallback");
   const el = document.getElementById("teardownSite");
   const deadline = Date.now() + 3 * 60_000;
   const check = async () => {
     const up = await fetch(`${CONFIG.API_URL}/health`, { cache: "no-store" }).then((r) => r.ok).catch(() => false);
-    if (!up) { el.textContent = "✓ Webbplatsen är avstängd och borttagen."; return; }
+    if (!up) { el.textContent = t("teardown.siteGone"); return; }
     if (Date.now() > deadline) {
-      el.textContent = `Webbplatsen svarar fortfarande. Ta bort ${app} i Open Source Cloud under My Apps.`;
+      el.textContent = t("teardown.siteStillUp", { app });
       el.classList.add("bad");
       return;
     }

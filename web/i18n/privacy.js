@@ -1,0 +1,41 @@
+// Text for modules/privacy.js, Swedish and English side by side.
+// {who} is the club (or whoever the admin entered) that answers for the recordings.
+
+export default {
+  sv: {
+    watchersOpen: "Alla som har adressen till sidan kan titta på sändningar och inspelningar.",
+    watchersPin: "Bara den som har föreningens tittarkod kan titta på sändningar och inspelningar.",
+    title: "Om inspelningarna",
+    intro: "{who} sänder och spelar in matcher här, så att lagets familjer och vänner kan följa dem. Det är {who} som ansvarar för filmerna och klippen.",
+    whoTitle: "Vem kan titta",
+    sharedClips: "Ett klipp som någon delar kan ses av den som får länken, men det går inte att ladda ner därifrån.",
+    familiesOnly: "Filmerna är till för lagets familjer. Sprid dem inte vidare utan lov.",
+    keptTitle: "Hur länge de sparas",
+    kept: "Inspelningar och klipp sparas tills föreningen tar bort dem.",
+    rightsTitle: "Om du eller ditt barn syns på filmen",
+    rights: 'Du kan be föreningen ta bort ett klipp eller en match, fråga vilka inspelningar som finns, eller säga att du inte vill bli filmad. Är du inte nöjd med svaret kan du vända dig till Integritetsskyddsmyndigheten, <a href="https://www.imy.se" target="_blank" rel="noopener">imy.se</a>.',
+    contactTitle: "Kontakt",
+    writeTo: 'Skriv till <a href="mailto:{contact}">{contact}</a>.',
+    contactWho: "Kontakta {who}.",
+    policy: 'Läs också <a href="{url}" target="_blank" rel="noopener">föreningens integritetspolicy</a>.',
+    note: "Sidan körs av föreningen själv, på föreningens eget konto hos Open Source Cloud. Ingen reklam och ingen spårning.",
+  },
+  en: {
+    watchersOpen: "Anyone who has the address of the page can watch broadcasts and recordings.",
+    watchersPin: "Only those who have the club's viewer code can watch broadcasts and recordings.",
+    title: "About the recordings",
+    intro: "{who} streams and records games here, so that the team's families and friends can follow them. {who} is responsible for the videos and clips.",
+    whoTitle: "Who can watch",
+    sharedClips: "A clip someone shares can be watched by whoever gets the link, but it can't be downloaded from there.",
+    familiesOnly: "These videos are for the team's families. Please don't share them further without permission.",
+    keptTitle: "How long they are kept",
+    kept: "Recordings and clips are kept until the club deletes them.",
+    rightsTitle: "If you or your child appear in the video",
+    rights: 'You can ask the club to remove a clip or a game, ask which recordings exist, or say that you don\'t want to be filmed. If you\'re not happy with the answer, you can contact the Swedish Authority for Privacy Protection (IMY), <a href="https://www.imy.se" target="_blank" rel="noopener">imy.se</a>.',
+    contactTitle: "Contact",
+    writeTo: 'Write to <a href="mailto:{contact}">{contact}</a>.',
+    contactWho: "Contact {who}.",
+    policy: 'Also read <a href="{url}" target="_blank" rel="noopener">the club\'s privacy policy</a>.',
+    note: "The page is run by the club itself, on the club's own Open Source Cloud account. No ads and no tracking.",
+  },
+};

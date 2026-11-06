@@ -18,6 +18,13 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## Ej släppt
+
+- Plattformen finns nu också på engelska. Tryck på **EN** uppe till höger för att byta språk; valet sparas
+  i webbläsaren, och första gången väljs svenska för den som har svenska i webbläsaren. Allt översätts:
+  tittarsidan, repriserna, Hantera, felmeddelanden från servern och klippsidan. En länk som delas från den
+  engelska sidan får förhandsvisning och delningsbild på engelska. Kameraappen är fortfarande bara på svenska.
+
 ## v0.6.1 — 2026-11-02
 
 - **Rättning:** en sändning går att starta medan sändningsmotorn står redo och räknar ner till avstängning.

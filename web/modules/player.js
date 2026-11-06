@@ -12,6 +12,7 @@ import { stopVodPolling } from "./vod.js";
 import { fetchClipsForStream } from "./highlights.js";
 import { unlockResumeSignal, playResumeSignal } from "./resume-signal.js";
 import { loadReplayMarkers, setReplayFragments, fetchReplayFragments, clearReplayMarkers, initReplayMarkers } from "./replay-markers.js";
+import { t } from "./i18n.js";
 
 // Callbacks injected by the orchestrator
 let onClosePlayer = null; // called when player is closed (returns to list)
@@ -26,13 +27,13 @@ const MAX_POLL_FAILURES = 6; // 6 × 5s = 30 seconds of consecutive failures bef
 
 /** Viewer-facing name of a pause. An unknown or missing type (older backend) is just a pause. */
 export function pauseLabel(pauseType) {
-  if (pauseType === "period") return "PERIODPAUS";
-  if (pauseType === "timeout") return "TIMEOUT";
-  return "PAUS";
+  if (pauseType === "period") return t("player.pausePeriod");
+  if (pauseType === "timeout") return t("player.pauseTimeout");
+  return t("player.pause");
 }
 
-const PAUSE_SUB = "Matchen återupptas strax";
-const PAUSE_SUB_HIGHLIGHTS = "Matchen återupptas strax — här är höjdpunkterna";
+const PAUSE_SUB = t("player.pauseSub");
+const PAUSE_SUB_HIGHLIGHTS = t("player.pauseSubHighlights");
 
 /**
  * Show the pause banner, or update it if the pause type changed.
@@ -63,7 +64,7 @@ let resumeBannerTimer = null;
 function announceResume() {
   playResumeSignal();
   clearTimeout(resumeBannerTimer);
-  dom.pauseBannerTitle.textContent = "MATCHEN ÅTERUPPTAS";
+  dom.pauseBannerTitle.textContent = t("player.resuming");
   dom.pauseBannerSub.textContent = "";
   dom.pauseBanner.classList.add("resuming");
   dom.pauseBanner.classList.remove("hidden");
@@ -91,30 +92,30 @@ function setStatus(status) {
 
   switch (status) {
     case "connecting":
-      dom.liveBadge.textContent = "ANSLUTER";
+      dom.liveBadge.textContent = t("player.badgeConnecting");
       dom.liveBadge.className = "live-badge connecting";
-      showOverlay("Ansluter till s\u00e4ndningen\u2026", true);
+      showOverlay(t("player.connecting"), true);
       break;
     case "live":
-      dom.liveBadge.textContent = "LIVE";
+      dom.liveBadge.textContent = t("player.badgeLive");
       dom.liveBadge.className = "live-badge live";
       hideOverlay();
       dom.video.classList.remove("video-fade");
       break;
     case "offline":
-      dom.liveBadge.textContent = "OFFLINE";
+      dom.liveBadge.textContent = t("player.badgeOffline");
       dom.liveBadge.className = "live-badge offline";
-      showOverlay("Ingen s\u00e4ndning just nu", false);
+      showOverlay(t("player.noBroadcast"), false);
       break;
     case "paused":
       dom.liveBadge.textContent = pauseLabel(state.pauseType);
       dom.liveBadge.className = "live-badge paused";
-      showOverlay("Sändningen är pausad — återkommer snart", false);
+      showOverlay(t("player.paused"), false);
       showPauseBanner(state.pauseType);
       startHighlightCarousel(); // async, non-blocking — replaces overlay if clips exist
       break;
     case "vod":
-      dom.liveBadge.textContent = "REPRIS";
+      dom.liveBadge.textContent = t("player.badgeReplay");
       dom.liveBadge.className = "live-badge vod";
       break;
   }
@@ -155,7 +156,7 @@ function tryConnect() {
   } else if (dom.video.canPlayType("application/vnd.apple.mpegurl")) {
     startNative();
   } else {
-    showOverlay("Din webbl\u00e4sare st\u00f6der inte HLS-uppspelning", false);
+    showOverlay(t("player.noHls"), false);
   }
 }
 
@@ -235,12 +236,12 @@ function tryConnectVod() {
     dom.video.addEventListener(
       "error",
       () => {
-        showOverlay("Kunde inte spela upp reprisen", false);
+        showOverlay(t("player.replayFailed"), false);
       },
       { once: true }
     );
   } else {
-    showOverlay("Din webbl\u00e4sare st\u00f6der inte HLS-uppspelning", false);
+    showOverlay(t("player.noHls"), false);
   }
 }
 
@@ -289,7 +290,7 @@ function startHlsVod() {
       return;
     }
     destroyHls();
-    showOverlay("Kunde inte spela upp reprisen", false);
+    showOverlay(t("player.replayFailed"), false);
   });
 
   // Period, timeout and highlight markers are placed by fragment (replay-markers.js)
@@ -343,7 +344,7 @@ function onHlsError(_event, data) {
   if (state.hlsReconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
     setStatus("connecting");
     showOverlay(
-      `\u00c5teransluter (${state.hlsReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})\u2026`,
+      t("player.reconnecting", { n: state.hlsReconnectAttempts, max: MAX_RECONNECT_ATTEMPTS }),
       true
     );
     setTimeout(() => {
@@ -373,12 +374,12 @@ async function checkIfStreamStopped() {
       console.warn(`checkIfStreamStopped: API returned ${res.status}, retrying HLS...`);
       state.hlsReconnectAttempts++;
       if (state.hlsReconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-        showOverlay("S\u00e4ndningen verkar ha avbrutits", false);
+        showOverlay(t("player.interrupted"), false);
         setTimeout(closePlayer, 2500);
       } else {
         setStatus("connecting");
         showOverlay(
-          `\u00c5teransluter (${state.hlsReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})\u2026`,
+          t("player.reconnecting", { n: state.hlsReconnectAttempts, max: MAX_RECONNECT_ATTEMPTS }),
           true
         );
         setTimeout(tryConnect, 3000);
@@ -387,7 +388,7 @@ async function checkIfStreamStopped() {
     }
     const stream = await res.json();
     if (stream.status === "stopped") {
-      showOverlay("S\u00e4ndningen har avslutats", false);
+      showOverlay(t("player.ended"), false);
       setTimeout(closePlayer, 2500);
     } else if (stream.status === "paused") {
       // Stream was paused while we had an HLS error — show pause overlay
@@ -396,7 +397,7 @@ async function checkIfStreamStopped() {
     } else if (stream.status === "waiting") {
       // Stream is resuming — wait for it to go live (polling will pick it up)
       setStatus("connecting");
-      showOverlay("V\u00e4ntar p\u00e5 s\u00e4ndningen\u2026", true);
+      showOverlay(t("player.waiting"), true);
     } else {
       // Stream still exists — update URL and try reconnecting
       if (stream.hlsUrl) {
@@ -404,12 +405,12 @@ async function checkIfStreamStopped() {
       }
       state.hlsReconnectAttempts++;
       if (state.hlsReconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-        showOverlay("S\u00e4ndningen verkar ha avbrutits", false);
+        showOverlay(t("player.interrupted"), false);
         setTimeout(closePlayer, 2500);
       } else {
         setStatus("connecting");
         showOverlay(
-          `\u00c5teransluter (${state.hlsReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})\u2026`,
+          t("player.reconnecting", { n: state.hlsReconnectAttempts, max: MAX_RECONNECT_ATTEMPTS }),
           true
         );
         setTimeout(tryConnect, 3000);
@@ -420,7 +421,7 @@ async function checkIfStreamStopped() {
     console.warn("checkIfStreamStopped: network error, retrying HLS...");
     state.hlsReconnectAttempts++;
     if (state.hlsReconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      showOverlay("S\u00e4ndningen verkar ha avbrutits", false);
+      showOverlay(t("player.interrupted"), false);
       setTimeout(closePlayer, 2500);
     } else {
       setStatus("connecting");
@@ -432,7 +433,7 @@ async function checkIfStreamStopped() {
 function onLevelSwitched(_event, data) {
   if (state.hls && state.hls.autoLevelEnabled) {
     const level = state.hls.levels[data.level];
-    dom.qualityLabel.textContent = `Auto (${level.height}p)`;
+    dom.qualityLabel.textContent = t("player.qualityAutoLevel", { height: level.height });
   }
   updateActiveQuality();
 }
@@ -446,7 +447,7 @@ function buildQualityMenu() {
 
   const autoBtn = document.createElement("button");
   autoBtn.className = "quality-option active";
-  autoBtn.textContent = "Auto";
+  autoBtn.textContent = t("player.qualityAuto");
   autoBtn.dataset.level = "-1";
   autoBtn.addEventListener("click", () => selectQuality(-1));
   dom.qualityMenu.appendChild(autoBtn);
@@ -465,7 +466,7 @@ function buildNativeQualityMenu() {
   dom.qualityMenu.innerHTML = "";
   const btn = document.createElement("button");
   btn.className = "quality-option active";
-  btn.textContent = "Auto";
+  btn.textContent = t("player.qualityAuto");
   dom.qualityMenu.appendChild(btn);
 }
 
@@ -473,7 +474,7 @@ function selectQuality(levelIndex) {
   state.hls.currentLevel = levelIndex;
   if (levelIndex === -1) {
     state.hls.currentLevel = -1;
-    dom.qualityLabel.textContent = "Auto";
+    dom.qualityLabel.textContent = t("player.qualityAuto");
   } else {
     dom.qualityLabel.textContent = `${state.hls.levels[levelIndex].height}p`;
   }
@@ -523,7 +524,7 @@ function updateProgress() {
       dom.progressFilled.style.width = pct + "%";
       dom.progressHandle.style.left = pct + "%";
       dom.timeElapsed.textContent = formatTime(current);
-      dom.timeDuration.textContent = "LIVE";
+      dom.timeDuration.textContent = t("player.badgeLive");
 
       // Show/hide "back to live" button based on distance from live edge
       const behindLive = duration - current;
@@ -562,7 +563,7 @@ function setupProgressForLive() {
   dom.progressBuffered.style.width = "0%";
   dom.progressHandle.style.left = "0%";
   dom.timeElapsed.textContent = "0:00";
-  dom.timeDuration.textContent = state.isDvrMode ? "LIVE" : "";
+  dom.timeDuration.textContent = state.isDvrMode ? t("player.badgeLive") : "";
   state.liveStartTime = null;
 }
 
@@ -826,11 +827,10 @@ async function startHighlightCarousel() {
   consecutiveClipFailures = 0;
 
   // Update UI — the pause banner says which pause it is, the badge what is playing
-  dom.liveBadge.textContent = "HÖJDPUNKTER";
+  dom.liveBadge.textContent = t("player.badgeHighlights");
   dom.liveBadge.className = "live-badge highlights";
   dom.pauseBannerSub.textContent = PAUSE_SUB_HIGHLIGHTS;
-  dom.streamDesc.textContent =
-    `${clips.length} höjdpunkt${clips.length > 1 ? "er" : ""} från matchen`;
+  dom.streamDesc.textContent = t("player.highlightsCount", { n: clips.length });
 
   // Fade out video before first clip (hidden behind overlay)
   dom.video.classList.add("video-fade");
@@ -851,8 +851,10 @@ function playNextHighlight(isFirst = false) {
     const clip = state.highlightClips[state.highlightIndex];
 
     // Update description
-    dom.streamDesc.textContent =
-      `Höjdpunkt ${state.highlightIndex + 1} av ${state.highlightClips.length}`;
+    dom.streamDesc.textContent = t("player.highlightOf", {
+      n: state.highlightIndex + 1,
+      total: state.highlightClips.length,
+    });
 
     // Destroy previous highlight HLS
     if (state.highlightHls) {
@@ -897,7 +899,7 @@ function playNextHighlight(isFirst = false) {
             dom.liveBadge.textContent = pauseLabel(state.pauseType);
             dom.liveBadge.className = "live-badge paused";
             dom.pauseBannerSub.textContent = PAUSE_SUB;
-            showOverlay("Sändningen är pausad — återkommer snart", false);
+            showOverlay(t("player.paused"), false);
             scheduleCarouselRetry(15_000);
             return;
           }
@@ -931,7 +933,7 @@ function playNextHighlight(isFirst = false) {
             dom.liveBadge.textContent = pauseLabel(state.pauseType);
             dom.liveBadge.className = "live-badge paused";
             dom.pauseBannerSub.textContent = PAUSE_SUB;
-            showOverlay("Sändningen är pausad — återkommer snart", false);
+            showOverlay(t("player.paused"), false);
             scheduleCarouselRetry(15_000);
             return;
           }
@@ -981,7 +983,7 @@ function stopHighlightCarousel() {
   consecutiveClipFailures = 0;
 
   // Reset description so it doesn't linger as "Höjdpunkt X av Y" during reconnect
-  dom.streamDesc.textContent = "Följ matchen live.";
+  dom.streamDesc.textContent = t("page.streamDesc");
 }
 
 // ============================
@@ -1011,7 +1013,7 @@ async function pollCurrentStream() {
       pollFailCount++;
       console.warn(`Stream poll failed (${pollFailCount}/${MAX_POLL_FAILURES}): HTTP ${res.status}`);
       if (pollFailCount >= MAX_POLL_FAILURES) {
-        showOverlay("Tappade kontakten med servern", false);
+        showOverlay(t("player.lostServer"), false);
         setTimeout(closePlayer, 2500);
       }
       return;
@@ -1022,7 +1024,7 @@ async function pollCurrentStream() {
     const stream = await res.json();
     const wasPaused = state.currentStatus === "paused";
     if (stream.status === "stopped") {
-      showOverlay("S\u00e4ndningen har avslutats", false);
+      showOverlay(t("player.ended"), false);
       setTimeout(closePlayer, 2500);
     } else if (stream.status === "paused") {
       if (state.currentStatus !== "paused") {
@@ -1066,7 +1068,7 @@ async function pollCurrentStream() {
     pollFailCount++;
     console.warn(`Stream poll network error (${pollFailCount}/${MAX_POLL_FAILURES})`);
     if (pollFailCount >= MAX_POLL_FAILURES) {
-      showOverlay("Tappade kontakten med servern", false);
+      showOverlay(t("player.lostServer"), false);
       setTimeout(closePlayer, 2500);
     }
   }
@@ -1129,9 +1131,9 @@ export function openPlayer(hlsUrl, name, streamId, dvrUrl) {
   dom.tabNav.classList.add("hidden");
   dom.playerView.classList.remove("hidden");
 
-  dom.backBtnText.textContent = "Alla s\u00e4ndningar";
+  dom.backBtnText.textContent = t("page.back");
   dom.streamTitle.textContent = name;
-  dom.streamDesc.textContent = "F\u00f6lj matchen live.";
+  dom.streamDesc.textContent = t("page.streamDesc");
 
   setupProgressForLive();
   setStatus("connecting");
@@ -1172,12 +1174,12 @@ export function openVodPlayer(hlsUrl, title, vodId) {
   dom.tabNav.classList.add("hidden");
   dom.playerView.classList.remove("hidden");
 
-  dom.backBtnText.textContent = "Alla repriser";
-  dom.streamTitle.textContent = title || "Repris";
-  dom.streamDesc.textContent = "Inspelad match.";
+  dom.backBtnText.textContent = t("player.allReplays");
+  dom.streamTitle.textContent = title || t("player.replay");
+  dom.streamDesc.textContent = t("player.recordedMatch");
 
   // Set VOD badge
-  dom.liveBadge.textContent = "REPRIS";
+  dom.liveBadge.textContent = t("player.badgeReplay");
   dom.liveBadge.className = "live-badge vod";
   state.currentStatus = "vod";
 
