@@ -4,5 +4,7 @@
 // learns which club it belongs to by pairing, not by being rebuilt. That is
 // what lets one build serve every club.
 
-// Bundle identifier prefix, e.g. com.myclub
-COURTSIDE_BUNDLE_PREFIX = com.example
+// Full bundle identifier. The App Store build uses se.eyevinn.sportscam, which
+// only Eyevinn's Apple team can sign. Building with your own team, pick your own,
+// e.g. com.myclub.sportscam.
+COURTSIDE_BUNDLE_ID = com.example.sportscam
