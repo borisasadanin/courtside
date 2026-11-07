@@ -24,13 +24,13 @@ Rättas något i en version som inte nått någon telefon än, räcker det att k
 Ändra versionen så här: 1.1.0 → 1.1.1 för rättningar, 1.1.0 → 1.2.0 för nya
 funktioner.
 
-## 1.5.0 — ej släppt
+## 1.5.0 — 2026-11-08
 
 - Efter tryck på stjärnan väljer du vems höjdpunkt det är: två stora knappar med **ditt lag** och
   **motståndarna**. Motståndarnas klipp hamnar i matchens gästyta, inte bland era höjdpunkter
 - Klippet gäller ögonblicket du tryckte på stjärnan, inte när du valde lag. Väljer du inget inom
   4 sekunder sparas det för ditt lag. Bekräftelsen säger vart klippet gick, t.ex. "Sparat för Nacka"
-- Kräver en plattform med gästytor; med en äldre plattform syns inget val och stjärnan fungerar som förut
+- Kräver plattformen v0.7.0 eller senare; med en äldre plattform syns inget val och stjärnan fungerar som förut
 
 ## 1.4.0 — 2026-11-02
 
