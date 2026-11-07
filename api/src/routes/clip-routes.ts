@@ -3,10 +3,11 @@
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { requireAdminAuth, requireApiKey, requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
-import { streamMeta, collectors, clipsByStream, minio } from "../state.js";
-import { createClip } from "../clip-service.js";
+import { streamMeta, collectors, clipsByStream, minio, guestSpaces } from "../state.js";
+import { createClip, createGuestClip } from "../clip-service.js";
+import type { GuestMatchInfo } from "../guest-spaces.js";
 import { convertSegmentsToMp4, extractThumbnail } from "../mp4-converter.js";
-import { clubManifest, absoluteLogoUrl } from "../club-config.js";
+import { clubManifest, absoluteLogoUrl, defaultHomeTeam, defaultAwayTeam } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { keysReferencedBy } from "./media.js";
 import { deleteClip, logDeletion } from "../erasure.js";
@@ -17,7 +18,9 @@ const MIN_CLIP_INTERVAL_MS = 5_000; // 5 seconds between clips per stream
 
 export default async function clipRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/streams/:id/clip — Create a highlight clip (admin only)
-  app.post<{ Params: { id: string }; Body: { timestamp?: string; label?: string } }>(
+  // { team: "opponent" } puts the clip in the match's guest space (#50) instead
+  // of the club's clips. Without it, as before: an older camera app never sends it.
+  app.post<{ Params: { id: string }; Body: { timestamp?: string; label?: string; team?: string } }>(
     "/api/streams/:id/clip",
     async (request, reply) => {
       if (!(await requireBroadcasterAuth(request, reply))) return;
@@ -53,6 +56,36 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ error: "invalid_timestamp", message: "Ogiltig tidsstämpel" });
       }
 
+      if (body.team !== undefined && body.team !== "own" && body.team !== "opponent") {
+        return reply.code(400).send({ error: "invalid_team", message: "Okänt lag för klippet" });
+      }
+
+      if (body.team === "opponent") {
+        try {
+          lastClipTime.set(id, Date.now());
+          const vod = (await minio.readVodIndex().catch(() => [])).find((v) => v.id === id);
+          const match: GuestMatchInfo = {
+            streamId: id,
+            matchId: meta.matchId ?? vod?.matchId,
+            homeTeam: vod?.homeTeam || meta.homeTeam || defaultHomeTeam,
+            awayTeam: vod?.awayTeam || meta.awayTeam || defaultAwayTeam,
+            venue: vod?.location || undefined,
+            matchDate: vod?.matchDate || meta.createdAt,
+          };
+          const spaceId = await guestSpaces.spaceIdFor(id, match.matchId);
+          const clip = await createGuestClip(collector, buttonPressTimestamp, minio, request.log, spaceId, body.label);
+          const space = await guestSpaces.addClip(match, spaceId, clip);
+          // The camera only needs to know where it went; the code is for admin.
+          return reply.code(201).send({ ...clip, team: "opponent", guestSpaceId: space.id, teamName: space.awayTeam });
+        } catch (err) {
+          request.log.error(err, "Failed to create guest clip");
+          return reply.code(500).send({
+            error: "clip_failed",
+            message: err instanceof Error ? err.message : "Kunde inte skapa klipp",
+          });
+        }
+      }
+
       try {
         lastClipTime.set(id, Date.now());
 
@@ -71,7 +104,7 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
         clipsByStream.get(id)!.push(clip);
         await minio.addClipEntry(clip);
 
-        return reply.code(201).send(clip);
+        return reply.code(201).send({ ...clip, team: "own" });
       } catch (err) {
         request.log.error(err, "Failed to create clip");
         return reply.code(500).send({

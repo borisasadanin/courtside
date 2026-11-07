@@ -10,6 +10,7 @@ import type { MinioClient } from "./minio.js";
 import type { HighlightClip } from "./types.js";
 import type { FastifyBaseLogger } from "fastify";
 import { convertSegmentsToMp4, extractThumbnail } from "./mp4-converter.js";
+import { guestMp4Key, guestThumbnailKey, type GuestClip } from "./guest-spaces.js";
 
 /** How many seconds of video to include in a clip.
  * With ~2s segments this gives us 4 segments = ~8s (≈5s before + 2s after the action).
@@ -25,15 +26,15 @@ const WAIT_POLL_MS = 2_000;
 /** If the newest segment is older than this, wait for pipeline to catch up (ms) */
 const FRESHNESS_THRESHOLD_MS = 5_000;
 
-export async function createClip(
+/**
+ * The segments a clip pressed at `buttonPressTimestamp` is made of: waits for
+ * the pipeline to deliver the moment, then takes the last CLIP_DURATION_SECONDS.
+ */
+async function selectSegments(
   collector: SegmentCollector,
   buttonPressTimestamp: number,
-  minio: MinioClient,
   logger: FastifyBaseLogger,
-  label?: string,
-): Promise<HighlightClip> {
-  const streamId = collector.getStreamId();
-
+): Promise<ClipSegment[]> {
   // Wait for pipeline to deliver segments close to the button press time
   let timeline = collector.getSegmentTimeline();
   const waitStart = Date.now();
@@ -83,6 +84,21 @@ export async function createClip(
   if (clipSegments.length === 0) {
     throw new Error("No segments found for the requested time range");
   }
+
+  return clipSegments;
+}
+
+type ClipSegment = ReturnType<SegmentCollector["getSegmentTimeline"]>[number];
+
+export async function createClip(
+  collector: SegmentCollector,
+  buttonPressTimestamp: number,
+  minio: MinioClient,
+  logger: FastifyBaseLogger,
+  label?: string,
+): Promise<HighlightClip> {
+  const streamId = collector.getStreamId();
+  const clipSegments = await selectSegments(collector, buttonPressTimestamp, logger);
 
   // Build mini HLS VOD manifest with absolute URLs
   // 16 hex characters, not 8: for a shared clip the id *is* the capability,
@@ -159,6 +175,57 @@ export async function createClip(
     // The recording names its segments like the clip manifest does, so the
     // replay can find the exact moment the clip starts.
     startSegment: clipSegments[0].key.split("/").pop(),
+  };
+}
+
+/**
+ * A highlight for the opponent (#50): an MP4 and a thumbnail under
+ * guest/<spaceId>/, nothing that points into the recording, so it survives the
+ * recording being deleted.  The MP4 is the clip, so it must exist: one retry,
+ * then the clip fails rather than being saved without video.
+ */
+export async function createGuestClip(
+  collector: SegmentCollector,
+  buttonPressTimestamp: number,
+  minio: MinioClient,
+  logger: FastifyBaseLogger,
+  spaceId: string,
+  label?: string,
+): Promise<GuestClip> {
+  const clipSegments = await selectSegments(collector, buttonPressTimestamp, logger);
+  const clipId = crypto.randomBytes(8).toString("hex");
+  const actualDuration = clipSegments.reduce((sum, s) => sum + s.duration, 0);
+
+  const segmentBuffers = await Promise.all(
+    clipSegments.map(async (seg) => ({ key: seg.key, data: await minio.downloadBuffer(seg.key) })),
+  );
+
+  let mp4Buffer: Buffer;
+  try {
+    mp4Buffer = await convertSegmentsToMp4(segmentBuffers);
+  } catch (err) {
+    logger.warn(err, `MP4 for guest clip ${clipId} failed, trying once more`);
+    mp4Buffer = await convertSegmentsToMp4(segmentBuffers);
+  }
+  await minio.uploadBuffer(guestMp4Key(spaceId, clipId), mp4Buffer, "video/mp4");
+
+  let thumbnailUrl: string | undefined;
+  try {
+    const thumb = await extractThumbnail(mp4Buffer, 2);
+    await minio.uploadBuffer(guestThumbnailKey(spaceId, clipId), thumb, "image/jpeg");
+    thumbnailUrl = `/api/guest/clips/${clipId}/media/${clipId}.jpg`;
+  } catch (err) {
+    logger.warn(err, `Failed to create thumbnail for guest clip ${clipId}`);
+  }
+
+  logger.info(`Created guest clip ${clipId} in space ${spaceId}: ${clipSegments.length} segments`);
+  return {
+    id: clipId,
+    mp4Url: `/api/guest/clips/${clipId}/media/${clipId}.mp4`,
+    thumbnailUrl,
+    durationSeconds: Math.round(actualDuration * 10) / 10,
+    createdAt: new Date().toISOString(),
+    label,
   };
 }
 

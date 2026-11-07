@@ -129,6 +129,9 @@ app.get("/health", async () => {
   return {
     status: "ok",
     version: VERSION,
+    // What this backend can do, so a newer camera app knows what to offer.
+    // "guest-spaces": a clip can go to the opponent's guest space (#50).
+    features: ["guest-spaces"],
     components: {
       restreamer: restreamerState,
       minio: minioReachable ? "ok" : "unreachable",

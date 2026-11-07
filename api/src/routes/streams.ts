@@ -5,7 +5,7 @@
 import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
 import { broadcasterOf, requireBroadcasterAuth, requireViewerAuth, requireViewerOrBroadcasterAuth } from "../auth.js";
-import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream, PAUSE_TYPES } from "../state.js";
+import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream, guestSpaces, PAUSE_TYPES } from "../state.js";
 import type { PauseType, StreamMeta } from "../state.js";
 import { SegmentCollector } from "../segment-collector.js";
 import { getViewerCount, registerViewer, viewers } from "../viewer-tracking.js";
@@ -688,6 +688,8 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       const stoppedAt = new Date().toISOString();
       if (meta) {
         meta.stoppedAt = stoppedAt;
+        // The guest space's 14 days count from here (#52).
+        guestSpaces.streamEnded(id, stoppedAt).catch((err) => request.log.error(err, "Could not note the guest space's end"));
 
         // Finalize VOD entry with stop time and duration
         const durationSeconds = Math.round(
@@ -805,6 +807,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             const dur = Math.round((new Date(meta.stoppedAt).getTime() - new Date(meta.createdAt).getTime()) / 1000);
             minio.updateVodEntry(streamId, { stoppedAt: meta.stoppedAt, durationSeconds: dur }).catch(() => {});
             void recordingStopped(streamId, meta.partNumber, app.log);
+            guestSpaces.streamEnded(streamId, meta.stoppedAt).catch((err) => app.log.error(err, "Could not note the guest space's end"));
           }
           viewers.delete(streamId);
         }
@@ -817,6 +820,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             const dur = Math.round((new Date(meta.stoppedAt).getTime() - new Date(meta.createdAt).getTime()) / 1000);
             minio.updateVodEntry(streamId, { stoppedAt: meta.stoppedAt, durationSeconds: dur }).catch(() => {});
             void recordingStopped(streamId, meta.partNumber, app.log);
+            guestSpaces.streamEnded(streamId, meta.stoppedAt).catch((err) => app.log.error(err, "Could not note the guest space's end"));
           }
           viewers.delete(streamId);
         } else {
