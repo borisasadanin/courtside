@@ -19,6 +19,7 @@ beforeAll(async () => {
   mkdirSync(join(root, "assets"));
   writeFileSync(join(root, "index.html"), "<!doctype html><title>Courtside</title>");
   writeFileSync(join(root, "clip.html"), "<!doctype html><title>Clip</title>");
+  writeFileSync(join(root, "guest.html"), "<!doctype html><title>Gäst</title>");
   writeFileSync(join(root, "assets", "bundle-1a2b3c4d.js"), "console.log(1)");
   // A URL left over from a separately hosted deployment.
   writeFileSync(join(root, "runtime-config.js"), 'window.COURTSIDE_CONFIG = { apiUrl: "https://elsewhere.example.com" };');
@@ -44,6 +45,15 @@ describe("website routes", () => {
   it("serves the clip page", async () => {
     const res = await app.inject({ url: "/clip.html" });
     expect(res.statusCode).toBe(200);
+  });
+
+  it("serves the guest page at /gast, uncached", async () => {
+    for (const url of ["/gast", "/gast/"]) {
+      const res = await app.inject({ url });
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toContain("<title>Gäst</title>");
+      expect(res.headers["cache-control"]).toBe("no-cache");
+    }
   });
 
   it("caches hashed assets for good", async () => {

@@ -55,4 +55,10 @@ export default async function webRoutes(
       );
     },
   });
+
+  // The guest page (#54): the opponent's coach logs in with the guest code
+  // here. Its own address, so the link handed out never shows the club's site.
+  for (const path of ["/gast", "/gast/"]) {
+    app.get(path, async (_request, reply) => reply.sendFile("guest.html"));
+  }
 }

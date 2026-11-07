@@ -44,6 +44,14 @@ final class Club: ObservableObject {
     /// What the platform last reported in its health check.
     @Published var platformVersion: String?
 
+    /// What the platform last listed under `features` in its health check.
+    /// Platforms from before guest spaces list nothing.
+    @Published var platformFeatures: Set<String> = []
+
+    /// Whether a highlight can go to the opponent's guest space (#53). An older
+    /// platform does not know about it, and the camera then saves every clip as before.
+    var supportsGuestSpaces: Bool { platformFeatures.contains("guest-spaces") }
+
     /// Whether to ask for the result after a match. An older platform has nowhere to keep it.
     var supportsMatchResult: Bool {
         Self.supports(platformVersion: platformVersion, minimum: Self.matchResultPlatformVersion)

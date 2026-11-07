@@ -7,6 +7,7 @@ import { MinioClient } from "./minio.js";
 import { DeviceRegistry } from "./devices.js";
 import { TeamRegistry } from "./teams.js";
 import { MatchSchedule } from "./matches.js";
+import { GuestSpaces } from "./guest-spaces.js";
 import type { SegmentCollector } from "./segment-collector.js";
 import type { HighlightClip, RecordedPause } from "./types.js";
 
@@ -64,6 +65,8 @@ export let devices: DeviceRegistry;
 export let teams: TeamRegistry;
 /** The club's matches — see matches.ts. */
 export let matches: MatchSchedule;
+/** The opponents' highlights, one space per match — see guest-spaces.ts. */
+export let guestSpaces: GuestSpaces;
 
 export function initServices(r: RestreamerClient, m: MinioClient, o: OscInstanceManager): void {
   restreamer = r;
@@ -72,4 +75,5 @@ export function initServices(r: RestreamerClient, m: MinioClient, o: OscInstance
   devices = new DeviceRegistry(m);
   teams = new TeamRegistry(m);
   matches = new MatchSchedule(m, teams, () => streamMeta);
+  guestSpaces = new GuestSpaces(m);
 }

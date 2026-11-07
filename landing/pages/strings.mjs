@@ -41,6 +41,13 @@ export const sv = {
     chips: ["Ingen app för tittarna", "Ingen reklam", "Filmerna är föreningens"],
   },
 
+  // Shown only at /#gast, where the share page for another club's guest clip links.
+  guest: {
+    h: "Har ni fått highlights från en annan klubb?",
+    p: "Så startar ni er egen. Ställ en iPhone på stativet och tryck på en knapp: ert lag får livesändning, highlights direkt och alla matcher sparade. Gratis att använda, ni betalar bara för driften.",
+    cta: "Kom igång", cta2: "Så funkar det",
+  },
+
   proof: {
     strong: "Byggt på läktaren, inte i ett konferensrum.",
     text: "Courtside började som en förälders lösning för ett basketlag i Stockholm och har sänt lagets matcher varje helg sedan början av 2026. Nu kan fler föreningar göra samma sak.",
@@ -76,8 +83,8 @@ export const sv = {
     liveTicks: ["Fungerar i mobil, surfplatta och dator, även Android", "Spola tillbaka under matchen", "Hela matchen sparas automatiskt som repris"],
     liveStart: "Start", liveHere: "Du är här", liveNow: "Live ●",
     clipH: "Highlights som går att se direkt",
-    clipP: "Den som filmar trycker på stjärnan. Klippet skärs ut på en gång och <strong>finns att se direkt efter att det hänt</strong>, medan matchen fortsätter. I periodvilor och timeouts byts sändningen mot ett karusellflöde med matchens highlights. En pausskylt visar att matchen står still, och en ljudsignal hörs när spelet börjar igen.",
-    clipTicks: ["En knapptryckning, ingen redigering", "Klippet finns att se några sekunder efter att det hänt", "Karusell med highlights i varje paus", "Ladda ner och dela klippen. En delad länk fungerar utan PIN-kod"],
+    clipP: "Den som filmar trycker på stjärnan. Klippet skärs ut på en gång och <strong>finns att se direkt efter att det hänt</strong>, medan matchen fortsätter. I periodvilor och timeouts byts sändningen mot ett karusellflöde med matchens highlights. En pausskylt visar att matchen står still, och en ljudsignal hörs när spelet börjar igen. Klipp för motståndarlaget hamnar i en egen gästyta, som deras ledare öppnar med en kod.",
+    clipTicks: ["En knapptryckning, ingen redigering", "Klippet finns att se några sekunder efter att det hänt", "Karusell med highlights i varje paus", "Ladda ner och dela klippen. En delad länk fungerar utan PIN-kod", "Motståndarlagets klipp i en gästyta bakom kod, som raderas två veckor efter matchen"],
     cards: [
       ["En knapp i mobilen", "Kameraappen är gjord för en förälder med kaffe i andra handen. Sänd, pausa, klipp. Mer är det inte."],
       ["PIN-kod för tittare", "Det är ofta barn på bild. Lås sändningen med en kod som bara lagets familjer får. Vi rekommenderar det alltid."],
@@ -201,6 +208,7 @@ export const sv = {
       ["Fungerar det med Android?", "För tittarna, ja: sändningen visas i vilken webbläsare som helst. Kameraappen finns idag bara för iPhone."],
       ["Hur snabbt kan man se en highlight?", "Direkt. När den som filmar trycker på stjärnan klipps sekvensen ut och finns att se några sekunder senare, medan matchen pågår. I pauserna visas alla highlights i en karusell."],
       ["Kan vi dela klippen?", "Ja. Klippen går att ladda ner och dela. En delad klipplänk fungerar utan PIN-kod, så tänk efter vad ni delar och med vem."],
+      ["Kan motståndarlaget få sina klipp?", "Ja. När den som filmar trycker på stjärnan kan hen välja motståndarlaget. De klippen hamnar i en gästyta för matchen, som deras ledare öppnar med en kod som ni skickar till dem. De ser bara sina egna klipp, kan ladda ner och dela dem, och allt raderas två veckor efter matchen."],
       ["Vad kostar det egentligen?", "Ingenting för själva Courtside. Det ni betalar för är driften. På Open Source Cloud kostar Personal-planen 15 € i månaden exkl. moms och räcker till ungefär 10 matcher i månaden. Professional, 69 € i månaden, ger plats för hundratals matcher, egen domän och e-post på föreningens domän. Inga avgifter per lag eller per tittare."],
       ["Måste vi använda Open Source Cloud?", "Nej. Courtside är öppen källkod och ni kan köra den var ni vill. På OSC sker installationen automatiskt, uppdateringar är ett klick och ni betalar bara de timmar ni sänder. Kör ni själva står ni för drift, uppdateringar och kostnader på egen hand."],
       ["Kostar nya versioner något?", "Nej. Nya funktioner och rättningar är gratis. Ni uppdaterar med ett klick när ni loggar in här på sidan. Det går inte mitt under en sändning, eftersom sidan är nere några minuter medan den byggs om."],
@@ -295,6 +303,13 @@ export const en = {
     chips: ["No app for viewers", "No ads", "Your club owns the videos"],
   },
 
+  // Shown only at /en/#gast, where the share page for another club's guest clip links.
+  guest: {
+    h: "Got highlights from another club?",
+    p: "Here's how to start your own. Put an iPhone on a tripod and press one button: your team gets live streams, instant highlights and every game saved. Free to use, you only pay for hosting.",
+    cta: "Get started", cta2: "How it works",
+  },
+
   proof: {
     strong: "Built in the stands, not in a boardroom.",
     text: "Courtside started as one parent's fix for a basketball team in Stockholm and has streamed the team's games every weekend since early 2026. Now other clubs can do the same.",
@@ -330,8 +345,8 @@ export const en = {
     liveTicks: ["Works on phones, tablets and computers, Android included", "Rewind during the game", "The whole game is saved automatically as a replay"],
     liveStart: "Start", liveHere: "You are here", liveNow: "Live ●",
     clipH: "Highlights you can watch right away",
-    clipP: "The person filming taps the star. The clip is cut on the spot and <strong>is ready to watch right after it happened</strong>, while the game goes on. During breaks and timeouts the stream switches to a carousel of the game's highlights. A pause sign shows that play has stopped, and a chime sounds when it starts again.",
-    clipTicks: ["One tap, no editing", "The clip is ready to watch seconds after it happened", "A highlight carousel in every break", "Download and share clips. A shared link works without the PIN"],
+    clipP: "The person filming taps the star. The clip is cut on the spot and <strong>is ready to watch right after it happened</strong>, while the game goes on. During breaks and timeouts the stream switches to a carousel of the game's highlights. A pause sign shows that play has stopped, and a chime sounds when it starts again. Clips of the other team go to a guest space of their own, which their coaches open with a code.",
+    clipTicks: ["One tap, no editing", "The clip is ready to watch seconds after it happened", "A highlight carousel in every break", "Download and share clips. A shared link works without the PIN", "The other team's clips in a guest space behind a code, deleted two weeks after the game"],
     cards: [
       ["One button on the phone", "The camera app is made for a parent holding a coffee in the other hand. Go live, pause, clip. That's it."],
       ["Viewer PIN", "It's often kids on camera. Lock the stream with a code only the team's families get. We always recommend it."],
@@ -455,6 +470,7 @@ export const en = {
       ["Does it work with Android?", "For viewers, yes: the stream plays in any browser. The camera app is iPhone only for now."],
       ["How soon can you watch a highlight?", "Right away. When the person filming taps the star, the play is clipped and ready to watch a few seconds later, while the game is still on. During breaks, all highlights play in a carousel."],
       ["Can we share clips?", "Yes. Clips can be downloaded and shared. A shared clip link works without the PIN, so think about what you share and with whom."],
+      ["Can the other team get their clips?", "Yes. When the person filming taps the star, they can pick the other team. Those clips go to a guest space for that game, which the other team's coaches open with a code you send them. They see only their own clips, can download and share them, and everything is deleted two weeks after the game."],
       ["What does it actually cost?", "Nothing for Courtside itself. What you pay for is hosting. On Open Source Cloud the Personal plan costs €15 a month excl. VAT and covers about 10 games a month. Professional, €69 a month, has room for hundreds of games plus your own domain and email on your club's domain. No fees per team or per viewer."],
       ["Do we have to use Open Source Cloud?", "No. Courtside is open source and you can run it wherever you like. On OSC the setup is automatic, updates are one click and you only pay for the hours you stream. If you host it yourself, hosting, updates and costs are up to you."],
       ["Do new versions cost anything?", "No. New features and fixes are free. You update with one click when you sign in here. It can't be done in the middle of a broadcast, since the site is down for a few minutes while it rebuilds."],

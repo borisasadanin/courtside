@@ -5,7 +5,8 @@ import rateLimit from "@fastify/rate-limit";
 
 import { config, validateConfig } from "./config.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "./club-config.js";
-import { initServices, streamMeta, collectors, teams } from "./state.js";
+import { initServices, streamMeta, collectors, teams, guestSpaces } from "./state.js";
+import { startGuestCleanup } from "./guest-cleanup.js";
 import { restoreStreamMeta } from "./stream-meta-store.js";
 import { SegmentCollector } from "./segment-collector.js";
 import { RestreamerClient } from "./restreamer.js";
@@ -29,6 +30,8 @@ import setupRoutes from "./routes/setup-routes.js";
 import teamRoutes from "./routes/team-routes.js";
 import matchRoutes from "./routes/match-routes.js";
 import shareRoutes from "./routes/share-routes.js";
+import guestAdminRoutes from "./routes/guest-admin-routes.js";
+import guestRoutes from "./routes/guest-routes.js";
 import { Setup } from "./setup.js";
 import { Branding } from "./club-branding.js";
 import { VERSION } from "./version.js";
@@ -108,6 +111,8 @@ await app.register(dvrRoutes);
 await app.register(setupRoutes, { setup });
 await app.register(teamRoutes);
 await app.register(matchRoutes);
+await app.register(guestAdminRoutes);
+await app.register(guestRoutes);
 
 const webRoot = webDistDir();
 await app.register(shareRoutes, { branding, webRoot });
@@ -129,6 +134,9 @@ app.get("/health", async () => {
   return {
     status: "ok",
     version: VERSION,
+    // What this backend can do, so a newer camera app knows what to offer.
+    // "guest-spaces": a clip can go to the opponent's guest space (#50).
+    features: ["guest-spaces"],
     components: {
       restreamer: restreamerState,
       minio: minioReachable ? "ok" : "unreachable",
@@ -176,6 +184,12 @@ try {
 backfillTeams(minio, teams, [defaultHomeTeam, defaultAwayTeam])
   .then((added) => { if (added > 0) console.log(`Added ${added} team(s) from earlier recordings to the registry`); })
   .catch((err) => console.error("Could not add teams from earlier recordings:", err));
+
+// Guest spaces are deleted 14 days after their match (#52): now, then hourly.
+startGuestCleanup(guestSpaces, minio, {
+  info: (msg) => app.log.info(msg),
+  error: (obj, msg) => app.log.error(obj, msg),
+});
 
 // Start background health polling for Restreamer
 oscManager.startBackgroundPolling();

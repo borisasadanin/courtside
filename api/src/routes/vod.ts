@@ -4,7 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import { requireApiKey, requireViewerAuth, requireAdminAuth, requireBroadcasterAuth, isValidAdminToken } from "../auth.js";
 import { config } from "../config.js";
-import { minio } from "../state.js";
+import { minio, guestSpaces } from "../state.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { deleteMatch, logDeletion } from "../erasure.js";
 import { matchCover } from "../match-images.js";
@@ -153,6 +153,8 @@ export default async function vodRoutes(app: FastifyInstance): Promise<void> {
           return reply.code(404).send({ error: "not_found", message: "Inspelningen hittades inte" });
         }
         request.log.info(`Result for ${id}: ${home}–${away} (${result.setBy})`);
+        // The guest space keeps its own copy, for after the match is deleted (#52).
+        await guestSpaces.noteResult(id, result).catch((err) => request.log.error(err, "Could not copy the result to the guest space"));
         return reply.send(result);
       } catch (err) {
         request.log.error(err, "Failed to save result");

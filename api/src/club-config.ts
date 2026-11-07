@@ -54,6 +54,19 @@ export interface ClubManifest {
   sport: SportProfile;
   /** Who answers for the recordings, shown under "Om inspelningarna". */
   privacy: ClubPrivacy;
+  /** The product itself, for "made with" lines and invitations (#49). */
+  product: ProductInfo;
+}
+
+/**
+ * The product's own name and landing page.  The name may change, so nothing
+ * shown to viewers, guests or other clubs spells it out: it is read from here.
+ */
+export interface ProductInfo {
+  /** e.g. "Courtside". */
+  name: string;
+  /** The landing page, where a club starts its own installation. */
+  url: string;
 }
 
 /**
@@ -98,7 +111,16 @@ export const clubManifest: ClubManifest = {
   tagline: optional("CLUB_TAGLINE", `Följ ${NAME} live — direkt från hallen.`),
   sport: BASKETBALL,
   privacy: { controller: "", contact: "", policyUrl: "" },
+  product: productInfo(),
 };
+
+/** The product's name and landing page (#49), from PRODUCT_NAME and PRODUCT_URL. */
+export function productInfo(): ProductInfo {
+  return {
+    name: optional("PRODUCT_NAME", "Courtside"),
+    url: optional("PRODUCT_URL", "https://courtside.apps.osaas.io").replace(/\/$/, ""),
+  };
+}
 
 /** Default team name for a new recording when the camera sends none. */
 export const defaultHomeTeam = SHORT_NAME;

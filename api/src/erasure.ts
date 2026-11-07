@@ -73,7 +73,8 @@ export const DELETION_LOG_KEY = "config/deletion-log.json";
 
 export interface DeletionLogEntry {
   at: string;
-  what: "match" | "clip";
+  /** guest-clip and guest-space: the opponent's highlights (#48). */
+  what: "match" | "clip" | "guest-clip" | "guest-space";
   id: string;
   /** The match's title, for a clip the title of the match it came from. */
   match?: string;
@@ -81,8 +82,10 @@ export interface DeletionLogEntry {
   onRequest: boolean;
   /** Files removed from storage. */
   files: number;
-  /** Clips removed with a match. */
+  /** Clips removed with a match or a guest space. */
   clips?: number;
+  /** Why it went: "retention" for a guest space deleted after its 14 days (#52). */
+  reason?: "retention";
 }
 
 type LogStorage = Pick<MinioClient, "readFileIfExists" | "uploadBuffer">;

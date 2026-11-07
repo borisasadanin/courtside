@@ -47,6 +47,19 @@ describe("club manifest", () => {
     await app.close();
   });
 
+  it("names the product from one place, so it can be renamed (#49)", async () => {
+    delete process.env.PRODUCT_NAME;
+    delete process.env.PRODUCT_URL;
+    let mod = await import("../club-config.js");
+    expect(mod.clubManifest.product).toEqual({ name: "Courtside", url: "https://courtside.apps.osaas.io" });
+
+    vi.resetModules();
+    process.env.PRODUCT_NAME = "Strongcourt";
+    process.env.PRODUCT_URL = "https://strongcourt.example/";
+    mod = await import("../club-config.js");
+    expect(mod.clubManifest.product).toEqual({ name: "Strongcourt", url: "https://strongcourt.example" });
+  });
+
   it("falls back to the club name for the short name", async () => {
     process.env.CLUB_NAME = "Hammarby Courtside";
     delete process.env.CLUB_SHORT_NAME;

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="robots" content="noindex">
+  <meta name="courtside:api-url" content="">
+  <title>Höjdpunkt</title>
+  <link rel="icon" href="icon.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+  <script src="runtime-config.js"></script>
+  <style>
+    /* Neutral: a shared guest clip shows nothing of the club that recorded it (#54). */
+    :root {
+      --accent: #e9ebef;
+      --accent-dim: #c9ccd3;
+      --accent-ink: #e9ebef;
+      --on-accent: #111317;
+      --accent-soft: rgba(233, 235, 239, 0.12);
+    }
+    body { min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; width: 100%; max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+    .gc-video {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: var(--radius) var(--radius) 0 0;
+      display: block;
+    }
+    .gc-info {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius);
+      padding: 14px 16px;
+    }
+    .gc-teams {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      line-height: 1.1;
+    }
+    .gc-meta { color: var(--text-muted); margin-top: 4px; font-size: 0.9rem; }
+    .gc-ad {
+      margin-top: 24px;
+      padding: 18px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .gc-ad p { color: var(--text-muted); margin-bottom: 14px; }
+    .gc-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 10px 22px;
+      font-weight: 700;
+      background: var(--accent);
+      color: var(--on-accent);
+      border-radius: 10px;
+      text-decoration: none;
+    }
+    .gc-btn:hover { background: var(--accent-dim); }
+    .gc-error { text-align: center; padding: 60px 0; color: var(--text-muted); }
+    .gc-error h2 { color: var(--text); margin-bottom: 8px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="loading" style="text-align:center;padding:60px 0"><div class="spinner"></div></div>
+
+    <div id="error" class="gc-error hidden">
+      <h2>Klippet finns inte längre</h2>
+      <p>Länken kan vara fel, eller så har klippet tagits bort.</p>
+    </div>
+
+    <div id="clip" class="hidden">
+      <video id="video" class="gc-video" playsinline controls preload="metadata"></video>
+      <div class="gc-info">
+        <div class="gc-teams" id="teams"></div>
+        <div class="gc-meta" id="meta"></div>
+      </div>
+    </div>
+
+    <aside class="gc-ad hidden" id="ad">
+      <p id="adText"></p>
+      <a class="gc-btn" id="adLink" href="#" target="_blank" rel="noopener">Starta er egen</a>
+    </aside>
+  </main>
+
+  <script type="module" src="guest-clip.js"></script>
+</body>
+</html>
