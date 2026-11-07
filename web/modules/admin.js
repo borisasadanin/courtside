@@ -13,6 +13,7 @@ import { renderUpdate } from "./update.js";
 import { showImage } from "./images.js";
 import { renderTeamsAdmin } from "./team-admin.js";
 import { renderMatchesAdmin } from "./match-admin.js";
+import { renderGuestSpacesAdmin } from "./guest-admin.js";
 
 // Callback injected by the orchestrator
 let onSwitchTab = null;
@@ -89,6 +90,8 @@ export async function loadAdminStorage() {
   renderUpdate();
   renderDeletions();
   renderTeamsAdmin();
+  // Before Matcher, whose matches link to their guest spaces once these are in.
+  renderGuestSpacesAdmin();
   renderMatchesAdmin();
 
   try {
@@ -452,9 +455,7 @@ async function renderDeletions() {
     const rows = entries
       .map((e) => {
         const at = new Date(e.at).toLocaleString("sv-SE", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-        const what = e.what === "match"
-          ? `Match${e.clips ? ` och ${e.clips} klipp` : ""}`
-          : "Klipp";
+        const what = deletionWhat(e);
         return `
         <li>
           <span class="admin-deletion-at">${escapeHtml(at)}</span>
@@ -470,6 +471,21 @@ async function renderDeletions() {
       </details>`;
   } catch {
     el.innerHTML = '<p class="admin-deletions-empty">Kunde inte l\u00e4sa raderingsloggen.</p>';
+  }
+}
+
+/** What a deletion log entry removed, in words. */
+function deletionWhat(e) {
+  switch (e.what) {
+    case "match":
+      return `Match${e.clips ? ` och ${e.clips} klipp` : ""}`;
+    case "guest-clip":
+      // One clip, or all of a guest space's clips at once.
+      return e.clips ? `${e.clips} gästklipp` : "Gästklipp";
+    case "guest-space":
+      return `Gästyta${e.clips ? ` med ${e.clips} klipp` : ""}${e.reason === "retention" ? " (efter två veckor)" : ""}`;
+    default:
+      return "Klipp";
   }
 }
 

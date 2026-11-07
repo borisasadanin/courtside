@@ -17,6 +17,7 @@ import { resize } from "./branding.js";
 import { club } from "./club.js";
 import { setTeams, getTeams, teamBadge } from "./teams.js";
 import { setMatches, localToday, formatMatchWhen } from "./matches.js";
+import { guestSpaceForMatch, openGuestSpace } from "./guest-admin.js";
 
 /** The match whose form is open, kept open across a reload of the list. */
 let openId = null;
@@ -143,6 +144,17 @@ function matchRow(match) {
   edit.className = "device-revoke";
   edit.textContent = "Ändra";
   row.append(badges, info, edit);
+
+  // The match's guest space (#55), only when it has one.
+  guestSpaceForMatch(match).then((space) => {
+    if (!space) return;
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "branding-link match-guest-link";
+    link.textContent = "Gästyta";
+    link.addEventListener("click", () => openGuestSpace(space.id, "matches"));
+    info.append(link);
+  });
 
   const form = matchForm(match, () => {
     openId = null;

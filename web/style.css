@@ -3419,3 +3419,36 @@ footer a:hover { color: var(--accent-ink); }
   .mc-team { gap: 8px; }
   .match-cover-teams { gap: 14px; }
 }
+
+/* === Guest spaces (admin, #55) === */
+.guest-admin-list { display: flex; flex-direction: column; gap: 10px; }
+.guest-admin-item {
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
+}
+.guest-admin-open {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left;
+  background: none; border: none; padding: 0; color: var(--text); font: inherit; cursor: pointer; min-height: 44px;
+}
+.guest-admin-result { color: var(--text-muted); font-weight: 600; margin-left: 6px; }
+.guest-admin-access { display: flex; flex-direction: column; gap: 8px; }
+.guest-admin-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.guest-admin-key { font-size: 0.8rem; color: var(--text-muted); min-width: 3em; }
+.guest-admin-code { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.12em; color: var(--text); }
+.guest-admin-link { color: var(--accent-ink); word-break: break-all; flex: 1 1 auto; min-width: 0; }
+.guest-admin-invite { align-self: flex-start; }
+.guest-admin-card { margin-bottom: 16px; }
+.guest-admin-card .branding-link { align-self: flex-start; }
+.guest-admin-clips-head { margin: 8px 0; align-items: center; }
+.guest-admin-clips { display: flex; flex-direction: column; gap: 8px; }
+.guest-admin-clip { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px; }
+.guest-admin-clip-row { display: flex; align-items: center; gap: 12px; }
+.guest-admin-clip-row .device-info { flex: 1 1 auto; }
+.guest-admin-thumb {
+  position: relative; flex: 0 0 auto; width: 96px; height: 54px; border-radius: 8px; overflow: hidden;
+  border: none; padding: 0; background: var(--surface-hover); color: #fff; cursor: pointer;
+}
+.guest-admin-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.guest-admin-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.guest-admin-video { width: 100%; margin-top: 8px; border-radius: 10px; background: #000; }
+.match-guest-link { align-self: flex-start; padding: 0; margin-top: 2px; }
