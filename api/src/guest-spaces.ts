@@ -268,8 +268,8 @@ export class GuestSpaces {
     return { space, removed, files };
   }
 
-  /** Delete a whole space: index entry first, then its files. */
-  async removeSpace(spaceId: string): Promise<{ space: GuestSpace; files: number } | undefined> {
+  /** Drop a space from the index, leaving its files. removeSpace also deletes them. */
+  async removeEntry(spaceId: string): Promise<GuestSpace | undefined> {
     let space: GuestSpace | undefined;
     await this.update((spaces) => {
       const i = spaces.findIndex((s) => s.id === spaceId);
@@ -277,6 +277,12 @@ export class GuestSpaces {
       space = spaces.splice(i, 1)[0];
       return true;
     });
+    return space;
+  }
+
+  /** Delete a whole space: index entry first, then its files. */
+  async removeSpace(spaceId: string): Promise<{ space: GuestSpace; files: number } | undefined> {
+    const space = await this.removeEntry(spaceId);
     if (!space) return undefined;
     const files = await this.storage.deletePrefix(guestPrefix(spaceId));
     return { space, files };
