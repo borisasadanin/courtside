@@ -263,9 +263,21 @@ final class APIService {
         let durationSeconds: Double
         let createdAt: String
         let label: String?
+        /// "own" or "opponent". Missing on platforms without guest spaces.
+        let team: String?
+        /// The opponent's name, for a clip saved in the guest space.
+        let teamName: String?
     }
 
-    func createClip(streamId: String, timestamp: String, label: String? = nil) async throws -> ClipResponse {
+    /// Whose highlight a clip is. Only sent to platforms that support guest spaces.
+    enum ClipTeam: String {
+        case own
+        case opponent
+    }
+
+    /// `timestamp` is when the star was pressed, not when the team was chosen.
+    /// Without `team` the clip is the club's own, as on older platforms.
+    func createClip(streamId: String, timestamp: String, label: String? = nil, team: ClipTeam? = nil) async throws -> ClipResponse {
         let url = URL(string: "\(baseURL)/api/streams/\(streamId)/clip")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -273,6 +285,7 @@ final class APIService {
         request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
         var body: [String: String] = ["timestamp": timestamp]
         if let label { body["label"] = label }
+        if let team { body["team"] = team.rawValue }
         request.httpBody = try JSONEncoder().encode(body)
 
         let (data, http) = try await send(request)
@@ -328,6 +341,8 @@ final class APIService {
     struct Health: Decodable {
         /// Missing before v0.2.0.
         let version: String?
+        /// Optional capabilities, such as "guest-spaces". Missing on older platforms.
+        let features: [String]?
     }
 
     /// The installation's health, or nil when it cannot be reached.
@@ -337,7 +352,7 @@ final class APIService {
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse, http.statusCode == 200
         else { return nil }
-        return (try? JSONDecoder().decode(Health.self, from: data)) ?? Health(version: nil)
+        return (try? JSONDecoder().decode(Health.self, from: data)) ?? Health(version: nil, features: nil)
     }
 
     /// The club's public manifest: name, colour, logo and sport terminology.
