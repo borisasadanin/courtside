@@ -63,7 +63,10 @@ struct StreamView: View {
     @State private var isResuming = false
     @State private var showStopConfirmation = false
     @State private var isClipping = false
-    @State private var showClipConfirmation = false
+    /// What the confirmation toast says while it shows.
+    @State private var clipConfirmation: String?
+    /// A star press waiting for the team to be chosen (#53).
+    @State private var pendingClip: PendingClip?
     @State private var clipCooldown = false
     @State private var elapsedTime: TimeInterval = 0
     @State private var timerTask: Task<Void, Never>?
@@ -236,8 +239,10 @@ struct StreamView: View {
                 Spacer()
 
                 // Highlight clip confirmation toast
-                if showClipConfirmation {
-                    Text("⭐ Höjdpunkt sparad!")
+                if let clipConfirmation {
+                    Text(clipConfirmation)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .font(.headline)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
@@ -316,6 +321,11 @@ struct StreamView: View {
                 .padding(.horizontal, isCompact ? 20 : 32)
                 .padding(.bottom, isCompact ? 16 : 40)
             }
+
+            if let pendingClip {
+                teamChoice(pendingClip)
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
         }
         .onAppear {
             Pairing.shared.broadcastStarted()
@@ -387,36 +397,153 @@ struct StreamView: View {
         }
     }
 
+    /// How long the team choice waits before the clip is saved for our team.
+    private static let clipChoiceSeconds: Double = 4
+
+    /// A star press whose team is not chosen yet. The timestamp is the press.
+    struct PendingClip: Equatable {
+        let id = UUID()
+        let timestamp: String
+    }
+
+    private var ownTeamName: String {
+        Self.nonEmpty(streamInfo.homeTeam)
+            ?? Self.nonEmpty(UserDefaults.standard.string(forKey: "courtside_last_team"))
+            ?? club.homeTeam
+    }
+
+    private var opponentTeamName: String {
+        Self.nonEmpty(streamInfo.awayTeam)
+            ?? Self.nonEmpty(UserDefaults.standard.string(forKey: "courtside_last_opponent"))
+            ?? "Motståndare"
+    }
+
+    private static func nonEmpty(_ s: String?) -> String? {
+        guard let s = s?.trimmingCharacters(in: .whitespaces), !s.isEmpty else { return nil }
+        return s
+    }
+
+    /// The star press. The clip's moment is now; on a platform with guest spaces
+    /// the team is chosen afterwards, and our team is assumed if nobody chooses.
     private func createHighlight() {
         isClipping = true
         clipCooldown = true
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
 
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+
+        guard club.supportsGuestSpaces else {
+            Task { await sendClip(timestamp: timestamp, team: nil) }
+            return
+        }
+
+        let pending = PendingClip(timestamp: timestamp)
+        withAnimation(.easeOut(duration: 0.15)) { pendingClip = pending }
         Task {
-            do {
-                let timestamp = ISO8601DateFormatter().string(from: Date())
-                _ = try await APIService.shared.createClip(
-                    streamId: streamInfo.id,
-                    timestamp: timestamp
-                )
-                withAnimation { showClipConfirmation = true }
-                try? await Task.sleep(for: .seconds(2))
-                withAnimation { showClipConfirmation = false }
-            } catch {
-                service.error = "Klipp misslyckades: \(error.localizedDescription)"
+            try? await Task.sleep(for: .seconds(Self.clipChoiceSeconds))
+            if pendingClip == pending { chooseTeam(.own) }
+        }
+    }
+
+    private func chooseTeam(_ team: APIService.ClipTeam) {
+        guard let pending = pendingClip else { return }
+        withAnimation(.easeIn(duration: 0.15)) { pendingClip = nil }
+        Task { await sendClip(timestamp: pending.timestamp, team: team) }
+    }
+
+    /// Sends the clip, shows where it went, and holds the star for the
+    /// cooldown (the platform takes one clip per five seconds).
+    private func sendClip(timestamp: String, team: APIService.ClipTeam?) async {
+        do {
+            let clip = try await APIService.shared.createClip(
+                streamId: streamInfo.id,
+                timestamp: timestamp,
+                team: team
+            )
+            let message: String
+            switch team {
+            case .none: message = "⭐ Höjdpunkt sparad!"
+            case .own: message = "⭐ Sparat för \(ownTeamName)"
+            case .opponent: message = "⭐ Sparat för \(Self.nonEmpty(clip.teamName) ?? opponentTeamName)"
             }
-            isClipping = false
-            // Cooldown: prevent spam
+            withAnimation { clipConfirmation = message }
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                if clipConfirmation == message {
+                    withAnimation { clipConfirmation = nil }
+                }
+            }
+        } catch {
+            service.error = "Klipp misslyckades: \(error.localizedDescription)"
+        }
+        isClipping = false
+        // Cooldown: prevent spam. Not awaited, so stopping need not wait for it.
+        Task {
             try? await Task.sleep(for: .seconds(5))
             clipCooldown = false
         }
+    }
+
+    /// Two big buttons in the middle of the screen, away from the edges and
+    /// their system gestures, with a bar that runs out when our team is assumed.
+    private func teamChoice(_ pending: PendingClip) -> some View {
+        VStack(spacing: 14) {
+            Text("Vems höjdpunkt?")
+                .font(.headline)
+                .foregroundColor(.white)
+                .shadow(radius: 3)
+
+            let layout = isCompact
+                ? AnyLayout(HStackLayout(spacing: 20))
+                : AnyLayout(VStackLayout(spacing: 16))
+            layout {
+                teamButton(ownTeamName, background: club.accent, foreground: club.onAccent) {
+                    chooseTeam(.own)
+                }
+                teamButton(opponentTeamName, background: Color.white, foreground: .black) {
+                    chooseTeam(.opponent)
+                }
+            }
+
+            ClipChoiceCountdown(seconds: Self.clipChoiceSeconds)
+                .id(pending.id)
+                .frame(maxWidth: isCompact ? 460 : 280)
+        }
+        .padding(20)
+        .background(Color.black.opacity(0.55))
+        .cornerRadius(20)
+        .padding(.horizontal, 60)
+    }
+
+    private func teamButton(_ name: String, background: Color, foreground: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(name)
+                .font(.title2.bold())
+                .lineLimit(2)
+                .minimumScaleFactor(0.6)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+                .frame(width: isCompact ? 220 : 260, height: isCompact ? 110 : 90)
+                .background(background)
+                .foregroundColor(foreground)
+                .cornerRadius(16)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func stopStream() {
         isStopping = true
 
         Task {
+            // A star press still waiting for its team is saved for our team
+            // before the stream goes away.
+            if let pending = pendingClip {
+                pendingClip = nil
+                await sendClip(timestamp: pending.timestamp, team: .own)
+            }
+
             // 1. Delete on backend FIRST — this updates the website immediately
             //    and works even if Restreamer is shutting down.
             try? await APIService.shared.deleteStream(id: streamInfo.id)
@@ -436,16 +563,7 @@ struct StreamView: View {
     /// platform cannot keep one, or the recording is too short to be listed.
     private func finishedMatch() -> FinishedMatch? {
         guard club.supportsMatchResult, elapsedTime >= 10 else { return nil }
-        let defaults = UserDefaults.standard
-        let nonEmpty = { (s: String?) -> String? in
-            guard let s = s?.trimmingCharacters(in: .whitespaces), !s.isEmpty else { return nil }
-            return s
-        }
-        return FinishedMatch(
-            id: streamInfo.id,
-            homeTeam: nonEmpty(streamInfo.homeTeam) ?? nonEmpty(defaults.string(forKey: "courtside_last_team")) ?? club.homeTeam,
-            awayTeam: nonEmpty(streamInfo.awayTeam) ?? nonEmpty(defaults.string(forKey: "courtside_last_opponent")) ?? "Motståndare"
-        )
+        return FinishedMatch(id: streamInfo.id, homeTeam: ownTeamName, awayTeam: opponentTeamName)
     }
 
     private func pauseColor(_ type: PauseType) -> Color {
@@ -508,6 +626,28 @@ struct StreamView: View {
                 service.error = "Kunde inte återuppta: \(error.localizedDescription)"
             }
             isResuming = false
+        }
+    }
+}
+
+/// A bar that empties over `seconds`, showing how long the team choice stays open.
+private struct ClipChoiceCountdown: View {
+    let seconds: Double
+    @State private var remaining: CGFloat = 1
+
+    var body: some View {
+        GeometryReader { geo in
+            Capsule()
+                .fill(Color.white.opacity(0.25))
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white)
+                        .frame(width: geo.size.width * remaining)
+                }
+        }
+        .frame(height: 6)
+        .onAppear {
+            withAnimation(.linear(duration: seconds)) { remaining = 0 }
         }
     }
 }
