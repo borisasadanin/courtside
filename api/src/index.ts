@@ -5,7 +5,8 @@ import rateLimit from "@fastify/rate-limit";
 
 import { config, validateConfig } from "./config.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "./club-config.js";
-import { initServices, streamMeta, collectors, teams } from "./state.js";
+import { initServices, streamMeta, collectors, teams, guestSpaces } from "./state.js";
+import { startGuestCleanup } from "./guest-cleanup.js";
 import { restoreStreamMeta } from "./stream-meta-store.js";
 import { SegmentCollector } from "./segment-collector.js";
 import { RestreamerClient } from "./restreamer.js";
@@ -179,6 +180,12 @@ try {
 backfillTeams(minio, teams, [defaultHomeTeam, defaultAwayTeam])
   .then((added) => { if (added > 0) console.log(`Added ${added} team(s) from earlier recordings to the registry`); })
   .catch((err) => console.error("Could not add teams from earlier recordings:", err));
+
+// Guest spaces are deleted 14 days after their match (#52): now, then hourly.
+startGuestCleanup(guestSpaces, minio, {
+  info: (msg) => app.log.info(msg),
+  error: (obj, msg) => app.log.error(obj, msg),
+});
 
 // Start background health polling for Restreamer
 oscManager.startBackgroundPolling();
