@@ -18,6 +18,21 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.7.0 — 2026-11-07
+
+Gästytor: motståndarlagets höjdpunkter, på en egen yta.
+
+- **Vems höjdpunkt?** Efter stjärnan väljer den som filmar *vårt lag* eller *motståndarna*. Väljer man inget
+  inom fyra sekunder sparas klippet för det egna laget. Kräver kameraappen 1.5.0; äldre appar sparar som förut
+- **Gästyta per match.** Motståndarnas klipp hamnar aldrig bland föreningens repriser, highlights eller i
+  pauskarusellen. De samlas på en egen gästyta som skapas med en slumpad kod när matchens första motståndarklipp
+  sparas. Gästen ser bara sina klipp, med matchinfo, resultat och när klippen raderas, och kan ladda ner,
+  ladda ner alla och dela
+- **Raderas efter 14 dagar.** Gästytan med alla klipp tas bort automatiskt 14 dagar efter matchen, även om
+  matchen raderats tidigare
+- **I admin** under *Gästytor* syns varje matchs kod och länk, en knapp för att kopiera inbjudan, ny kod,
+  och radering av ett klipp eller alla. Raderingar hamnar i raderingsloggen
+
 ## v0.6.1 — 2026-11-02
 
 - **Rättning:** en sändning går att starta medan sändningsmotorn står redo och räknar ner till avstängning.
