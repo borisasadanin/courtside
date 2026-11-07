@@ -3,7 +3,8 @@
  */
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { config, mutableConfig } from "./config.js";
-import { devices } from "./state.js";
+import { devices, guestSpaces } from "./state.js";
+import { deleteAfter, type GuestSpace } from "./guest-spaces.js";
 
 // --- Session tokens ---
 //
@@ -49,6 +50,80 @@ export function isValidViewerToken(token: string): boolean {
 
 export function isValidAdminToken(token: string): boolean {
   return isValidToken(token, "admin");
+}
+
+// --- Guest tokens (#51) ---
+//
+// A guest reaches one guest space and nothing else.  The token names that
+// space and is signed with a key that includes the space's current code, so
+// giving the space a new code ends every session made with the old one.  The
+// role is part of the token and of the key, so a guest token is never a viewer
+// or admin token (isValidToken checks the role first), and neither of those is
+// ever a guest token.
+
+/** How long a guest session lasts at most; never past the space's deletion. */
+const GUEST_TOKEN_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+
+function signGuest(payload: string, space: Pick<GuestSpace, "id" | "code">): string {
+  return createHmac("sha256", `${config.API_KEY}\0guest\0${space.id}\0${space.code}`)
+    .update(payload)
+    .digest("base64url");
+}
+
+/** guest.spaceId.expiresAt.nonce.signature */
+export function createGuestToken(space: GuestSpace, now = Date.now()): { token: string; expiresAt: number } {
+  const expiresAt = Math.min(now + GUEST_TOKEN_TTL_MS, deleteAfter(space).getTime());
+  const payload = `guest.${space.id}.${expiresAt}.${randomBytes(9).toString("base64url")}`;
+  return { token: `${payload}.${signGuest(payload, space)}`, expiresAt };
+}
+
+/** The space a guest token claims, before it is checked. */
+export function guestTokenSpaceId(token: string): string | null {
+  const [role, spaceId] = token.split(".");
+  return role === "guest" && spaceId ? spaceId : null;
+}
+
+/** Whether a guest token is valid for this space, as the space is now. */
+export function isValidGuestToken(token: string, space: GuestSpace): boolean {
+  const [role, spaceId, expText, nonce, sig, ...rest] = token.split(".");
+  if (role !== "guest" || spaceId !== space.id || !nonce || !sig || rest.length) return false;
+  const exp = Number(expText);
+  if (!Number.isSafeInteger(exp) || Date.now() > exp) return false;
+  if (Date.now() > deleteAfter(space).getTime()) return false;
+  const expected = Buffer.from(signGuest(`${role}.${spaceId}.${expText}.${nonce}`, space));
+  const given = Buffer.from(sig);
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
+
+type GuestRequestLike = RequestLike & { query?: unknown };
+
+/**
+ * The guest space a request may see, or null after answering 401.
+ *
+ * Only a guest token counts: not the API key, not a viewer or admin token.
+ * The token comes as "Authorization: Bearer", like a viewer's.  `allowQuery`
+ * also takes it as ?token= — only for a plain download link, which cannot
+ * carry a header.
+ */
+export async function requireGuestAuth(
+  request: GuestRequestLike,
+  reply: ReplyLike,
+  opts: { allowQuery?: boolean } = {},
+): Promise<GuestSpace | null> {
+  let token = "";
+  const auth = request.headers.authorization;
+  if (typeof auth === "string" && auth.startsWith("Bearer ")) token = auth.slice(7);
+  if (!token && opts.allowQuery) {
+    const q = (request.query ?? {}) as Record<string, unknown>;
+    if (typeof q.token === "string") token = q.token;
+  }
+
+  const spaceId = token ? guestTokenSpaceId(token) : null;
+  const space = spaceId ? await guestSpaces.get(spaceId) : undefined;
+  if (space && isValidGuestToken(token, space)) return space;
+
+  reply.code(401).send({ error: "guest_auth", message: "Logga in med koden igen." });
+  return null;
 }
 
 // --- Auth middleware ---
