@@ -197,6 +197,18 @@ export function page(t) {
     </div>
   </section>
 
+  <!-- GUEST WELCOME: only visible at #gast, where a shared guest clip from another club links -->
+  <aside class="guest-welcome" id="gast" aria-labelledby="gast-h2">
+    <div class="wrap guest-welcome-inner">
+      <h2 id="gast-h2">${t.guest.h}</h2>
+      <p>${t.guest.p}</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="${start}" data-start>${t.guest.cta}</a>
+        <a class="btn btn-secondary" href="#sa-funkar-det">${t.guest.cta2}</a>
+      </div>
+    </div>
+  </aside>
+
   <!-- HERO -->
   <section class="hero" aria-labelledby="hero-h1">
     <div class="wrap hero-grid">
