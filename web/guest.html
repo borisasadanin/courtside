@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="robots" content="noindex">
+  <meta name="courtside:api-url" content="">
+  <title>Era klipp</title>
+  <link rel="icon" href="icon.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+  <script src="runtime-config.js"></script>
+  <style>
+    /* Neutral: the guest page carries no club colour or logo (#54). */
+    :root {
+      --accent: #e9ebef;
+      --accent-dim: #c9ccd3;
+      --accent-ink: #e9ebef;
+      --on-accent: #111317;
+      --accent-soft: rgba(233, 235, 239, 0.12);
+    }
+    body { min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; width: 100%; max-width: 960px; margin: 0 auto; padding: 16px; }
+    #guestCode {
+      width: 100%;
+      max-width: 280px;
+      padding: 12px 16px;
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-align: center;
+      text-transform: uppercase;
+      background: var(--surface);
+      border: 2px solid #3a3f49;
+      border-radius: 12px;
+      color: var(--text);
+      outline: none;
+    }
+    #guestCode:focus { border-color: var(--accent-ink); }
+    #guestCode::placeholder { color: #4b515c; }
+    .guest-match { padding: 8px 0 20px; }
+    .guest-teams {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1.05;
+      text-transform: uppercase;
+    }
+    .guest-score {
+      font-family: var(--font-display);
+      font-size: 2.6rem;
+      font-weight: 800;
+      margin-top: 6px;
+    }
+    .guest-meta { color: var(--text-muted); margin-top: 8px; line-height: 1.5; }
+    .guest-deadline {
+      margin: 8px 0 20px;
+      padding: 16px;
+      border: 1px solid #5a4a1a;
+      background: rgba(240, 180, 40, 0.08);
+      border-radius: var(--radius);
+      line-height: 1.5;
+    }
+    .guest-deadline strong { display: block; font-size: 1.05rem; margin-bottom: 4px; }
+    .guest-actions { margin-bottom: 20px; }
+    .guest-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 10px 18px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 700;
+      background: var(--accent);
+      color: var(--on-accent);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .guest-btn:hover { background: var(--accent-dim); }
+    .guest-btn.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+    .guest-btn.secondary:hover { background: var(--surface-hover); }
+    .guest-btn:disabled { opacity: 0.6; cursor: wait; }
+    .guest-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .guest-clip {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .guest-clip-media {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: #000 var(--court-lines) center / cover no-repeat;
+    }
+    .guest-clip-media img, .guest-clip-media video {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .guest-clip-media video { object-fit: contain; background: #000; }
+    .guest-play {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0, 0, 0, 0.3); border: none; cursor: pointer;
+    }
+    .guest-play svg { filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5)); }
+    .guest-clip-info {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px;
+    }
+    .guest-clip-time { font-weight: 600; }
+    .guest-clip-dur { color: var(--text-muted); font-size: 0.85rem; }
+    .guest-clip-buttons { display: flex; gap: 8px; }
+    .guest-clip-buttons .guest-btn { min-height: 40px; padding: 8px 12px; font-size: 0.85rem; }
+    .guest-info {
+      margin-top: 28px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      line-height: 1.6;
+      font-size: 0.9rem;
+    }
+    .guest-info h3 { color: var(--text); font-size: 1rem; margin-bottom: 6px; }
+    .guest-info a, .guest-meta a { color: var(--text); }
+    .guest-empty { color: var(--text-muted); padding: 24px 0; }
+    .guest-logout { margin-top: 20px; background: none; border: none; color: var(--text-muted); text-decoration: underline; cursor: pointer; font: inherit; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <section id="loginView" class="pin-container hidden">
+      <h2 class="pin-title">Era klipp</h2>
+      <p class="pin-desc">Skriv koden ni fått för att se och ladda ner klippen från matchen.</p>
+      <form id="loginForm" novalidate>
+        <div class="pin-input-group">
+          <input id="guestCode" type="text" inputmode="text" autocomplete="one-time-code" autocapitalize="characters"
+                 spellcheck="false" maxlength="16" placeholder="KOD" aria-label="Kod">
+        </div>
+        <button id="loginBtn" class="pin-btn" type="submit">Visa klippen</button>
+      </form>
+      <p class="pin-error hidden" id="loginError" role="alert"></p>
+    </section>
+
+    <div id="loading" class="clip-page-loading hidden" style="text-align:center;padding:60px 0">
+      <div class="spinner"></div>
+    </div>
+
+    <section id="spaceView" class="hidden">
+      <div class="guest-match">
+        <div class="guest-teams" id="teams"></div>
+        <div class="guest-score hidden" id="score"></div>
+        <div class="guest-meta" id="meta"></div>
+      </div>
+
+      <div class="guest-deadline" role="note">
+        <strong id="deadline"></strong>
+        <span id="deadlineText"></span>
+      </div>
+
+      <div class="guest-actions">
+        <a class="guest-btn" id="downloadAll" href="#" download>Ladda ner alla</a>
+      </div>
+
+      <div class="guest-grid" id="clips"></div>
+      <p class="guest-empty hidden" id="noClips">Det finns inga klipp kvar.</p>
+
+      <div class="guest-info" id="info"></div>
+      <button type="button" class="guest-logout" id="logout">Logga ut</button>
+    </section>
+  </main>
+
+  <footer>
+    <a class="powered-by" id="madeWith" href="#" target="_blank" rel="noopener" hidden></a>
+  </footer>
+
+  <script type="module" src="guest.js"></script>
+</body>
+</html>

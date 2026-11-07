@@ -38,6 +38,21 @@ await esbuild.build({
   sourcemap: false,
 });
 
+// 2b. Guest page and shared guest clip (#54) — their own bundles, so they
+// carry nothing of the club's site.
+for (const [entry, out] of [["guest.js", "guest-bundle.js"], ["guest-clip.js", "guest-clip-bundle.js"]]) {
+  await esbuild.build({
+    entryPoints: [entry],
+    bundle: true,
+    format: "iife",
+    target: "es2015",
+    outfile: `dist/assets/${out}`,
+    minify: true,
+    sourcemap: false,
+    banner: { js: polyfill },
+  });
+}
+
 // 3. Copy static assets
 cpSync("style.css", "dist/assets/style.css");
 cpSync("icon.png", "dist/assets/icon.png");
@@ -53,12 +68,16 @@ try { cpSync("background.jpg", "dist/assets/background.jpg"); } catch {}
 // 4. Generate hashed filenames for cache busting
 const bundleHash = hash("dist/assets/bundle.js");
 const clipHash = hash("dist/assets/clip-bundle.js");
+const guestHash = hash("dist/assets/guest-bundle.js");
+const guestClipHash = hash("dist/assets/guest-clip-bundle.js");
 const cssHash = hash("dist/assets/style.css");
 const iconHash = hash("dist/assets/icon.png");
 const courtsideHash = hash("dist/assets/courtside.png");
 
 cpSync("dist/assets/bundle.js", `dist/assets/bundle-${bundleHash}.js`);
 cpSync("dist/assets/clip-bundle.js", `dist/assets/clip-${clipHash}.js`);
+cpSync("dist/assets/guest-bundle.js", `dist/assets/guest-${guestHash}.js`);
+cpSync("dist/assets/guest-clip-bundle.js", `dist/assets/guest-clip-${guestClipHash}.js`);
 cpSync("dist/assets/style.css", `dist/assets/style-${cssHash}.css`);
 cpSync("dist/assets/icon.png", `dist/assets/icon-${iconHash}.png`);
 cpSync("dist/assets/courtside.png", `dist/assets/courtside-${courtsideHash}.png`);
@@ -104,6 +123,8 @@ function processHtml(src, dest, scriptFile) {
 
 processHtml("index.html", "dist/index.html", `bundle-${bundleHash}.js`);
 processHtml("clip.html", "dist/clip.html", `clip-${clipHash}.js`);
+processHtml("guest.html", "dist/guest.html", `guest-${guestHash}.js`);
+processHtml("guest-clip.html", "dist/guest-clip.html", `guest-clip-${guestClipHash}.js`);
 
 // 6. Fix background image reference in CSS
 {
@@ -120,6 +141,8 @@ processHtml("clip.html", "dist/clip.html", `clip-${clipHash}.js`);
 console.log("Build complete!");
 console.log(`  dist/index.html`);
 console.log(`  dist/clip.html`);
+console.log(`  dist/guest.html`);
+console.log(`  dist/guest-clip.html`);
 console.log(`  dist/assets/bundle-${bundleHash}.js`);
 console.log(`  dist/assets/clip-${clipHash}.js`);
 console.log(`  dist/assets/style-${cssHash}.css`);

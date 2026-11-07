@@ -29,6 +29,7 @@ import setupRoutes from "./routes/setup-routes.js";
 import teamRoutes from "./routes/team-routes.js";
 import matchRoutes from "./routes/match-routes.js";
 import shareRoutes from "./routes/share-routes.js";
+import guestRoutes from "./routes/guest-routes.js";
 import { Setup } from "./setup.js";
 import { Branding } from "./club-branding.js";
 import { VERSION } from "./version.js";
@@ -108,6 +109,7 @@ await app.register(dvrRoutes);
 await app.register(setupRoutes, { setup });
 await app.register(teamRoutes);
 await app.register(matchRoutes);
+await app.register(guestRoutes);
 
 const webRoot = webDistDir();
 await app.register(shareRoutes, { branding, webRoot });
