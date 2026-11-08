@@ -76,6 +76,9 @@ export async function restoreStreamMeta(minio: MinioClient, logger?: Logger): Pr
       // Before pause types every pause started a new period, so the part is the period.
       periodNumber: meta.periodNumber ?? meta.partNumber ?? 1,
       completedParts: Array.isArray(meta.completedParts) ? meta.completedParts : [],
+      // The camera may have been trying to reach a restarting server: give it
+      // the full idle limit from now before the stream counts as abandoned.
+      cameraSeenAt: Date.now(),
     });
     restored.push(id);
   }

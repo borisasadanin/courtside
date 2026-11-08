@@ -40,6 +40,23 @@ export function parseSegments(manifest: string): ParsedSegment[] {
   return segments;
 }
 
+/** The playlist's EXT-X-MEDIA-SEQUENCE, or null when it has none. */
+export function parseMediaSequence(manifest: string): number | null {
+  const m = manifest.match(/^#EXT-X-MEDIA-SEQUENCE:(\d+)/m);
+  return m ? Number(m[1]) : null;
+}
+
+/** Name a segment from a restarted feed is stored under, so it cannot clash. */
+function nameInRun(filename: string, run: number): string {
+  return run > 0 ? `r${run}_${filename}` : filename;
+}
+
+/** The highest restart run among stored names (see nameInRun). */
+function runOf(filename: string): number {
+  const m = filename.match(/^r(\d+)_/);
+  return m ? Number(m[1]) : 0;
+}
+
 /**
  * Restreamer serves a master playlist that redirects to a media playlist
  * via #EXT-X-STREAM-INF. Detect this and return the media playlist URL.
@@ -79,6 +96,15 @@ export class SegmentCollector {
   private mediaPlaylistUrl: string | null = null;
   /** Segments saved since the timeline was last written to storage. */
   private dirty = false;
+  /**
+   * How many times the feed has started over within this part. When the
+   * camera drops and comes back, Restreamer restarts ffmpeg, which numbers
+   * its segments from 0 again: the same names as segments already saved.
+   * Each restart gets its own prefix so nothing is skipped or overwritten.
+   */
+  private run = 0;
+  /** The media sequence of the last playlist read, to notice a restart. */
+  private lastMediaSequence: number | null = null;
 
   constructor(
     streamId: string,
@@ -99,6 +125,7 @@ export class SegmentCollector {
     for (const seg of recovered) {
       this.savedSegments.add(seg.filename);
       this.segmentOrder.push(seg);
+      this.run = Math.max(this.run, runOf(seg.filename));
     }
     this.streamId = streamId;
     this.restreamerBaseUrl =
@@ -240,15 +267,32 @@ export class SegmentCollector {
       return;
     }
 
+    // A media sequence that goes backwards means ffmpeg started over and is
+    // reusing segment names from the start.
+    const sequence = parseMediaSequence(manifestText);
+    if (sequence !== null) {
+      if (this.lastMediaSequence !== null && sequence < this.lastMediaSequence) {
+        this.run++;
+        this.logger.info(
+          `Feed for ${this.streamId} part ${this.partNumber} started over (sequence ${this.lastMediaSequence} -> ${sequence}): run ${this.run}`,
+        );
+      }
+      this.lastMediaSequence = sequence;
+    }
+
     // Step 3: Parse and download new segments
-    const segments = parseSegments(manifestText);
+    const segments = parseSegments(manifestText).map((s) => ({
+      ...s,
+      source: s.filename,
+      filename: nameInRun(s.filename, this.run),
+    }));
     const newSegments = segments.filter((s) => !this.savedSegments.has(s.filename));
 
-    for (const seg of newSegments) {
+    for (const { source, ...seg } of newSegments) {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(`${this.segmentBaseUrl}${seg.filename}`, {
+        const res = await fetch(`${this.segmentBaseUrl}${source}`, {
           signal: controller.signal,
         });
         clearTimeout(timeout);

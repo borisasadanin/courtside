@@ -76,7 +76,17 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
           const clip = await createGuestClip(collector, buttonPressTimestamp, minio, request.log, spaceId, body.label);
           const space = await guestSpaces.addClip(match, spaceId, clip);
           // The camera only needs to know where it went; the code is for admin.
-          return reply.code(201).send({ ...clip, team: "opponent", guestSpaceId: space.id, teamName: space.awayTeam });
+          // streamId and hlsUrl are there for camera 1.5.0, which requires them
+          // in every clip answer and otherwise reports a saved clip as failed.
+          // A guest clip has no HLS playlist, so hlsUrl names its MP4.
+          return reply.code(201).send({
+            ...clip,
+            streamId: id,
+            hlsUrl: clip.mp4Url,
+            team: "opponent",
+            guestSpaceId: space.id,
+            teamName: space.awayTeam,
+          });
         } catch (err) {
           request.log.error(err, "Failed to create guest clip");
           return reply.code(500).send({

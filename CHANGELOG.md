@@ -18,6 +18,21 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.7.1 — 2026-11-08
+
+Sändningar som tål avbrott.
+
+- **Ett avbrott avslutar inte matchen.** Tappar kameran kontakten väntar plattformen på den så länge appen är
+  öppen. Först när kameran har varit borta i 15 minuter avslutas sändningen. Förut kunde en minuts avbrott
+  avsluta matchen
+- **Alla avslutade matcher går att spela.** En match som avslutas av plattformen själv, eller efter att appen
+  kraschat, sätts ihop till en repris precis som när man trycker Stopp
+- **Inget av inspelningen försvinner efter ett avbrott** mitt i en period
+- **Startas appen om under en paus** fortsätter sändningen och inspelningen när kameran är tillbaka
+- En match som pågår längre än en timme visas inte längre som avslutad medan den sänds
+- Motståndarnas klipp visas som sparade i kameraapp 1.5.0, utan uppdatering av appen
+- En andra kamera med dålig uppkoppling kan inte längre starta om sändningsmotorn mitt i en match
+
 ## v0.7.0 — 2026-11-07
 
 Gästytor: motståndarlagets höjdpunkter, på en egen yta.
