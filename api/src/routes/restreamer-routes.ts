@@ -6,7 +6,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { requireBroadcasterAuth } from "../auth.js";
-import { restreamer, oscManager } from "../state.js";
+import { restreamer, oscManager, streamMeta } from "../state.js";
 
 export default async function restreamerRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/restreamer/status — Return cached state instantly (background polling keeps it fresh)
@@ -25,6 +25,15 @@ export default async function restreamerRoutes(app: FastifyInstance): Promise<vo
       // Verify it's actually alive — if not, force-recreate in background
       const alive = await oscManager.quickHealthProbe();
       if (alive) {
+        return reply.send({ state: "running", message: "Restreamer körs", info: oscManager.getInfo() });
+      }
+      // One slow answer must not tear down an instance that a match is using:
+      // a second camera with a poor connection would end the match for the
+      // first. While any stream is unfinished, leave a real outage to the
+      // background health poll.
+      const inUse = [...streamMeta.values()].some((m) => !m.stoppedAt);
+      if (inUse) {
+        request.log.warn("Restreamer did not answer a quick probe, but a stream is in progress: not recreating");
         return reply.send({ state: "running", message: "Restreamer körs", info: oscManager.getInfo() });
       }
       // Broken instance — force-recreate in background

@@ -258,8 +258,10 @@ final class APIService {
 
     struct ClipResponse: Decodable {
         let id: String
-        let streamId: String
-        let hlsUrl: String
+        /// Optional: a clip saved in the guest space has no HLS playlist, and
+        /// platform 0.7.0 leaves both out of that answer.
+        let streamId: String?
+        let hlsUrl: String?
         let durationSeconds: Double
         let createdAt: String
         let label: String?

@@ -7,7 +7,10 @@ options:
 packages:
   HaishinKit:
     url: https://github.com/shogo4405/HaishinKit.swift
-    from: "2.0.0"
+    # Pinned: a new 2.x arriving at build time could change how a dropped
+    # connection is reported (StreamService watches the RTMP status). Move it
+    # on purpose and test a reconnect when you do.
+    exactVersion: "2.2.5"
 
 targets:
   CourtsideCamera:
@@ -33,8 +36,8 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: true
         GENERATE_INFOPLIST_FILE: true
         INFOPLIST_FILE: CourtsideCamera/Info.plist
-        CURRENT_PROJECT_VERSION: 7
-        MARKETING_VERSION: 1.5.0
+        CURRENT_PROJECT_VERSION: 8
+        MARKETING_VERSION: 1.5.1
         PRODUCT_BUNDLE_IDENTIFIER: $(COURTSIDE_BUNDLE_ID)
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         DEVELOPMENT_TEAM: ""

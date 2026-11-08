@@ -41,6 +41,14 @@ export interface StreamMeta {
   /** The teams as recorded, for a live card when the schedule cannot be read (ABL-049) */
   homeTeam?: string;
   awayTeam?: string;
+  /**
+   * When the camera last asked about this stream (ms since epoch). The app
+   * polls its stream every ten seconds while it is open, so a camera that is
+   * still trying to reconnect keeps its stream from being cleaned up.
+   */
+  cameraSeenAt?: number;
+  /** When the Restreamer process was last seen running (ms since epoch). */
+  lastRunningAt?: number;
 }
 
 /** In-memory stream metadata */

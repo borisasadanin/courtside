@@ -2,7 +2,7 @@
  * Stream CRUD routes: create, list, get, delete streams.
  * Also includes viewer heartbeat and auto-cleanup.
  */
-import type { FastifyInstance } from "fastify";
+import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import { config } from "../config.js";
 import { broadcasterOf, requireBroadcasterAuth, requireViewerAuth, requireViewerOrBroadcasterAuth } from "../auth.js";
 import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream, guestSpaces, PAUSE_TYPES } from "../state.js";
@@ -63,6 +63,107 @@ function markLive(id: string, meta: StreamMeta, log: { info: (msg: string) => vo
   const ms = Date.now() - new Date(meta.resumedAt).getTime();
   log.info(`Resume ${id}: live again ${ms} ms after the resume request (part ${meta.partNumber})`);
   meta.resumedAt = undefined;
+}
+
+/**
+ * How long a stream may go without a running process and without the camera
+ * asking about it before cleanup ends it. The camera polls its stream every
+ * ten seconds while the app is open, so a camera that has lost its connection
+ * and keeps retrying never reaches this. It covers a camera that is gone: an
+ * app that crashed, was closed, or a phone that ran out of battery. Long
+ * enough for a halftime spent without pressing pause.
+ */
+export const STREAM_IDLE_LIMIT_MS = 15 * 60 * 1000;
+
+/** Note that the camera is still there (see STREAM_IDLE_LIMIT_MS). */
+export function noteCamera(meta: StreamMeta | undefined): void {
+  if (meta) meta.cameraSeenAt = Date.now();
+}
+
+/**
+ * The last sign of life of a stream: created, process running, or camera
+ * asking. Cleanup ends a stream once this is older than STREAM_IDLE_LIMIT_MS.
+ */
+export function lastSignOfLife(meta: StreamMeta): number {
+  return Math.max(new Date(meta.createdAt).getTime() || 0, meta.lastRunningAt ?? 0, meta.cameraSeenAt ?? 0);
+}
+
+/**
+ * End a stream and make its recording playable. Used by the camera's stop and
+ * by cleanup, so a match ended either way is stitched the same.
+ */
+export async function endStream(id: string, meta: StreamMeta, log: FastifyBaseLogger): Promise<void> {
+  const stoppedAt = new Date().toISOString();
+  meta.stoppedAt = stoppedAt;
+  // The guest space's 14 days count from here (#52).
+  guestSpaces.streamEnded(id, stoppedAt).catch((err) => log.error(err, "Could not note the guest space's end"));
+
+  const durationSeconds = Math.round((new Date(stoppedAt).getTime() - new Date(meta.createdAt).getTime()) / 1000);
+  minio.updateVodEntry(id, { stoppedAt, durationSeconds }).catch((err) => {
+    log.error(err, "Failed to finalize VOD entry");
+  });
+  saveStreamMetaSoon(minio, log);
+  viewers.delete(id);
+
+  // Stop collecting segments and build the final part manifest
+  const collector = collectors.get(id);
+  if (collector) {
+    collectors.delete(id);
+    await collector.stop().catch((err) => log.error(err, `Could not finish collecting ${id}`));
+  }
+
+  // A cover frame from the first period; the live picture goes (ABL-045)
+  void recordingStopped(id, meta.partNumber ?? 1, log);
+
+  // All recordings are played from index.m3u8, which only stitching writes
+  if (meta.partNumber >= 1) {
+    const parts = buildPartList(meta.completedParts, meta.partNumber);
+    stitchPlaylist(minio, id, parts).catch((err) => {
+      log.error(err, `Failed to stitch playlist for ${id}`);
+    });
+  }
+}
+
+/**
+ * Resume a paused stream: the next recording part, a collector for it.
+ * Returns how the process was switched. Throws, with the stream left paused,
+ * if Restreamer could not be switched to the new part.
+ */
+async function resumePaused(id: string, meta: StreamMeta, log: FastifyBaseLogger): Promise<void> {
+  // Every resume is a new recording part; only a period break is a new period.
+  const pausedAt = meta.pausedAt;
+  const pauseType = meta.pauseType;
+  meta.partNumber++;
+  if (pauseType !== "timeout") meta.periodNumber++;
+  meta.pausedAt = undefined;
+  meta.pauseType = undefined;
+  const resumeStarted = Date.now();
+  meta.resumedAt = new Date(resumeStarted).toISOString();
+  // Reset wasLive so status becomes "waiting" (not "stopped") during the
+  // gap before HLS is live again.  It gets re-set to true once isHlsLive()
+  // returns true in the streams list/detail routes.
+  meta.wasLive = false;
+
+  try {
+    // Restreamer recording disabled — SegmentCollector handles recording via HTTP polling
+    const how = await restreamer.switchPart(id, meta.partNumber);
+    log.info(`Resume ${id}: process ${how} for part ${meta.partNumber} in ${Date.now() - resumeStarted} ms`);
+  } catch (err) {
+    // Rollback
+    meta.partNumber--;
+    if (pauseType !== "timeout") meta.periodNumber--;
+    meta.resumedAt = undefined;
+    meta.pausedAt = pausedAt;
+    meta.pauseType = pauseType;
+    throw err;
+  }
+  oscManager.streamResumed();
+
+  // Start collecting segments for the new part
+  const collector = new SegmentCollector(id, () => restreamer.baseUrlValue, minio, log, meta.partNumber);
+  collector.start();
+  collectors.set(id, collector);
+  saveStreamMetaSoon(minio, log);
 }
 
 export default async function streamRoutes(app: FastifyInstance): Promise<void> {
@@ -142,14 +243,30 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         // to avoid overwriting previous recordings in MinIO
         if (meta.stoppedAt) continue;
 
-        oscManager.streamStarted();
+        noteCamera(meta);
+        if (meta.pausedAt) {
+          // The app was restarted during a pause and no longer knows it. It
+          // will start sending as soon as it gets this answer, so resume here:
+          // otherwise nothing records and viewers keep seeing the pause.
+          try {
+            await resumePaused(existingId, meta, request.log);
+          } catch (err) {
+            request.log.error(err, `Could not resume ${existingId} for a returning camera`);
+            return reply.code(409).send({
+              error: "restreamer_not_ready",
+              message: "Kunde inte fortsätta sändningen. Försök igen om en stund.",
+            });
+          }
+        } else {
+          oscManager.streamStarted();
+        }
 
         const vod = (await minio.readVodIndex().catch(() => [])).find((v) => v.id === existingId);
         const info: StreamInfo = {
           id: existingId,
           name: meta.name,
           rtmpUrl: restreamer.rtmpUrl(existingId),
-          hlsUrl: restreamer.hlsUrl(existingId),
+          hlsUrl: restreamer.hlsUrl(existingId, meta.partNumber),
           createdAt: meta.createdAt,
           ...ofMatch(meta),
           // The recording follows a change to its match; the stream's own copy does not
@@ -216,6 +333,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         ...(match && { matchId: match.id }),
         homeTeam,
         awayTeam,
+        cameraSeenAt: Date.now(),
       });
       saveStreamMetaSoon(minio, request.log);
 
@@ -275,6 +393,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     if (meta.pausedAt) {
       return reply.code(409).send({ error: "already_paused", message: "Strömmen är redan pausad" });
     }
+    noteCamera(meta);
 
     // Stop collecting segments and build part manifest BEFORE killing Restreamer
     const pauseCollector = collectors.get(id);
@@ -340,33 +459,10 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       });
     }
     restreamer.rtmpHost = oscInfo.rtmpHost;
-
-    // Every resume is a new recording part; only a period break is a new period.
-    const pausedAt = meta.pausedAt;
-    const pauseType = meta.pauseType;
-    meta.partNumber++;
-    if (pauseType !== "timeout") meta.periodNumber++;
-    meta.pausedAt = undefined;
-    meta.pauseType = undefined;
-    const resumeStarted = Date.now();
-    meta.resumedAt = new Date(resumeStarted).toISOString();
-    // Reset wasLive so status becomes "waiting" (not "stopped") during the
-    // gap before HLS is live again.  It gets re-set to true once isHlsLive()
-    // returns true in the streams list/detail routes.
-    meta.wasLive = false;
+    noteCamera(meta);
 
     try {
-      // Restreamer recording disabled — SegmentCollector handles recording via HTTP polling
-      const how = await restreamer.switchPart(id, meta.partNumber);
-      request.log.info(`Resume ${id}: process ${how} for part ${meta.partNumber} in ${Date.now() - resumeStarted} ms`);
-      oscManager.streamResumed();
-
-      // Start collecting segments for the new part
-      const resumeCollector = new SegmentCollector(id, () => restreamer.baseUrlValue, minio, request.log, meta.partNumber);
-      resumeCollector.start();
-      collectors.set(id, resumeCollector);
-      saveStreamMetaSoon(minio, request.log);
-
+      await resumePaused(id, meta, request.log);
       return reply.code(200).send({
         status: "resumed",
         rtmpUrl: restreamer.rtmpUrl(id),
@@ -374,12 +470,6 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         period: meta.periodNumber,
       });
     } catch (err) {
-      // Rollback
-      meta.partNumber--;
-      if (pauseType !== "timeout") meta.periodNumber--;
-      meta.resumedAt = undefined;
-      meta.pausedAt = pausedAt;
-      meta.pauseType = pauseType;
       request.log.error(err, "Failed to create Restreamer process on resume");
       return reply.code(500).send({
         error: "resume_failed",
@@ -560,6 +650,10 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       const { id } = request.params;
       const meta = streamMeta.get(id);
 
+      // The camera polls its own stream: that is how cleanup knows it is
+      // still there while it reconnects (STREAM_IDLE_LIMIT_MS).
+      if (typeof request.headers["x-device-token"] === "string") noteCamera(meta);
+
       const partNum = meta?.partNumber ?? 1;
 
       // Check if stopped (within TTL)
@@ -681,56 +775,30 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
 
       const { id } = request.params;
 
-      // Always update metadata first (even if Restreamer is unreachable)
       const meta = streamMeta.get(id);
-      // If stream has multiple parts (was paused at least once), stitch the playlist
-      const wasPaused = !!meta?.pausedAt;
-      const stoppedAt = new Date().toISOString();
-      if (meta) {
-        meta.stoppedAt = stoppedAt;
-        // The guest space's 14 days count from here (#52).
-        guestSpaces.streamEnded(id, stoppedAt).catch((err) => request.log.error(err, "Could not note the guest space's end"));
+      // A stop that arrives again (the app retrying after a timeout) must not
+      // count the stream out twice or stitch it again.
+      if (meta?.stoppedAt) return reply.code(204).send();
 
-        // Finalize VOD entry with stop time and duration
-        const durationSeconds = Math.round(
-          (new Date(stoppedAt).getTime() - new Date(meta.createdAt).getTime()) / 1000
-        );
-        minio.updateVodEntry(id, { stoppedAt, durationSeconds }).catch((err) => {
-          request.log.error(err, "Failed to finalize VOD entry");
-        });
-      }
-      saveStreamMetaSoon(minio, request.log);
-      viewers.delete(id);
+      const wasPaused = !!meta?.pausedAt;
       if (wasPaused) {
         oscManager.pausedStreamEnded();
       } else {
         oscManager.streamEnded();
       }
 
-      // Stop collecting segments and build final part manifest
-      const stopCollector = collectors.get(id);
-      if (stopCollector) {
-        await stopCollector.stop();
-        collectors.delete(id);
+      // The collector's last poll needs the process, so it goes first
+      if (meta) {
+        await endStream(id, meta, request.log);
+      } else {
+        viewers.delete(id);
       }
 
-      // A cover frame from the first period; the live picture goes (ABL-045)
-      void recordingStopped(id, meta?.partNumber ?? 1, request.log);
-
       // Delete the Restreamer process in the background (fire-and-forget).
-      // Metadata is already updated, so the response returns instantly.
       // The cleanup timer will catch any stragglers.
       restreamer.deleteProcess(id).catch((err) => {
         request.log.warn(err, `Could not delete Restreamer process for ${id} (may already be stopped)`);
       });
-
-      // Stitch playlist (always needed — all recordings use p1.m3u8, not index.m3u8)
-      if (meta && meta.partNumber >= 1) {
-        const parts = buildPartList(meta.completedParts, meta.partNumber);
-        stitchPlaylist(minio, id, parts).catch((err) => {
-          request.log.error(err, `Failed to stitch playlist for ${id}`);
-        });
-      }
 
       return reply.code(204).send();
     }
@@ -794,37 +862,28 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
         // camera to come back. It is not active, and it must not be cleaned up.
         if (meta?.pausedAt && !meta.stoppedAt) continue;
 
-        // Delete finished/failed processes — but ONLY if older than 3 minutes.
-        // Young processes in "finished" state may be in a reconnect cycle
-        // (autostart + reconnect) waiting for RTMP input from the iOS app.
-        // The stale_timeout_seconds (120s) on Restreamer handles truly dead
-        // processes, so we only clean up after that window has fully passed.
-        if ((state === "finished" || state === "failed") && ageMs > 3 * 60 * 1000) {
-          app.log.info(`Cleaning up stale stream ${streamId} (state: ${state}, age: ${Math.round(ageMs / 1000)}s)`);
-          await restreamer.deleteProcess(streamId);
-          if (meta && !meta.stoppedAt) {
-            meta.stoppedAt = new Date().toISOString();
-            const dur = Math.round((new Date(meta.stoppedAt).getTime() - new Date(meta.createdAt).getTime()) / 1000);
-            minio.updateVodEntry(streamId, { stoppedAt: meta.stoppedAt, durationSeconds: dur }).catch(() => {});
-            void recordingStopped(streamId, meta.partNumber, app.log);
-            guestSpaces.streamEnded(streamId, meta.stoppedAt).catch((err) => app.log.error(err, "Could not note the guest space's end"));
-          }
-          viewers.delete(streamId);
+        if (state === "running") {
+          if (meta) meta.lastRunningAt = Date.now();
+          activeCount++;
+          continue;
         }
-        // Delete processes stuck in non-running state for > 10 minutes
-        else if (state !== "running" && ageMs > 10 * 60 * 1000) {
-          app.log.info(`Cleaning up abandoned stream ${streamId} (age: ${Math.round(ageMs / 1000)}s)`);
-          await restreamer.deleteProcess(streamId);
+
+        // Not running: with reconnect on, the process sits between retries
+        // while no camera sends. That is normal during a network drop, so the
+        // stream ends only when it has been quiet — no running process and no
+        // camera asking — for STREAM_IDLE_LIMIT_MS, counted from its last sign
+        // of life rather than from when it was created.
+        const quietMs = meta ? Date.now() - lastSignOfLife(meta) : ageMs;
+        if (quietMs > STREAM_IDLE_LIMIT_MS) {
+          app.log.info(`Ending abandoned stream ${streamId} (state: ${state}, quiet for ${Math.round(quietMs / 1000)}s)`);
           if (meta && !meta.stoppedAt) {
-            meta.stoppedAt = new Date().toISOString();
-            const dur = Math.round((new Date(meta.stoppedAt).getTime() - new Date(meta.createdAt).getTime()) / 1000);
-            minio.updateVodEntry(streamId, { stoppedAt: meta.stoppedAt, durationSeconds: dur }).catch(() => {});
-            void recordingStopped(streamId, meta.partNumber, app.log);
-            guestSpaces.streamEnded(streamId, meta.stoppedAt).catch((err) => app.log.error(err, "Could not note the guest space's end"));
+            // Collect and stitch while the process is still there
+            await endStream(streamId, meta, app.log);
           }
           viewers.delete(streamId);
+          await restreamer.deleteProcess(streamId);
         } else {
-          // Still active
+          // Still active: the camera may be on its way back
           activeCount++;
         }
       }
@@ -856,30 +915,28 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
       const entries = await minio.readVodIndex();
       const now = Date.now();
       const ONE_HOUR = 60 * 60 * 1000;
-      let updated = false;
 
       for (const entry of entries) {
         if (entry.stoppedAt) continue;
         const ageMs = now - new Date(entry.createdAt).getTime();
         if (ageMs < ONE_HOUR) continue;
 
+        // A stream this server still runs is a long match, not an orphan:
+        // its stop, or cleanup, finishes it.
+        const meta = streamMeta.get(entry.id);
+        if (meta && !meta.stoppedAt) continue;
+
         // This entry is orphaned — mark as finalized so it appears in VOD list.
         // Duration is unknown, so leave durationSeconds undefined (passes the VOD filter).
-        entry.stoppedAt = entry.createdAt;
-        // Try to stitch multi-part recording for orphaned stream
-        const orphanMeta = streamMeta.get(entry.id);
-        if (orphanMeta && orphanMeta.partNumber >= 1) {
-          const parts = buildPartList(orphanMeta.completedParts, orphanMeta.partNumber);
+        // Updated under the index lock, so a concurrent stop is not overwritten.
+        await minio.updateVodEntry(entry.id, { stoppedAt: entry.createdAt });
+        if (meta && meta.partNumber >= 1) {
+          const parts = buildPartList(meta.completedParts, meta.partNumber);
           stitchPlaylist(minio, entry.id, parts).catch((err) => {
             app.log.error(err, `Failed to stitch orphaned playlist for ${entry.id}`);
           });
         }
-        updated = true;
         app.log.info(`Finalized orphaned VOD entry ${entry.id} (age: ${Math.round(ageMs / 60000)} min)`);
-      }
-
-      if (updated) {
-        await minio.writeVodIndex(entries);
       }
     } catch (err) {
       app.log.error(err, "VOD orphan cleanup error");

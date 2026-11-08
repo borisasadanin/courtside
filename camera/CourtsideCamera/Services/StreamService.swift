@@ -31,6 +31,11 @@ final class StreamService: ObservableObject {
     private var reconnectTask: Task<Void, Never>?
     private var networkMonitor: NWPathMonitor?
     private var wasConnected = false
+    /// Set while `connect` runs, so the network monitor, an audio interruption
+    /// and the retry loop never open two connections at once.
+    private var isConnecting = false
+    /// Watches the current connection's RTMP status for a dropped connection.
+    private var statusTask: Task<Void, Never>?
 
     // Viewer count polling
     private var viewerPollTask: Task<Void, Never>?
@@ -137,7 +142,7 @@ final class StreamService: ObservableObject {
 
             // If the RTMP connection was lost during the interruption, reconnect
             if !isConnected, let rtmpUrl = currentRtmpUrl, shouldReconnect {
-                Task { await connect(rtmpUrl: rtmpUrl) }
+                Task { await connectOrRetry(rtmpUrl: rtmpUrl) }
             }
         @unknown default:
             break
@@ -159,16 +164,31 @@ final class StreamService: ObservableObject {
         shouldReconnect = true
         startNetworkMonitor()
         startViewerPolling(streamId: streamId)
-        await connect(rtmpUrl: rtmpUrl)
+        await connectOrRetry(rtmpUrl: rtmpUrl)
         startBitrateMonitoring()
     }
 
-    private func connect(rtmpUrl: String) async {
+    /// Connect, and keep trying in the background if that fails.
+    private func connectOrRetry(rtmpUrl: String) async {
+        if !(await connect(rtmpUrl: rtmpUrl)) {
+            scheduleReconnect()
+        }
+    }
+
+    /// Open a new RTMP connection and publish. Returns whether it is sending.
+    /// Never runs twice at once: a second call while one is in progress waits
+    /// for nothing and reports the current state.
+    @discardableResult
+    private func connect(rtmpUrl: String) async -> Bool {
+        guard !isConnecting else { return isConnected }
+        isConnecting = true
+        defer { isConnecting = false }
+
         guard let url = URL(string: rtmpUrl),
               let host = url.host,
               let port = url.port else {
             error = "Ogiltig RTMP-URL"
-            return
+            return false
         }
 
         let path = url.path
@@ -186,7 +206,10 @@ final class StreamService: ObservableObject {
 
         let connectUrl = "rtmp://\(host):\(port)/\(appPath)"
 
-        // Clean up previous connection
+        // Clean up previous connection. Stop watching it first: closing it
+        // reports "closed", which is not a drop.
+        statusTask?.cancel()
+        statusTask = nil
         if let stream {
             await mixer.removeOutput(stream)
             _ = try? await stream.close()
@@ -217,28 +240,63 @@ final class StreamService: ObservableObject {
             isConnected = true
             wasConnected = true
             error = nil
+            watchStatus(of: conn)
+            return true
         } catch {
             self.error = "Anslutningsfel: \(error.localizedDescription)"
             isConnected = false
-            scheduleReconnect()
+            return false
         }
     }
 
+    /// Notice when the server or the network ends the connection.
+    ///
+    /// The network monitor only sees the phone lose its network. A connection
+    /// can also die while the phone stays online: a switch between Wi-Fi and
+    /// mobile data, a reset from the server, or a long time in the background.
+    /// HaishinKit then reports it as closed on the status stream, and nothing
+    /// else changes, so without this the app would show LIVE and send nothing.
+    private func watchStatus(of conn: RTMPConnection) {
+        statusTask?.cancel()
+        statusTask = Task { [weak self] in
+            for await status in await conn.status {
+                guard !Task.isCancelled else { return }
+                self?.connectionReported(status.code, by: conn)
+            }
+        }
+    }
+
+    private static let droppedCodes: Set<String> = [
+        RTMPConnection.Code.connectClosed.rawValue,
+        RTMPConnection.Code.connectFailed.rawValue,
+        RTMPConnection.Code.connectIdleTimeOut.rawValue,
+        RTMPConnection.Code.connectAppshutdown.rawValue,
+    ]
+
+    private func connectionReported(_ code: String, by conn: RTMPConnection) {
+        guard Self.droppedCodes.contains(code),
+              conn === connection, // not one we replaced or closed ourselves
+              shouldReconnect, !isConnecting else { return }
+        isConnected = false
+        error = "Sändningen avbröts — återansluter..."
+        scheduleReconnect()
+    }
+
+    /// Retry until the camera sends again or the broadcast is paused or
+    /// stopped. It never gives up: a match is worth waiting for.
     private func scheduleReconnect() {
-        guard shouldReconnect, let rtmpUrl = currentRtmpUrl else { return }
+        guard shouldReconnect, currentRtmpUrl != nil else { return }
         reconnectTask?.cancel()
         reconnectTask = Task {
-            for delay in [2, 4, 8, 15, 30] {
-                guard shouldReconnect, !Task.isCancelled else { return }
+            var attempt = 0
+            while shouldReconnect, !Task.isCancelled {
+                let delay = [2, 4, 8, 15][min(attempt, 3)]
                 error = "Återansluter om \(delay)s..."
                 try? await Task.sleep(for: .seconds(delay))
-                guard shouldReconnect, !Task.isCancelled else { return }
+                guard shouldReconnect, !Task.isCancelled, let rtmpUrl = currentRtmpUrl else { return }
                 error = "Återansluter..."
-                await connect(rtmpUrl: rtmpUrl)
-                if isConnected { return }
-            }
-            if shouldReconnect {
-                error = "Kunde inte återansluta"
+                if await connect(rtmpUrl: rtmpUrl) { return }
+                attempt += 1
             }
         }
     }
@@ -254,7 +312,7 @@ final class StreamService: ObservableObject {
                     self.reconnectTask?.cancel()
                     if let url = self.currentRtmpUrl {
                         self.error = "Nätverket tillbaka — återansluter..."
-                        await self.connect(rtmpUrl: url)
+                        await self.connectOrRetry(rtmpUrl: url)
                     }
                 } else if path.status != .satisfied && self.isConnected {
                     self.isConnected = false
@@ -271,6 +329,14 @@ final class StreamService: ObservableObject {
             while !Task.isCancelled {
                 if let status = try? await APIService.shared.getStream(id: streamId) {
                     viewerCount = status.viewers
+                    if status.status == "stopped" && shouldReconnect {
+                        // The server has ended this broadcast (after a long
+                        // time without the camera). Sending more goes nowhere.
+                        shouldReconnect = false
+                        reconnectTask?.cancel()
+                        isConnected = false
+                        error = "Sändningen har avslutats på servern. Tryck Stopp och starta en ny."
+                    }
                 }
                 try? await Task.sleep(for: .seconds(10))
             }
@@ -281,6 +347,8 @@ final class StreamService: ObservableObject {
         shouldReconnect = false
         reconnectTask?.cancel()
         reconnectTask = nil
+        statusTask?.cancel()
+        statusTask = nil
         viewerPollTask?.cancel()
         viewerPollTask = nil
         bitrateMonitorTask?.cancel()
@@ -327,6 +395,8 @@ final class StreamService: ObservableObject {
         shouldReconnect = false
         reconnectTask?.cancel()
         reconnectTask = nil
+        statusTask?.cancel()
+        statusTask = nil
         bitrateMonitorTask?.cancel()
         bitrateMonitorTask = nil
         isBitrateReduced = false
@@ -375,7 +445,7 @@ final class StreamService: ObservableObject {
         // RTMP publish so the first segments contain audio. If the scenePhase
         // handler already re-attached audio this is a safe no-op.
         await resumeAudio()
-        await connect(rtmpUrl: rtmpUrl)
+        await connectOrRetry(rtmpUrl: rtmpUrl)
         startBitrateMonitoring()
     }
 

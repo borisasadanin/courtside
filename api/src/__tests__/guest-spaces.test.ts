@@ -227,6 +227,8 @@ describe("POST /api/streams/:id/clip with a team", () => {
     const res = await post({ team: "opponent" });
     expect(res.statusCode).toBe(201);
     expect(res.json()).toMatchObject({ team: "opponent", teamName: "Nacka" });
+    // Camera 1.5.0 requires these in every clip answer, or it reports the saved clip as failed
+    expect(res.json()).toMatchObject({ streamId: expect.any(String), hlsUrl: expect.any(String) });
     expect(res.json().code).toBeUndefined();
 
     expect(clipsIndex).toHaveLength(0);

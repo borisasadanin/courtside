@@ -24,6 +24,15 @@ Rättas något i en version som inte nått någon telefon än, räcker det att k
 Ändra versionen så här: 1.1.0 → 1.1.1 för rättningar, 1.1.0 → 1.2.0 för nya
 funktioner.
 
+## 1.5.1 — 2026-11-08
+
+- Tappar sändningen kontakten utan att telefonen tappar nätet, till exempel vid byte mellan wifi och
+  mobilnät, märker appen det nu och återansluter av sig själv. Förut stod den kvar på LIVE och skickade
+  ingenting
+- Appen ger aldrig upp att återansluta under en match, och öppnar aldrig två anslutningar samtidigt
+- Motståndarnas klipp visas som sparade. Förut stod det "Klipp misslyckades" fast klippet hade sparats
+- Har servern avslutat sändningen säger appen det, i stället för att visa LIVE
+
 ## 1.5.0 — 2026-11-08
 
 - Efter tryck på stjärnan väljer du vems höjdpunkt det är: två stora knappar med **ditt lag** och

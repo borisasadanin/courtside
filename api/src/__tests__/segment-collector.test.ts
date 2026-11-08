@@ -384,3 +384,80 @@ describe("SegmentCollector", () => {
     expect(mediaUploads(minio)).toHaveLength(2);
   });
 });
+
+describe("SegmentCollector after the feed starts over", () => {
+  let fetchSpy: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const playlist = (sequence: number, names: string[]) =>
+    ["#EXTM3U", "#EXT-X-TARGETDURATION:2", `#EXT-X-MEDIA-SEQUENCE:${sequence}`, ...names.flatMap((n) => ["#EXTINF:2.0,", n])].join("\n");
+  const manifest = (body: string) => new Response(body, { status: 200 });
+  const segment = () => new Response(new ArrayBuffer(10), { status: 200 });
+  const keys = (minio: { uploadBuffer: { mock: { calls: unknown[][] } } }) =>
+    mediaUploads(minio).map((c) => String(c[0]));
+
+  it("keeps segments from a restarted ffmpeg that reuse saved names", async () => {
+    const minio = createMockMinio();
+    const collector = new SegmentCollector("s", "https://r.example.com", minio as any, mockLogger, 1);
+
+    // Before the camera drops: segments 0 and 1
+    const before = playlist(0, ["s0.ts", "s1.ts"]);
+    fetchSpy
+      .mockResolvedValueOnce(manifest(before))
+      .mockResolvedValueOnce(manifest(before))
+      .mockResolvedValueOnce(segment())
+      .mockResolvedValueOnce(segment());
+    await collector.pollOnce();
+    // Later in the same part, up to segment 5
+    fetchSpy
+      .mockResolvedValueOnce(manifest(playlist(4, ["s4.ts", "s5.ts"])))
+      .mockResolvedValueOnce(segment())
+      .mockResolvedValueOnce(segment());
+    await collector.pollOnce();
+    // The camera comes back: ffmpeg starts again from 0 with the same names
+    fetchSpy
+      .mockResolvedValueOnce(manifest(playlist(0, ["s0.ts", "s1.ts"])))
+      .mockResolvedValueOnce(segment())
+      .mockResolvedValueOnce(segment());
+    await collector.pollOnce();
+
+    expect(keys(minio)).toEqual([
+      "s/p1_s0.ts",
+      "s/p1_s1.ts",
+      "s/p1_s4.ts",
+      "s/p1_s5.ts",
+      "s/p1_r1_s0.ts",
+      "s/p1_r1_s1.ts",
+    ]);
+    // The timeline plays them in the order they were recorded
+    expect(collector.getSegmentTimeline().map((s) => s.key)).toEqual(keys(minio));
+  });
+
+  it("continues a recovered timeline in the run it had reached", async () => {
+    const minio = createMockMinio();
+    const recovered = [
+      { filename: "s0.ts", duration: 2, savedAt: 1 },
+      { filename: "r1_s0.ts", duration: 2, savedAt: 2 },
+    ];
+    const collector = new SegmentCollector("s", "https://r.example.com", minio as any, mockLogger, 1, recovered);
+
+    const body = playlist(0, ["s0.ts", "s1.ts"]);
+    fetchSpy
+      .mockResolvedValueOnce(manifest(body))
+      .mockResolvedValueOnce(manifest(body))
+      .mockResolvedValueOnce(segment());
+    await collector.pollOnce();
+
+    expect(keys(minio)).toEqual(["s/p1_r1_s1.ts"]);
+  });
+});
