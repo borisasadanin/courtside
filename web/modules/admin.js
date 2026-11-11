@@ -6,6 +6,7 @@ import { state, dom } from "./state.js";
 import { escapeHtml, formatDuration, formatDate, formatBytes } from "./utils.js";
 import { logoutViewer } from "./auth.js";
 import { loadDevices, startPairing } from "./devices.js";
+import { openInviteForm } from "./invites.js";
 import { maybeShowCameraGuide, openCameraGuide, resetCameraGuide } from "./onboarding.js";
 import { renderBranding, renderPrivacyAdmin } from "./branding.js";
 import { renderTeardown } from "./teardown.js";
@@ -61,6 +62,8 @@ export function showAdminPage(name) {
   });
   // The title and logout belong to the overview; sections have their own back button.
   dom.adminView.querySelector(".admin-header").classList.toggle("hidden", name !== "overview");
+  // A camera may have paired through an invite since the view was loaded.
+  if (name === "cameras") loadDevices();
   window.scrollTo(0, 0);
 }
 
@@ -600,5 +603,6 @@ export function initAdmin(callbacks) {
 
   const pairBtn = document.getElementById("adminPairBtn");
   if (pairBtn) pairBtn.addEventListener("click", () => startPairing());
+  document.getElementById("adminInviteBtn")?.addEventListener("click", () => openInviteForm());
   document.getElementById("adminGuideBtn")?.addEventListener("click", () => openCameraGuide());
 }

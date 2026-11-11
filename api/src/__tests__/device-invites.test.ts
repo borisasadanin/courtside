@@ -164,7 +164,7 @@ describe("camera names", () => {
 describe("the invite link", () => {
   it("goes to the landing site's /join page, with everything after #", () => {
     const link = new URL(inviteLink("https://club.apps.osaas.io", "ABCD-2345", "Älta IF"));
-    expect(link.origin + link.pathname).toBe("https://courtside.apps.osaas.io/join");
+    expect(link.origin + link.pathname).toBe("https://courtside.apps.osaas.io/join/");
     expect(link.search).toBe("");
     const params = new URLSearchParams(link.hash.slice(1));
     expect(params.get("u")).toBe("https://club.apps.osaas.io");
@@ -208,7 +208,7 @@ describe("invite routes", () => {
     const body = res.json();
     expect(body).toMatchObject({ name: "Anna – P13", status: "pending", apiUrl: "http://club.example.com" });
     expect(body.code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
-    expect(body.link).toContain("courtside.apps.osaas.io/join#");
+    expect(body.link).toContain("courtside.apps.osaas.io/join/#");
     expect(body.appLink).toContain(`code=${encodeURIComponent(body.code)}`);
     expect(body).not.toHaveProperty("codeHash");
 

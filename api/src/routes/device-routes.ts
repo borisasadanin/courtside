@@ -28,7 +28,7 @@ export function pairingLink(apiUrl: string, code: string): string {
  * server or its logs.  One landing page serves every installation, because the
  * installation's address travels in the link.
  */
-export const JOIN_PAGE_URL = "https://courtside.apps.osaas.io/join";
+export const JOIN_PAGE_URL = "https://courtside.apps.osaas.io/join/";
 
 export function inviteLink(apiUrl: string, code: string, club: string): string {
   const params = new URLSearchParams({ u: apiUrl, c: code, n: club });

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inbjudan att filma — Courtside</title>
+  <!-- An invite page: personal to whoever got the link, nothing to index. -->
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <link rel="stylesheet" href="/fonts/inter.css">
+  <link rel="stylesheet" href="/page.css">
+  <link rel="icon" href="/courtside.png" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+<main>
+  <a class="back" href="/">← Courtside</a> · <a class="back" id="joinOtherLang" href="/en/join/">🇬🇧 English</a>
+
+  <section id="joinBroken" hidden>
+    <h1>Länken är inte komplett</h1>
+    <p>Något saknas i länken. Kontrollera att du fick med hela länken, eller be den som bjöd in dig om en ny.</p>
+  </section>
+
+  <section id="joinInvite" class="join-steps">
+    <h1>Du är inbjuden att filma för <strong data-club>klubben</strong></h1>
+    <p>Med Courtsides kameraapp blir din iPhone kameran för klubbens livesändningar. Gör så här på iPhonen som ska filma:</p>
+
+    <div class="join-box" id="joinDesktop" hidden>
+      <h2>Öppna den här sidan på din iPhone</h2>
+      <p>Appen finns bara för iPhone. Skanna koden med iPhonens kamera, eller skicka länken till dig själv och öppna den där.</p>
+      <div class="join-qr" id="joinQr"></div>
+    </div>
+    <div class="join-box" id="joinAndroid" hidden>
+      <p>Kameraappen finns bara för iPhone än så länge. Öppna länken på en iPhone med iOS 16 eller senare.</p>
+    </div>
+
+    <h2><span>1.</span> Installera appen</h2>
+    <p>Appen finns just nu som testversion via Apples app TestFlight. Har du redan kameraappen kan du hoppa till steg 2.</p>
+    <p>Hämta TestFlight. Den är gratis och kommer från Apple.</p>
+    <p><a class="button" href="https://apps.apple.com/app/testflight/id899247664">TestFlight i App Store</a></p>
+    <!-- TestFlight public link: also set on both languages' /app/ and /join/ pages. -->
+    <p>Tryck på knappen, välj <em>Acceptera</em> och sedan <em>Installera</em> vid <strong>Sports Camera – Eyevinn</strong>. Kom sedan tillbaka till den här sidan.</p>
+    <p><a class="button" href="https://testflight.apple.com/join/yd7zh9TU">Öppna appinbjudan i TestFlight</a></p>
+
+    <h2><span>2.</span> Koppla kameran</h2>
+    <p>När appen är installerad: tryck på knappen så öppnas appen och kopplas till klubben.</p>
+    <p><a class="button" id="joinOpenApp" href="#">Öppna inbjudan i appen</a></p>
+    <p class="muted">Öppnas inte appen? Öppna kameraappen själv och skriv in koden:</p>
+    <p class="join-code" data-code></p>
+    <p><button type="button" class="button button-secondary" id="joinCopyCode" data-done="Kopierad">Kopiera koden</button></p>
+
+    <p class="muted">Inbjudan kan bara kopplas till en kamera och gäller i tre dagar. Har den redan använts eller gått ut säger appen det. Be då den som bjöd in dig om en ny.</p>
+  </section>
+
+  <p class="muted">Appen kräver en iPhone med iOS 16 eller senare. Kommer du inte vidare, se <a href="/support/">support</a>.</p>
+</main>
+<script src="/join/qr.js"></script>
+<script src="/join/join.js"></script>
+<script>
+  // Keep the invite when switching language.
+  document.getElementById("joinOtherLang").href += location.hash;
+</script>
+</body>
+</html>

@@ -3813,3 +3813,57 @@ footer a:hover { color: var(--accent-ink); }
     flex: 1;
   }
 }
+
+/* === Camera invites (#68) === */
+.admin-head-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.admin-pair-btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.invite-panel { text-align: left; }
+.invite-form { display: flex; flex-direction: column; gap: 8px; }
+.invite-label { font-weight: 600; color: var(--text); }
+.invite-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.invite-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.invite-help { margin: 0; }
+.invite-error { margin: 0; color: var(--red); font-size: 0.9rem; }
+.invite-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.invite-title { margin: 0 0 8px; font-size: 1.05rem; color: var(--text); }
+.invite-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.invite-copied { min-height: 1.4em; margin: 4px 0 8px; font-size: 0.85rem; color: var(--accent); }
+.invite-message {
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text-muted);
+  font: 0.85rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+.invite-panel .pair-code-label,
+.invite-panel .pair-code,
+.invite-panel .pair-expiry { text-align: center; }
+.invite-section { margin-top: 24px; }
+.invite-section .admin-section-title { margin-bottom: 8px; }
+.invite-row[data-status="expired"],
+.invite-row[data-status="revoked"] { opacity: 0.6; }
+.device-buttons { display: flex; gap: 8px; flex-shrink: 0; }
+.device-rename-form { display: flex; gap: 8px; align-items: center; width: 100%; flex-wrap: wrap; }
+.device-rename-form .invite-input { flex: 1 1 200px; }
+@media (max-width: 480px) {
+  .admin-head-actions { justify-content: stretch; }
+  .admin-head-actions .admin-pair-btn { flex: 1; }
+  .invite-buttons .admin-pair-btn, .invite-buttons .device-revoke { flex: 1 1 100%; }
+}
