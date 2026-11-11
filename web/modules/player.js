@@ -748,16 +748,35 @@ function onVolumeChange() {
 function toggleFullscreen() {
   if (document.fullscreenElement || document.webkitFullscreenElement) {
     (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    return;
+  }
+  if (dom.video.webkitDisplayingFullscreen) {
+    dom.video.webkitExitFullscreen();
+    return;
+  }
+  const requestFs =
+    dom.wrapper.requestFullscreen || dom.wrapper.webkitRequestFullscreen;
+  if (requestFs) {
+    const p = requestFs.call(dom.wrapper);
+    if (p && p.catch) p.catch(enterNativeVideoFullscreen);
   } else {
-    (dom.wrapper.requestFullscreen || dom.wrapper.webkitRequestFullscreen).call(
-      dom.wrapper
-    );
+    // iPhone Safari has no element fullscreen — only the <video> element itself
+    // can go fullscreen, via the native player.
+    enterNativeVideoFullscreen();
+  }
+}
+
+function enterNativeVideoFullscreen() {
+  if (dom.video.webkitEnterFullscreen) {
+    try { dom.video.webkitEnterFullscreen(); } catch (_) {}
   }
 }
 
 function updateFullscreenButton() {
   const isFs = !!(
-    document.fullscreenElement || document.webkitFullscreenElement
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    dom.video.webkitDisplayingFullscreen
   );
   dom.iconFsEnter.style.display = isFs ? "none" : "block";
   dom.iconFsExit.style.display = isFs ? "block" : "none";
@@ -1282,6 +1301,12 @@ function bindPlayerEvents() {
 
   document.addEventListener("fullscreenchange", updateFullscreenButton);
   document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
+  dom.video.addEventListener("webkitbeginfullscreen", updateFullscreenButton);
+  dom.video.addEventListener("webkitendfullscreen", () => {
+    updateFullscreenButton();
+    // iOS pauses when leaving native fullscreen; keep the UI in sync.
+    updatePlayButton();
+  });
 
   dom.wrapper.addEventListener("click", togglePlay);
   dom.wrapper.addEventListener("click", unlockResumeSignal);
