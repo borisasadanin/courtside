@@ -18,6 +18,13 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.7.6 — 2026-11-11
+
+- **Inbjudan fyller i klubbens adress.** Länken i en kamerainbjudan bär bara klubbens adress, inte koden. Sidan
+  /join öppnar kameraappen med adressen ifylld, och den inbjudna skriver in koden från inbjudan själv. Länken
+  ensam kopplar alltså ingen kamera. Inbjudan visar också klubbens adress, för den som behöver skriva in den.
+  Kräver kameraappen 1.6.0 för att adressen ska fyllas i.
+
 ## v0.7.5 — 2026-11-11
 
 - **Helskärm på iPhone.** Helskärmsknappen i matchspelaren fungerar nu i Safari på iPhone. Där öppnas

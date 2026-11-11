@@ -43,11 +43,16 @@
     <p><a class="button" href="https://testflight.apple.com/join/yd7zh9TU">Öppna appinbjudan i TestFlight</a></p>
 
     <h2><span>2.</span> Koppla kameran</h2>
-    <p>När appen är installerad: tryck på knappen så öppnas appen och kopplas till klubben.</p>
-    <p><a class="button" id="joinOpenApp" href="#">Öppna inbjudan i appen</a></p>
-    <p class="muted">Öppnas inte appen? Öppna kameraappen själv och skriv in koden:</p>
-    <p class="join-code" data-code></p>
-    <p><button type="button" class="button button-secondary" id="joinCopyCode" data-done="Kopierad">Kopiera koden</button></p>
+    <p>När appen är installerad: tryck på knappen. Appen öppnas med klubbens adress ifylld.</p>
+    <p><a class="button" id="joinOpenApp" href="#">Öppna appen</a></p>
+    <p>Skriv sedan in koden som står i inbjudan du fick och tryck <em>Anslut</em>.</p>
+    <div id="joinCodeBox" hidden>
+      <p class="join-code" data-code></p>
+      <p><button type="button" class="button button-secondary" id="joinCopyCode" data-done="Kopierad">Kopiera koden</button></p>
+    </div>
+    <p class="muted">Öppnas inte appen, eller står adressen inte där? Uppdatera kameraappen i TestFlight, eller skriv in klubbens adress själv:</p>
+    <p class="join-address" data-address></p>
+    <p><button type="button" class="button button-secondary" id="joinCopyAddress" data-done="Kopierad">Kopiera adressen</button></p>
 
     <p class="muted">Inbjudan kan bara kopplas till en kamera och gäller i tre dagar. Har den redan använts eller gått ut säger appen det. Be då den som bjöd in dig om en ny.</p>
   </section>

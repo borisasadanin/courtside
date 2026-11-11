@@ -22,16 +22,25 @@ export function pairingLink(apiUrl: string, code: string): string {
 }
 
 /**
+ * Opens the camera app with this installation's address filled in, and no
+ * code: the person types the invite's code themselves (camera app 1.6.0).
+ */
+export function addressLink(apiUrl: string): string {
+  return `courtside-camera://pair?url=${encodeURIComponent(apiUrl)}`;
+}
+
+/**
  * Where an invite sends the person who receives it: the landing site's /join
- * page, which explains how to get the app and opens it paired.  Everything
- * after # stays in the browser, so the code never reaches the landing site's
- * server or its logs.  One landing page serves every installation, because the
- * installation's address travels in the link.
+ * page, which explains how to get the app and opens it with this
+ * installation's address filled in.  The link carries no code: the person
+ * types the invite's code themselves, so the link alone pairs nothing.  The
+ * address stays after #, in the browser.  One landing page serves every
+ * installation, because the installation's address travels in the link.
  */
 export const JOIN_PAGE_URL = "https://courtside.apps.osaas.io/join/";
 
-export function inviteLink(apiUrl: string, code: string, club: string): string {
-  const params = new URLSearchParams({ u: apiUrl, c: code, n: club });
+export function inviteLink(apiUrl: string, club: string): string {
+  const params = new URLSearchParams({ u: apiUrl, n: club });
   return `${JOIN_PAGE_URL}#${params.toString()}`;
 }
 
@@ -113,9 +122,9 @@ export default async function deviceRoutes(app: FastifyInstance): Promise<void> 
       apiUrl,
       club: clubManifest.name,
       /** The link to send: the landing site's /join page. */
-      link: inviteLink(apiUrl, code, clubManifest.name),
-      /** Opens the camera app directly, for a phone that already has it. */
-      appLink: pairingLink(apiUrl, code),
+      link: inviteLink(apiUrl, clubManifest.name),
+      /** Opens the camera app with the address filled in, for a phone that has it. */
+      appLink: addressLink(apiUrl),
     });
   });
 

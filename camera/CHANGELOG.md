@@ -24,6 +24,13 @@ Rättas något i en version som inte nått någon telefon än, räcker det att k
 Ändra versionen så här: 1.1.0 → 1.1.1 för rättningar, 1.1.0 → 1.2.0 för nya
 funktioner.
 
+## 1.6.0 — 2026-11-11
+
+- Öppnar du en kamerainbjudan fylls klubbens adress i av sig själv, och du skriver bara in koden från
+  inbjudan. Det fungerar också att skanna inbjudans QR-kod i appen eller klistra in hela länken i adressfältet.
+- Skriver man in en adress som inte är en klubbs Courtside, till exempel courtside.apps.osaas.io, säger appen
+  det i stället för att visa ett tekniskt fel.
+
 ## 1.5.1 — 2026-11-08
 
 - Tappar sändningen kontakten utan att telefonen tappar nätet, till exempel vid byte mellan wifi och
