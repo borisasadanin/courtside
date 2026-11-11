@@ -18,6 +18,18 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.7.4 — 2026-11-11
+
+Bjud in kameror (#71).
+
+- **Bjud in kamera.** Under *Hantera → Kameror* kan admin bjuda in någon annan att koppla sin egen iPhone, utan
+  att stå bredvid. Admin skriver vems kamera det är och får en färdig inbjudan att kopiera och klistra in i
+  WhatsApp, ett mejl eller ett sms, eller en QR-kod. Inbjudan kopplar en kamera och gäller i tre dagar. Den
+  kan återkallas så länge den inte är använd (#67, #68).
+- **Sidan för den inbjudna.** Länken går till courtside.apps.osaas.io/join, som visar hur man installerar appen
+  och öppnar den kopplad till klubben, med koden som reserv. Nuvarande kameraapp fungerar utan uppdatering (#69).
+- **Byt namn på en kamera.** En kamera från en inbjudan heter som inbjudan, och alla kameror kan döpas om.
+
 ## v0.7.3 — 2026-11-11
 
 Kom igång med första kameran (#65).

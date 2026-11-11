@@ -9,6 +9,7 @@ import QRCode from "qrcode";
 import { CONFIG } from "./config.js";
 import { state } from "./state.js";
 import { escapeHtml, formatDate } from "./utils.js";
+import { loadInvites } from "./invites.js";
 
 function adminHeaders() {
   return { "X-Admin-Token": state.adminToken };
@@ -62,6 +63,7 @@ export async function loadDevices() {
   try {
     const active = await fetchActiveDevices();
     renderDevices(active);
+    loadInvites(active);
     return active;
   } catch (err) {
     list.innerHTML = `<p class="admin-empty">Kunde inte hämta kameror (${escapeHtml(err.message)})</p>`;
@@ -86,19 +88,64 @@ function renderDevices(active) {
       <div class="device-row">
         <div class="device-info">
           <span class="device-name">${escapeHtml(d.name)}</span>
-          <span class="device-meta">${
+          <span class="device-meta">${d.inviteId ? "Via inbjudan · " : ""}${
             d.appVersion ? `App ${escapeHtml(d.appVersion)}` : "App 1.0"
           } · parad ${formatDate(d.createdAt.slice(0, 10))}${
             d.lastSeenAt ? ` · senast aktiv ${formatDate(d.lastSeenAt.slice(0, 10))}` : ""
           }</span>
         </div>
-        <button class="device-revoke" data-device="${escapeHtml(d.id)}">Ta bort</button>
+        <div class="device-buttons">
+          <button class="device-revoke device-rename" data-rename="${escapeHtml(d.id)}">Byt namn</button>
+          <button class="device-revoke" data-device="${escapeHtml(d.id)}">Ta bort</button>
+        </div>
       </div>`
     )
     .join("");
 
-  list.querySelectorAll(".device-revoke").forEach((btn) => {
+  list.querySelectorAll("[data-device]").forEach((btn) => {
     btn.addEventListener("click", () => revokeDevice(btn));
+  });
+  list.querySelectorAll("[data-rename]").forEach((btn) => {
+    const device = active.find((d) => d.id === btn.dataset.rename);
+    btn.addEventListener("click", () => startRename(btn.closest(".device-row"), device));
+  });
+}
+
+/** Swap the camera's name for a field, in place. */
+function startRename(row, device) {
+  if (!row || !device) return;
+  row.innerHTML = `
+    <form class="device-rename-form">
+      <input class="invite-input" type="text" maxlength="60" value="${escapeHtml(device.name)}"
+        aria-label="Nytt namn för ${escapeHtml(device.name)}" required>
+      <div class="device-buttons">
+        <button type="button" class="device-revoke" data-cancel>Avbryt</button>
+        <button type="submit" class="device-revoke device-save">Spara</button>
+      </div>
+    </form>`;
+  const form = row.querySelector("form");
+  const input = form.querySelector("input");
+  input.focus();
+  input.select();
+  form.querySelector("[data-cancel]").addEventListener("click", () => loadDevices());
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = input.value.trim();
+    if (!name) return input.focus();
+    const save = form.querySelector(".device-save");
+    save.disabled = true;
+    try {
+      const res = await fetch(`${CONFIG.API_URL}/api/devices/${encodeURIComponent(device.id)}`, {
+        method: "PATCH",
+        headers: { ...adminHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await loadDevices();
+    } catch {
+      save.disabled = false;
+      save.textContent = "Gick inte";
+    }
   });
 }
 
@@ -137,6 +184,7 @@ export async function startPairing() {
   if (!panel) return;
 
   btn.disabled = true;
+  document.getElementById("adminInvitePanel")?.classList.add("hidden");
   panel.classList.remove("hidden");
   panel.innerHTML = `<p class="admin-empty">Hämtar kod…</p>`;
 

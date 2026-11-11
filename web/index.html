@@ -355,11 +355,19 @@
         <button class="back-btn" type="button" data-admin-back><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Hantera</button>
         <div class="admin-section-head">
           <h2 class="admin-page-title">Kameror</h2>
-          <button class="admin-pair-btn" id="adminPairBtn">Lägg till kamera</button>
+          <div class="admin-head-actions">
+            <button class="admin-pair-btn admin-pair-btn-secondary" id="adminInviteBtn">Bjud in kamera</button>
+            <button class="admin-pair-btn" id="adminPairBtn">Lägg till kamera</button>
+          </div>
         </div>
         <p class="admin-guide-hint">Första gången? <button type="button" class="guide-link" id="adminGuideBtn">Visa guiden steg för steg</button></p>
         <div class="admin-pair-panel hidden" id="adminPairPanel"></div>
+        <div class="admin-pair-panel invite-panel hidden" id="adminInvitePanel"></div>
         <div class="admin-device-list" id="adminDeviceList"></div>
+        <div class="invite-section hidden" id="adminInviteSection">
+          <h3 class="admin-section-title">Inbjudningar</h3>
+          <div class="admin-device-list" id="adminInviteList"></div>
+        </div>
       </div>
 
       <div class="admin-page hidden" data-admin-page="recordings">

@@ -92,7 +92,7 @@ const allowedOrigins: (string | RegExp)[] = [
 
 await app.register(cors, {
   origin: allowedOrigins,
-  methods: ["GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 });
 await app.register(rateLimit, { global: false });
 

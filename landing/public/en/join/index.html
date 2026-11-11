@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Invitation to film — Courtside</title>
+  <!-- An invite page: personal to whoever got the link, nothing to index. -->
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <link rel="stylesheet" href="/fonts/inter.css">
+  <link rel="stylesheet" href="/page.css">
+  <link rel="icon" href="/courtside.png" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+<main>
+  <a class="back" href="/en/">← Courtside</a> · <a class="back" id="joinOtherLang" href="/join/">🇸🇪 Svenska</a>
+
+  <section id="joinBroken" hidden>
+    <h1>The link is incomplete</h1>
+    <p>Something is missing from the link. Check that you got the whole link, or ask whoever invited you for a new one.</p>
+  </section>
+
+  <section id="joinInvite" class="join-steps">
+    <h1>You are invited to film for <strong data-club>the club</strong></h1>
+    <p>With Courtside's camera app your iPhone becomes the camera for the club's live streams. On the iPhone that will film:</p>
+
+    <div class="join-box" id="joinDesktop" hidden>
+      <h2>Open this page on your iPhone</h2>
+      <p>The app is for iPhone only. Scan the code with the iPhone's camera, or send the link to yourself and open it there.</p>
+      <div class="join-qr" id="joinQr"></div>
+    </div>
+    <div class="join-box" id="joinAndroid" hidden>
+      <p>The camera app is only for iPhone so far. Open the link on an iPhone with iOS 16 or later.</p>
+    </div>
+
+    <h2><span>1.</span> Install the app</h2>
+    <p>For now the app is a test version, installed through Apple's TestFlight app. If you already have the camera app, skip to step 2.</p>
+    <p>Get TestFlight. It is free and made by Apple.</p>
+    <p><a class="button" href="https://apps.apple.com/app/testflight/id899247664">TestFlight on the App Store</a></p>
+    <!-- TestFlight public link: also set on both languages' /app/ and /join/ pages. -->
+    <p>Tap the button, choose <em>Accept</em> and then <em>Install</em> next to <strong>Sports Camera – Eyevinn</strong>. Then come back to this page.</p>
+    <p><a class="button" href="https://testflight.apple.com/join/yd7zh9TU">Open the app invitation in TestFlight</a></p>
+
+    <h2><span>2.</span> Pair the camera</h2>
+    <p>Once the app is installed, tap the button: the app opens and pairs with the club.</p>
+    <p><a class="button" id="joinOpenApp" href="#">Open the invitation in the app</a></p>
+    <p class="muted">App doesn't open? Open the camera app yourself and enter the code:</p>
+    <p class="join-code" data-code></p>
+    <p><button type="button" class="button button-secondary" id="joinCopyCode" data-done="Copied">Copy the code</button></p>
+
+    <p class="muted">The invitation pairs one camera and works for three days. If it has already been used or has run out, the app will say so. Then ask whoever invited you for a new one.</p>
+  </section>
+
+  <p class="muted">The app needs an iPhone with iOS 16 or later. Stuck? See <a href="/en/support/">support</a>.</p>
+</main>
+<script src="/join/qr.js"></script>
+<script src="/join/join.js"></script>
+<script>
+  // Keep the invite when switching language.
+  document.getElementById("joinOtherLang").href += location.hash;
+</script>
+</body>
+</html>
