@@ -13,11 +13,33 @@
 import type { FastifyInstance } from "fastify";
 import { requireAdminAuth } from "../auth.js";
 import { devices } from "../state.js";
+import { normaliseDeviceName } from "../devices.js";
 import { clubManifest } from "../club-config.js";
 
 /** The app's URL scheme, registered in camera/CourtsideCamera/Info.plist. */
 export function pairingLink(apiUrl: string, code: string): string {
   return `courtside-camera://pair?url=${encodeURIComponent(apiUrl)}&code=${encodeURIComponent(code)}`;
+}
+
+/**
+ * Where an invite sends the person who receives it: the landing site's /join
+ * page, which explains how to get the app and opens it paired.  Everything
+ * after # stays in the browser, so the code never reaches the landing site's
+ * server or its logs.  One landing page serves every installation, because the
+ * installation's address travels in the link.
+ */
+export const JOIN_PAGE_URL = "https://courtside.apps.osaas.io/join";
+
+export function inviteLink(apiUrl: string, code: string, club: string): string {
+  const params = new URLSearchParams({ u: apiUrl, c: code, n: club });
+  return `${JOIN_PAGE_URL}#${params.toString()}`;
+}
+
+/** How this backend is reached, as the request saw it. */
+function apiUrlOf(request: { headers: Record<string, unknown>; protocol: string }): string {
+  const proto = (request.headers["x-forwarded-proto"] as string) || request.protocol;
+  const host = (request.headers["x-forwarded-host"] as string) || (request.headers.host as string);
+  return `${proto}://${host}`;
 }
 
 export default async function deviceRoutes(app: FastifyInstance): Promise<void> {
@@ -29,9 +51,7 @@ export default async function deviceRoutes(app: FastifyInstance): Promise<void> 
 
     // The camera needs to know which installation to talk to, and only the
     // request knows how this backend is actually reached.
-    const proto = (request.headers["x-forwarded-proto"] as string) || request.protocol;
-    const host = (request.headers["x-forwarded-host"] as string) || request.headers.host;
-    const apiUrl = `${proto}://${host}`;
+    const apiUrl = apiUrlOf(request);
 
     return reply.send({
       code,
@@ -60,7 +80,7 @@ export default async function deviceRoutes(app: FastifyInstance): Promise<void> 
       if (!result) {
         return reply.code(401).send({
           error: "invalid_code",
-          message: "Koden stämmer inte eller har gått ut. Be om en ny.",
+          message: "Koden stämmer inte, är redan använd eller har gått ut. Be om en ny.",
         });
       }
 
@@ -71,6 +91,68 @@ export default async function deviceRoutes(app: FastifyInstance): Promise<void> 
         token: result.token,
         club: clubManifest.name,
       });
+    }
+  );
+
+  // POST /api/devices/invites — admin invites someone to pair their own camera
+  app.post<{ Body: { name?: unknown } }>("/api/devices/invites", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+
+    const name = normaliseDeviceName(request.body?.name);
+    if (!name) {
+      return reply.code(400).send({ error: "missing_name", message: "Skriv vems kamera det är." });
+    }
+
+    const { invite, code } = await devices.createInvite(name);
+    const apiUrl = apiUrlOf(request);
+
+    return reply.code(201).send({
+      ...invite,
+      // Shown once. The backend keeps only a hash.
+      code,
+      apiUrl,
+      club: clubManifest.name,
+      /** The link to send: the landing site's /join page. */
+      link: inviteLink(apiUrl, code, clubManifest.name),
+      /** Opens the camera app directly, for a phone that already has it. */
+      appLink: pairingLink(apiUrl, code),
+    });
+  });
+
+  // GET /api/devices/invites — invites and what became of them
+  app.get("/api/devices/invites", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    return reply.send(await devices.listInvites());
+  });
+
+  // DELETE /api/devices/invites/:id — withdraw an invite nobody has used
+  app.delete<{ Params: { id: string } }>("/api/devices/invites/:id", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+
+    const result = await devices.revokeInvite(request.params.id);
+    if (result === "not_found") return reply.code(404).send({ error: "invite_not_found" });
+    if (result === "not_pending") {
+      return reply.code(409).send({
+        error: "invite_not_pending",
+        message: "Inbjudan är redan använd, återkallad eller har gått ut.",
+      });
+    }
+    return reply.code(204).send();
+  });
+
+  // PATCH /api/devices/:id — rename a camera
+  app.patch<{ Params: { id: string }; Body: { name?: unknown } }>(
+    "/api/devices/:id",
+    async (request, reply) => {
+      if (!requireAdminAuth(request, reply)) return;
+
+      const name = normaliseDeviceName(request.body?.name);
+      if (!name) {
+        return reply.code(400).send({ error: "missing_name", message: "Kameran behöver ett namn." });
+      }
+      const device = await devices.rename(request.params.id, name);
+      if (!device) return reply.code(404).send({ error: "device_not_found" });
+      return reply.send(device);
     }
   );
 

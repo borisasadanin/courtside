@@ -13,6 +13,9 @@ function mockMinio() {
   return {
     readDeviceIndex: vi.fn(async () => stored),
     writeDeviceIndex: vi.fn(async (d: Device[]) => { stored = JSON.parse(JSON.stringify(d)); }),
+    // Unknown codes are also tried as invites (see device-invites.test.ts).
+    readInviteIndex: vi.fn(async () => []),
+    writeInviteIndex: vi.fn(async () => {}),
     get stored() { return stored; },
   };
 }

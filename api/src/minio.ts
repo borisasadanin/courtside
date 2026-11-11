@@ -11,13 +11,14 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { VodEntry, HighlightClip } from "./types.js";
-import type { Device } from "./devices.js";
+import type { Device, DeviceInvite } from "./devices.js";
 import { config } from "./config.js";
 
 const BUCKET = config.MINIO_RECORDINGS_BUCKET;
 const VOD_INDEX_KEY = "vod-index.json";
 const CLIPS_INDEX_KEY = "clips-index.json";
 const DEVICE_INDEX_KEY = "devices.json";
+const INVITE_INDEX_KEY = "device-invites.json";
 const STREAM_META_KEY = "active-streams.json";
 
 export class MinioClient {
@@ -271,6 +272,25 @@ export class MinioClient {
           Bucket: BUCKET,
           Key: DEVICE_INDEX_KEY,
           Body: JSON.stringify(devices, null, 2),
+          ContentType: "application/json",
+        })
+      );
+    });
+  }
+
+  /** Read the camera invites. Returns [] when none has been made. */
+  async readInviteIndex(): Promise<DeviceInvite[]> {
+    return this.readIndex<DeviceInvite[]>(INVITE_INDEX_KEY, []);
+  }
+
+  /** Persist the camera invites (mutex-protected, like the other indexes). */
+  async writeInviteIndex(invites: DeviceInvite[]): Promise<void> {
+    return this.withLock(async () => {
+      await this.s3.send(
+        new PutObjectCommand({
+          Bucket: BUCKET,
+          Key: INVITE_INDEX_KEY,
+          Body: JSON.stringify(invites, null, 2),
           ContentType: "application/json",
         })
       );
