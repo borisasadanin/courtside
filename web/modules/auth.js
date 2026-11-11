@@ -115,9 +115,10 @@ export function logoutViewer() {
 /** Check auth status on startup and either show PIN or proceed */
 export async function checkAuthAndStart() {
   if (await isSetupRequired()) {
+    // Setup ends logged in as admin: straight to Hantera, where the first
+    // camera is paired. The live list starts when someone opens Live.
     showSetup(() => {
       if (onActivateAdmin) onActivateAdmin();
-      if (onAuthSuccess) onAuthSuccess();
     });
     return;
   }

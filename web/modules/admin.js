@@ -6,6 +6,7 @@ import { state, dom } from "./state.js";
 import { escapeHtml, formatDuration, formatDate, formatBytes } from "./utils.js";
 import { logoutViewer } from "./auth.js";
 import { loadDevices, startPairing } from "./devices.js";
+import { maybeShowCameraGuide, openCameraGuide, resetCameraGuide } from "./onboarding.js";
 import { renderBranding, renderPrivacyAdmin } from "./branding.js";
 import { renderTeardown } from "./teardown.js";
 import { renderPins } from "./pins.js";
@@ -39,6 +40,7 @@ export function activateAdmin() {
 }
 
 export function deactivateAdmin() {
+  resetCameraGuide();
   state.adminToken = null;
   localStorage.removeItem("adminToken");
   dom.adminTab.classList.add("hidden");
@@ -80,8 +82,9 @@ export async function loadAdminStorage() {
   dom.adminStorageSummary.innerHTML = '<div class="spinner"></div>';
   dom.adminVodList.innerHTML = "";
 
-  // Cameras load alongside storage — both belong to the admin view.
-  loadDevices();
+  // Cameras load alongside storage — both belong to the admin view. Without
+  // one the platform cannot broadcast, so the guide to pairing one opens.
+  loadDevices().then(maybeShowCameraGuide);
   renderBranding();
   renderPrivacyAdmin();
   renderTeardown();
@@ -552,21 +555,23 @@ async function handleDelete(btn, path, item) {
 // Verify admin session on startup
 // ============================
 
+/** Show the Hantera tab if the saved admin login still holds. Returns whether it does. */
 export async function checkAdminSession() {
-  if (!state.adminToken) return;
+  if (!state.adminToken) return false;
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/admin/verify`, {
       headers: adminHeaders(),
     });
     if (res.ok) {
       dom.adminTab.classList.remove("hidden");
-    } else {
-      state.adminToken = null;
-      localStorage.removeItem("adminToken");
+      return true;
     }
+    state.adminToken = null;
+    localStorage.removeItem("adminToken");
   } catch {
     // Silently fail -- admin will be hidden
   }
+  return false;
 }
 
 // ============================
@@ -595,4 +600,5 @@ export function initAdmin(callbacks) {
 
   const pairBtn = document.getElementById("adminPairBtn");
   if (pairBtn) pairBtn.addEventListener("click", () => startPairing());
+  document.getElementById("adminGuideBtn")?.addEventListener("click", () => openCameraGuide());
 }

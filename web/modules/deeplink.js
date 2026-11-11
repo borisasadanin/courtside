@@ -40,6 +40,11 @@ export async function checkDeepLink({ switchTab, playClip }) {
   }
 }
 
+/** Whether the page was opened on a clip or a match — it should open that, not Hantera. */
+export function hasDeepLink() {
+  return !!(parseClipHash() || parseMatchPath());
+}
+
 /** Parse clip ID from URL hash. Returns null if not a clip link. */
 function parseClipHash() {
   const hash = window.location.hash;
