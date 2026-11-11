@@ -8,7 +8,7 @@ import { createClip, createGuestClip } from "../clip-service.js";
 import type { GuestMatchInfo } from "../guest-spaces.js";
 import { convertSegmentsToMp4, extractThumbnail } from "../mp4-converter.js";
 import { clubManifest, absoluteLogoUrl, defaultHomeTeam, defaultAwayTeam } from "../club-config.js";
-import { rewriteSegmentUris } from "../playlist-rewrite.js";
+import { markFeedRestarts, rewriteSegmentUris } from "../playlist-rewrite.js";
 import { keysReferencedBy } from "./media.js";
 import { deleteClip, logDeletion } from "../erasure.js";
 
@@ -165,7 +165,7 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const rewritten = rewriteSegmentUris(
-        manifest,
+        markFeedRestarts(manifest),
         (filename) => `/api/clips/${clip.id}/media/${filename}`
       );
 

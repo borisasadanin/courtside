@@ -8,6 +8,7 @@
 import type { FastifyInstance } from "fastify";
 import { requireViewerAuth } from "../auth.js";
 import { streamMeta, collectors } from "../state.js";
+import { markFeedRestarts } from "../playlist-rewrite.js";
 
 export default async function dvrRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { id: string } }>(
@@ -58,7 +59,7 @@ export default async function dvrRoutes(app: FastifyInstance): Promise<void> {
         lines.push("#EXT-X-ENDLIST");
       }
 
-      const playlist = lines.join("\n") + "\n";
+      const playlist = markFeedRestarts(lines.join("\n") + "\n");
 
       return reply
         .type("application/vnd.apple.mpegurl")
