@@ -179,6 +179,7 @@ export function oscFor(token: string, environment = "prod"): Osc {
     async createStorage(name, password) {
       const sat = await ctx.getServiceAccessToken(STORAGE_SERVICE);
       await createInstance(ctx, STORAGE_SERVICE, sat, { name, RootUser: "root", RootPassword: password });
+      await whenListed(() => instance(STORAGE_SERVICE, name), `${STORAGE_SERVICE} ${name}`);
       await waitForInstanceReady(STORAGE_SERVICE, name, ctx);
       const created = await instance(STORAGE_SERVICE, name);
       const url = created?.url;
@@ -202,6 +203,7 @@ export function oscFor(token: string, environment = "prod"): Osc {
     async createParameterStore(name) {
       const created = await deploy<{ configApiKey?: string }>("POST", "/parameter-stores", { name, enableSecrets: true });
       if (!created?.configApiKey) throw new OscError(`Parameter store ${name} returned no API key`);
+      await whenListed(() => instance(CONFIG_SERVICE, name), `${CONFIG_SERVICE} ${name}`);
       await waitForInstanceReady(CONFIG_SERVICE, name, ctx);
       // The app runner looks the store up by name when it starts, and that
       // lookup answers 404 for a while after the store is ready.  An app
@@ -355,6 +357,36 @@ export function oscFor(token: string, environment = "prod"): Osc {
       }
     },
   };
+}
+
+/**
+ * Wait until a just-created instance shows up when looked up by name.
+ *
+ * OSC can answer "created" before the instance can be looked up, and
+ * waitForInstanceReady in @osaas/client-core throws "Instance … not found" at
+ * once instead of waiting.  The install then undid itself and removed the
+ * very storage it had just made (altaiftest, 2026-11-11).  Errors from the
+ * lookup count as "not yet"; after the deadline the last one is thrown.
+ */
+export async function whenListed(
+  lookup: () => Promise<unknown>,
+  what: string,
+  timeoutMs = 120_000,
+  pollMs = 2000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    let failure: unknown;
+    try {
+      if ((await lookup()) !== undefined) return;
+    } catch (err) {
+      failure = err;
+    }
+    if (Date.now() >= deadline) {
+      throw failure ?? new OscError(`${what} was created but never showed up`);
+    }
+    await sleep(pollMs);
+  }
 }
 
 export function sleep(ms: number): Promise<void> {
