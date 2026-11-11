@@ -18,6 +18,11 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.7.5 — 2026-11-11
+
+- **Helskärm på iPhone.** Helskärmsknappen i matchspelaren fungerar nu i Safari på iPhone. Där öppnas
+  iPhonens egen videospelare i helskärm (#73).
+
 ## v0.7.4 — 2026-11-11
 
 Bjud in kameror (#71).
