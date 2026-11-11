@@ -15,6 +15,9 @@ struct PairingView: View {
     /// the form asks only for the code until someone wants to change it.
     @State private var editingUrl = PairingStore.shared.lastApiUrl == nil
     @State private var manualCode = ""
+    /// The address came from an invite link; only the code is left to type.
+    @State private var fromInvite = false
+    @FocusState private var codeFocused: Bool
     @State private var isPairing = false
     @State private var error: String?
     @State private var scannerAuthorised: Bool?
@@ -74,6 +77,22 @@ struct PairingView: View {
             pairing.incoming = nil
             Task { await pair(url: link.apiUrl, code: link.code) }
         }
+        // An invite link: the club's address, and the code still to type.
+        .onReceive(pairing.$prefillUrl) { address in
+            guard let address, !isPairing else { return }
+            pairing.prefillUrl = nil
+            prefill(address)
+        }
+    }
+
+    private func prefill(_ address: String) {
+        manualUrl = address
+        editingUrl = false
+        fromInvite = true
+        error = nil
+        withAnimation { showManualEntry = true }
+        // After the form has appeared, so the keyboard comes up on the code.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { codeFocused = true }
     }
 
     private var header: some View {
@@ -154,6 +173,12 @@ struct PairingView: View {
                     .autocapitalization(.allCharacters)
                     .disableAutocorrection(true)
                     .textFieldStyle(.roundedBorder)
+                    .focused($codeFocused)
+                if fromInvite {
+                    Text("Skriv in koden som står i inbjudan du fick.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             Button("Anslut") {
                 Task { await pair(url: manualUrl, code: manualCode) }
@@ -168,6 +193,11 @@ struct PairingView: View {
     private func handleScan(_ payload: String) {
         guard !isPairing else { return }
         guard let parsed = Pairing.parse(payload: payload) else {
+            // An invite's QR code holds only the club's address.
+            if let address = Pairing.parseAddress(payload: payload) {
+                prefill(address)
+                return
+            }
             error = "Det där var inte en parningskod."
             return
         }

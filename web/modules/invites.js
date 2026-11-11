@@ -33,9 +33,10 @@ export function inviteMessage(invite) {
     `Hej! Du är inbjuden att filma för ${invite.club} med Courtside.`,
     "",
     `1. Öppna länken på din iPhone: ${invite.link}`,
-    "2. Följ stegen: installera appen och koppla kameran.",
+    "2. Installera appen och tryck Öppna appen. Klubbens adress fylls i av sig själv.",
+    `3. Skriv in koden: ${invite.code}`,
     "",
-    `Fungerar inte länken? Skriv in koden ${invite.code} i kameraappen.`,
+    `Klubbens adress, om du behöver skriva in den själv: ${invite.apiUrl}`,
     `Inbjudan gäller till ${formatWhen(invite.expiresAt)} och kan bara kopplas till en kamera.`,
   ].join("\n");
 }
@@ -154,7 +155,8 @@ async function showInvite(invite) {
   panel.innerHTML = `
     <h3 class="invite-title">Inbjudan till ${escapeHtml(invite.name)}</h3>
     <p class="pair-instructions">Kopiera inbjudan och klistra in den i ett meddelande, till exempel i
-      WhatsApp, ett mejl eller ett sms. Står personen bredvid dig kan den skanna QR-koden med sin iPhone.</p>
+      WhatsApp, ett mejl eller ett sms. Står personen bredvid dig kan den skanna QR-koden med sin iPhone
+      och skriva in koden nedan.</p>
     <div class="invite-buttons">
       <button type="button" class="admin-pair-btn" id="inviteCopy">Kopiera inbjudan</button>
       <button type="button" class="device-revoke" id="inviteCopyLink">Kopiera länk</button>
@@ -165,6 +167,7 @@ async function showInvite(invite) {
     <div class="pair-qr">${svg}</div>
     <p class="pair-code-label">Kod att skriva in i kameraappen:</p>
     <p class="pair-code">${escapeHtml(invite.code)}</p>
+    <p class="pair-url">${escapeHtml(invite.apiUrl)}</p>
     <p class="pair-expiry">Gäller till ${escapeHtml(formatWhen(invite.expiresAt))}. Koden visas bara nu, så kopiera den innan du stänger.</p>
     <div class="invite-actions">
       <button type="button" class="device-revoke" id="inviteDone">Klar</button>

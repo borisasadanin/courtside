@@ -22,3 +22,4 @@ th { color: var(--text-muted); font-weight: 500; }
 .join-qr svg { display: block; width: 100%; height: auto; }
 .button-secondary { background: transparent; color: var(--accent-soft); border: 1px solid var(--accent-soft); font: inherit; font-weight: 600; cursor: pointer; }
 .join-box h2:first-child { margin-top: 0; }
+.join-address { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-strong); word-break: break-all; margin: 4px 0 8px; }

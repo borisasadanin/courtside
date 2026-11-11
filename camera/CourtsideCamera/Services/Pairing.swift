@@ -174,6 +174,10 @@ final class Pairing: ObservableObject {
     /// Why an opened pairing link was not used.
     @Published var linkNotice: String?
 
+    /// A club's address from an invite link, which carries no code: the pairing
+    /// screen fills it in and asks for the code the invite gave.
+    @Published var prefillUrl: String?
+
     /// Set while a broadcast is running. Losing the pairing then waits until the
     /// broadcast ends: the picture keeps flowing without the club's API, and
     /// cutting a match off is worse than a camera staying paired a little longer.
@@ -191,7 +195,9 @@ final class Pairing: ObservableObject {
     /// A paired camera does not switch club on a scan: that would cut it off
     /// from its own club by mistake. Disconnecting first is a deliberate step.
     func open(_ url: URL) {
-        guard let parsed = Self.parse(payload: url.absoluteString) else {
+        let parsed = Self.parse(payload: url.absoluteString)
+        let address = parsed == nil ? Self.parseAddress(payload: url.absoluteString) : nil
+        guard parsed != nil || address != nil else {
             linkNotice = PairingError.malformedCode.errorDescription
             return
         }
@@ -199,7 +205,37 @@ final class Pairing: ObservableObject {
             linkNotice = "Kameran är redan kopplad till \(club). Koppla bort den under inställningar om den ska byta klubb, och skanna sedan koden igen."
             return
         }
-        incoming = parsed
+        if let parsed {
+            incoming = parsed
+        } else {
+            prefillUrl = address
+        }
+    }
+
+    /// A club's address without a code: an invite's `courtside-camera://pair?url=…`
+    /// link, or the invite page's `…/join/#u=…` link pasted or scanned.
+    static func parseAddress(payload: String) -> String? {
+        let text = payload.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: text) else { return nil }
+        if url.scheme == "courtside-camera" {
+            guard url.host == "pair" else { return nil }
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            return validAddress(items.first(where: { $0.name == "url" })?.value)
+        }
+        // The invite page keeps the address after #, as a query string.
+        guard url.path.hasPrefix("/join") || url.path.hasPrefix("/en/join"),
+              let fragment = url.fragment
+        else { return nil }
+        var components = URLComponents()
+        components.percentEncodedQuery = fragment
+        return validAddress(components.queryItems?.first(where: { $0.name == "u" })?.value)
+    }
+
+    private static func validAddress(_ value: String?) -> String? {
+        guard let value, let url = URL(string: value),
+              url.scheme == "https" || url.scheme == "http", url.host != nil
+        else { return nil }
+        return value
     }
 
     /// Parse a scanned QR payload, or a pasted one.
@@ -222,7 +258,8 @@ final class Pairing: ObservableObject {
 
     /// Redeem a code at the given installation and remember the result.
     func pair(apiUrl rawUrl: String, code rawCode: String, deviceName: String) async throws {
-        var apiUrl = rawUrl
+        // Someone may paste the whole invite link into the address field.
+        var apiUrl = (Self.parseAddress(payload: rawUrl) ?? rawUrl)
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "/+$", with: "", options: .regularExpression)
         // Typed by hand it is often just "klubb.apps.osaas.io".
@@ -254,6 +291,11 @@ final class Pairing: ObservableObject {
         guard let http = response as? HTTPURLResponse else { throw PairingError.unreachable }
 
         guard (200...299).contains(http.statusCode) else {
+            // No pairing route at all: the address is not a club's Courtside,
+            // for example the courtside.apps.osaas.io start page.
+            if http.statusCode == 404 {
+                throw PairingError.rejected("Adressen är inte en klubbs Courtside. Kontrollera klubbens adress, den står i inbjudan.")
+            }
             let message = (try? JSONDecoder().decode(APIErrorResponse.self, from: data))?.message
             throw PairingError.rejected(message ?? "Parningen avvisades.")
         }

@@ -43,11 +43,16 @@
     <p><a class="button" href="https://testflight.apple.com/join/yd7zh9TU">Open the app invitation in TestFlight</a></p>
 
     <h2><span>2.</span> Pair the camera</h2>
-    <p>Once the app is installed, tap the button: the app opens and pairs with the club.</p>
-    <p><a class="button" id="joinOpenApp" href="#">Open the invitation in the app</a></p>
-    <p class="muted">App doesn't open? Open the camera app yourself and enter the code:</p>
-    <p class="join-code" data-code></p>
-    <p><button type="button" class="button button-secondary" id="joinCopyCode" data-done="Copied">Copy the code</button></p>
+    <p>Once the app is installed, tap the button. The app opens with the club's address filled in.</p>
+    <p><a class="button" id="joinOpenApp" href="#">Open the app</a></p>
+    <p>Then enter the code from the invitation you received and tap <em>Anslut</em> (Connect).</p>
+    <div id="joinCodeBox" hidden>
+      <p class="join-code" data-code></p>
+      <p><button type="button" class="button button-secondary" id="joinCopyCode" data-done="Copied">Copy the code</button></p>
+    </div>
+    <p class="muted">App doesn't open, or the address isn't filled in? Update the camera app in TestFlight, or enter the club's address yourself:</p>
+    <p class="join-address" data-address></p>
+    <p><button type="button" class="button button-secondary" id="joinCopyAddress" data-done="Copied">Copy the address</button></p>
 
     <p class="muted">The invitation pairs one camera and works for three days. If it has already been used or has run out, the app will say so. Then ask whoever invited you for a new one.</p>
   </section>

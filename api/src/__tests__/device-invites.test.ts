@@ -162,13 +162,13 @@ describe("camera names", () => {
 });
 
 describe("the invite link", () => {
-  it("goes to the landing site's /join page, with everything after #", () => {
-    const link = new URL(inviteLink("https://club.apps.osaas.io", "ABCD-2345", "Älta IF"));
+  it("goes to the landing site's /join page with the address after #, and no code", () => {
+    const link = new URL(inviteLink("https://club.apps.osaas.io", "Älta IF"));
     expect(link.origin + link.pathname).toBe("https://courtside.apps.osaas.io/join/");
     expect(link.search).toBe("");
     const params = new URLSearchParams(link.hash.slice(1));
     expect(params.get("u")).toBe("https://club.apps.osaas.io");
-    expect(params.get("c")).toBe("ABCD-2345");
+    expect(params.has("c")).toBe(false);
     expect(params.get("n")).toBe("Älta IF");
   });
 });
@@ -209,7 +209,8 @@ describe("invite routes", () => {
     expect(body).toMatchObject({ name: "Anna – P13", status: "pending", apiUrl: "http://club.example.com" });
     expect(body.code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
     expect(body.link).toContain("courtside.apps.osaas.io/join/#");
-    expect(body.appLink).toContain(`code=${encodeURIComponent(body.code)}`);
+    expect(body.appLink).toBe("courtside-camera://pair?url=http%3A%2F%2Fclub.example.com");
+    expect(body.link).not.toContain(body.code);
     expect(body).not.toHaveProperty("codeHash");
 
     const pair = await app.inject({ method: "POST", url: "/api/devices/pair", payload: { code: body.code, name: "Annas iPhone" } });

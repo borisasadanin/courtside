@@ -1,10 +1,10 @@
 // The page someone lands on from a camera invite (#69).
 //
-// Everything it needs is after # in the link: the club's address (u), the
-// invite code (c) and the club's name (n). The browser never sends that part
-// to this server, so the code stays out of its logs. The page does not talk to
-// the club's installation; whether the invite still works is for the camera
-// app to say when it redeems the code.
+// Everything it needs is after # in the link: the club's address (u) and name
+// (n). The browser never sends that part to this server. The link carries no
+// code: the app opens with the address filled in and the person types the code
+// from the invite. Links made by platform 0.7.4 also carry the code (c); they
+// still work, and open the app paired as they did then.
 (function () {
   "use strict";
 
@@ -22,7 +22,8 @@
     }
   }
 
-  var ok = validUrl(apiUrl) && /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(code);
+  var codeOk = /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(code);
+  var ok = validUrl(apiUrl) && (!code || codeOk);
   var show = function (id, on) {
     var el = document.getElementById(id);
     if (el) el.hidden = !on;
@@ -37,12 +38,18 @@
   document.querySelectorAll("[data-club]").forEach(function (el) {
     el.textContent = club || el.textContent;
   });
-  document.querySelectorAll("[data-code]").forEach(function (el) {
-    el.textContent = code;
+  document.querySelectorAll("[data-address]").forEach(function (el) {
+    el.textContent = apiUrl;
   });
+  if (code) {
+    document.querySelectorAll("[data-code]").forEach(function (el) {
+      el.textContent = code;
+    });
+    show("joinCodeBox", true);
+  }
 
-  var appLink =
-    "courtside-camera://pair?url=" + encodeURIComponent(apiUrl) + "&code=" + encodeURIComponent(code);
+  var appLink = "courtside-camera://pair?url=" + encodeURIComponent(apiUrl);
+  if (code) appLink += "&code=" + encodeURIComponent(code);
   document.getElementById("joinOpenApp").setAttribute("href", appLink);
 
   var ua = navigator.userAgent;
@@ -58,15 +65,17 @@
     }
   }
 
-  var copy = document.getElementById("joinCopyCode");
-  if (copy) {
-    copy.addEventListener("click", function () {
-      var done = function () {
-        copy.textContent = copy.getAttribute("data-done");
-      };
+  function copyButton(id, text) {
+    var button = document.getElementById(id);
+    if (!button) return;
+    button.addEventListener("click", function () {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(code).then(done, function () {});
+        navigator.clipboard.writeText(text).then(function () {
+          button.textContent = button.getAttribute("data-done");
+        }, function () {});
       }
     });
   }
+  copyButton("joinCopyCode", code);
+  copyButton("joinCopyAddress", apiUrl);
 })();
