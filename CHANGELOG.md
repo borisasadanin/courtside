@@ -18,6 +18,15 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.7.2 — 2026-11-11
+
+Kameraappen går att hämta via TestFlight.
+
+- **Hämta appen från Lägg till kamera.** Har telefonen inte kameraappen än, fäll ut *Har telefonen inte
+  kameraappen än?* i dialogen. Där finns en QR-kod till courtside.apps.osaas.io/app, som visar hur man
+  installerar appen via TestFlight och kopplar den
+- Kameraappen heter just nu **Sports Camera – Eyevinn** i TestFlight
+
 ## v0.7.1 — 2026-11-08
 
 Sändningar som tål avbrott.
