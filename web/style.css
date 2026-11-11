@@ -2374,6 +2374,34 @@ footer {
   margin: 0 auto 16px;
 }
 
+.pair-get-app {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+}
+
+.pair-get-app summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.pair-get-app[open] {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pair-get-app .pair-instructions {
+  margin-top: 8px;
+}
+
+.pair-get-app a {
+  color: var(--accent);
+}
+
+.pair-qr-small {
+  width: 140px;
+  margin-bottom: 0;
+}
+
 .pair-qr svg {
   display: block;
   width: 100%;

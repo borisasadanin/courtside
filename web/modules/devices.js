@@ -14,6 +14,13 @@ function adminHeaders() {
   return { "X-Admin-Token": state.adminToken };
 }
 
+/**
+ * Where a phone without the camera app learns how to get it. A page on the
+ * landing site rather than a TestFlight or App Store link, so moving the app
+ * from TestFlight to the App Store changes one page, not every installation.
+ */
+const APP_INSTALL_URL = "https://courtside.apps.osaas.io/app/";
+
 /** Countdown timer for the visible pairing code. */
 let expiryTimer = null;
 
@@ -116,8 +123,21 @@ export async function startPairing() {
       color: { dark: "#0a0a0a", light: "#ffffff" },
     });
 
+    const appSvg = await QRCode.toString(APP_INSTALL_URL, {
+      type: "svg",
+      margin: 1,
+      color: { dark: "#0a0a0a", light: "#ffffff" },
+    });
+
     panel.innerHTML = `
-      <p class="pair-instructions">Skanna koden med telefonens kamera, eller i Courtside-appen.</p>
+      <details class="pair-get-app">
+        <summary>Har telefonen inte kameraappen än?</summary>
+        <p class="pair-instructions">Skanna med telefonens kamera, eller gå till
+          <a href="${APP_INSTALL_URL}" target="_blank" rel="noopener">courtside.apps.osaas.io/app</a>
+          på telefonen. Där står hur du installerar appen. Kom sedan tillbaka hit.</p>
+        <div class="pair-qr pair-qr-small">${appSvg}</div>
+      </details>
+      <p class="pair-instructions">Skanna koden med telefonens kamera, eller i kameraappen.</p>
       <div class="pair-qr">${svg}</div>
       <p class="pair-code-label">Eller skriv in manuellt:</p>
       <p class="pair-code">${escapeHtml(data.code)}</p>

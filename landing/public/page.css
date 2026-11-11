@@ -14,3 +14,4 @@ table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
 th, td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid var(--card-border); }
 th { color: var(--text-muted); font-weight: 500; }
 .muted { color: var(--text-muted); font-size: 0.9rem; }
+.button { display: inline-block; padding: 10px 18px; border-radius: 10px; background: var(--accent-soft); color: #0a0a0a; font-weight: 600; text-decoration: none; }
