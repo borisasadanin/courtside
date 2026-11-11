@@ -18,6 +18,12 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.7.7 — 2026-11-11
+
+- **Spolning i repriser fastnar inte.** Hade kameran tappat kontakten och kommit tillbaka mitt i en period kunde
+  uppspelningen stanna för gott om man spolade förbi det stället, till exempel fram till period 4. Gäller även
+  repriser som spelats in tidigare (#75).
+
 ## v0.7.6 — 2026-11-11
 
 - **Inbjudan fyller i klubbens adress.** Länken i en kamerainbjudan bär bara klubbens adress, inte koden. Sidan
