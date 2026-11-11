@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { requireApiKey, requireViewerAuth, requireAdminAuth, requireBroadcasterAuth, isValidAdminToken } from "../auth.js";
 import { config } from "../config.js";
 import { minio, guestSpaces } from "../state.js";
-import { rewriteSegmentUris } from "../playlist-rewrite.js";
+import { markFeedRestarts, rewriteSegmentUris } from "../playlist-rewrite.js";
 import { deleteMatch, logDeletion } from "../erasure.js";
 import { matchCover } from "../match-images.js";
 import type { MatchResult, VodEntry } from "../types.js";
@@ -49,7 +49,7 @@ export default async function vodRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const rewritten = rewriteSegmentUris(
-        manifest,
+        markFeedRestarts(manifest),
         (filename) => `/api/media/${id}/${filename}`
       );
 
