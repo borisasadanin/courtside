@@ -17,7 +17,7 @@ import {
 import { initStreams, startListPolling, stopListPolling } from "./modules/streams.js";
 import { initVod, startVodPolling, stopVodPolling } from "./modules/vod.js";
 import { initHighlights, playClip } from "./modules/highlights.js";
-import { checkDeepLink } from "./modules/deeplink.js";
+import { checkDeepLink, hasDeepLink } from "./modules/deeplink.js";
 import {
   initAdmin,
   activateAdmin,
@@ -149,8 +149,17 @@ async function init() {
   initPrivacy();
 
   // 2. Initialise each module with cross-module callbacks
+  // Asked once, at the same time as the viewer login is checked.
+  const adminSession = checkAdminSession();
+
   initAuth({
-    onAuthSuccess: () => {
+    onAuthSuccess: async () => {
+      // An admin who comes back lands in Hantera, unless the link was to a
+      // clip or a match — then that is what they came for.
+      if (state.adminToken && !hasDeepLink() && (await adminSession)) {
+        activateAdmin();
+        return;
+      }
       startListPolling();
       checkDeepLink({ switchTab, playClip }).catch((err) =>
         console.error("[player] checkDeepLink failed:", err)
@@ -179,7 +188,6 @@ async function init() {
 
   // 4. Check auth & admin session, then start
   checkAuthAndStart();
-  checkAdminSession();
 }
 
 init();

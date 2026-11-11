@@ -18,6 +18,18 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.7.3 — 2026-11-11
+
+Kom igång med första kameran (#65).
+
+- **Admin hamnar alltid i Hantera.** Den som loggar in med admin-koden, eller öppnar sidan igen som inloggad admin,
+  kommer direkt till Hantera. En länk till ett klipp eller en match öppnar fortfarande det den pekar på (#62).
+- **Guide för första kameran.** Saknar plattformen kamera öppnas en guide ovanpå Hantera: vad som behövs, hämta
+  appen via TestFlight, koppla iPhonen och klart. Den märker själv när kameran är kopplad. *Gör det senare* skjuter
+  upp den till nästa inloggning, och *Kameror → Visa guiden* öppnar den igen. Bara admin ser den (#63).
+- **Guiden på samma iPhone.** Är guiden öppen på iPhonen som ska filma visas knappar i stället för QR-koder: en till
+  installationssidan och en som öppnar kameraappen och kopplar den direkt (#64).
+
 ## v0.7.2 — 2026-11-11
 
 Kameraappen går att hämta via TestFlight.

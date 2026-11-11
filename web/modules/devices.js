@@ -19,27 +19,58 @@ function adminHeaders() {
  * landing site rather than a TestFlight or App Store link, so moving the app
  * from TestFlight to the App Store changes one page, not every installation.
  */
-const APP_INSTALL_URL = "https://courtside.apps.osaas.io/app/";
+export const APP_INSTALL_URL = "https://courtside.apps.osaas.io/app/";
 
 /** Countdown timer for the visible pairing code. */
 let expiryTimer = null;
 
+/** The cameras that are paired and not removed. Throws if they cannot be fetched. */
+export async function fetchActiveDevices() {
+  const res = await fetch(`${CONFIG.API_URL}/api/devices`, { headers: adminHeaders() });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const devices = await res.json();
+  return devices.filter((d) => !d.revokedAt);
+}
+
+/** A new pairing code: { code, expiresAt, apiUrl, payload }. Throws on failure. */
+export async function requestPairingCode() {
+  const res = await fetch(`${CONFIG.API_URL}/api/devices/pairing-code`, {
+    method: "POST",
+    headers: adminHeaders(),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/** A QR code as SVG, dark on white so it scans against the dark theme. */
+export function qrSvg(text) {
+  return QRCode.toString(text, {
+    type: "svg",
+    margin: 1,
+    color: { dark: "#0a0a0a", light: "#ffffff" },
+  });
+}
+
+/**
+ * Draw the camera list. Returns the active cameras, or null when they could
+ * not be fetched — so the caller can tell "no camera" from "don't know".
+ */
 export async function loadDevices() {
   const list = document.getElementById("adminDeviceList");
-  if (!list) return;
+  if (!list) return null;
 
   try {
-    const res = await fetch(`${CONFIG.API_URL}/api/devices`, { headers: adminHeaders() });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    renderDevices(await res.json());
+    const active = await fetchActiveDevices();
+    renderDevices(active);
+    return active;
   } catch (err) {
     list.innerHTML = `<p class="admin-empty">Kunde inte hämta kameror (${escapeHtml(err.message)})</p>`;
+    return null;
   }
 }
 
-function renderDevices(devices) {
+function renderDevices(active) {
   const list = document.getElementById("adminDeviceList");
-  const active = devices.filter((d) => !d.revokedAt);
 
   const sub = document.getElementById("adminRowCameraSub");
   if (sub) sub.textContent = active.length === 0 ? "Ingen kamera parad ännu" : `${active.length} parad${active.length === 1 ? "" : "e"}`;
@@ -110,24 +141,9 @@ export async function startPairing() {
   panel.innerHTML = `<p class="admin-empty">Hämtar kod…</p>`;
 
   try {
-    const res = await fetch(`${CONFIG.API_URL}/api/devices/pairing-code`, {
-      method: "POST",
-      headers: adminHeaders(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    const svg = await QRCode.toString(data.payload, {
-      type: "svg",
-      margin: 1,
-      color: { dark: "#0a0a0a", light: "#ffffff" },
-    });
-
-    const appSvg = await QRCode.toString(APP_INSTALL_URL, {
-      type: "svg",
-      margin: 1,
-      color: { dark: "#0a0a0a", light: "#ffffff" },
-    });
+    const data = await requestPairingCode();
+    const svg = await qrSvg(data.payload);
+    const appSvg = await qrSvg(APP_INSTALL_URL);
 
     panel.innerHTML = `
       <details class="pair-get-app">
