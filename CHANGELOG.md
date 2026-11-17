@@ -18,6 +18,12 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.7.8 — 2026-11-17
+
+- **Rätt antal tittare.** Tittarsiffran kunde visa för många, till exempel två tittare när bara en person
+  tittade, och stannade på ett fåtal när många tittade. Nu räknas varje öppen spelare för sig, och en tittare
+  som stänger spelaren försvinner direkt ur siffran i stället för efter en minut (#85).
+
 ## v0.7.7 — 2026-11-11
 
 - **Spolning i repriser fastnar inte.** Hade kameran tappat kontakten och kommit tillbaka mitt i en period kunde
