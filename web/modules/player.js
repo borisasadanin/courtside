@@ -1095,8 +1095,42 @@ async function pollCurrentStream() {
 // Viewer heartbeat
 // ============================
 
+// The server counts viewers by this id, not by IP address: behind the
+// platform's proxies every request looks like it comes from a proxy. One id
+// per tab, kept over a reload so the same person is not counted twice.
+const VIEWER_ID_KEY = "courtside-viewer-id";
+let viewerId = null;
+/** The live stream this tab is counted as watching, so it can leave it. */
+let countedStreamId = null;
+
+function getViewerId() {
+  if (viewerId) return viewerId;
+  try {
+    viewerId = sessionStorage.getItem(VIEWER_ID_KEY);
+  } catch {
+    // Storage blocked: an id for this page load only
+  }
+  if (!viewerId || !/^[A-Za-z0-9_-]{8,64}$/.test(viewerId)) {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    viewerId = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    try {
+      sessionStorage.setItem(VIEWER_ID_KEY, viewerId);
+    } catch {
+      // Fine: counted as a new viewer after a reload, gone from the old count within a minute
+    }
+  }
+  return viewerId;
+}
+
+function viewUrl(streamId, action = "") {
+  return `${CONFIG.API_URL}/api/streams/${encodeURIComponent(streamId)}/view${action}?v=${getViewerId()}`;
+}
+
 function startViewerHeartbeat() {
-  if (state.isVodMode) return; // No heartbeat for VOD
+  if (state.isVodMode) {
+    leaveViewerCount(); // No heartbeat for VOD
+    return;
+  }
   stopViewerHeartbeat();
   sendViewerHeartbeat();
   state.viewerHeartbeatTimer = setInterval(sendViewerHeartbeat, 30_000);
@@ -1106,9 +1140,29 @@ function stopViewerHeartbeat() {
   clearInterval(state.viewerHeartbeatTimer);
 }
 
+/**
+ * Stop being counted at once, rather than after the server's one-minute TTL.
+ * Sent as a beacon so it gets out even while the page is closing; when it
+ * doesn't (a locked phone, a killed app), the TTL still takes the viewer off.
+ */
+export function leaveViewerCount() {
+  if (!countedStreamId) return;
+  const url = viewUrl(countedStreamId, "/leave");
+  countedStreamId = null;
+  try {
+    if (navigator.sendBeacon && navigator.sendBeacon(url)) return;
+  } catch {
+    // Fall through to fetch
+  }
+  fetch(url, { method: "POST", keepalive: true }).catch(() => {});
+}
+
 function sendViewerHeartbeat() {
   if (!state.currentStreamId || state.isVodMode) return;
-  fetch(`${CONFIG.API_URL}/api/streams/${state.currentStreamId}/view`, {
+  // Switched straight to another stream: leave the old one first
+  if (countedStreamId && countedStreamId !== state.currentStreamId) leaveViewerCount();
+  countedStreamId = state.currentStreamId;
+  fetch(viewUrl(state.currentStreamId), {
     method: "POST",
   }).catch(() => {});
 }
@@ -1180,6 +1234,8 @@ async function checkPausedNow(streamId) {
  * Called from the VOD module when a VOD card is clicked.
  */
 export function openVodPlayer(hlsUrl, title, vodId) {
+  stopViewerHeartbeat();
+  leaveViewerCount();
   state.isVodMode = true;
   state.currentStreamUrl = mediaUrl(hlsUrl);
   state.currentStreamId = vodId;
@@ -1216,6 +1272,7 @@ export function closePlayer() {
   clearReplayMarkers();
   stopStreamPolling();
   stopViewerHeartbeat();
+  leaveViewerCount();
   resetProgress();
   const wasVod = state.isVodMode;
   state.currentStreamUrl = null;

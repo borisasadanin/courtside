@@ -8,7 +8,7 @@ import { broadcasterOf, requireBroadcasterAuth, requireViewerAuth, requireViewer
 import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream, guestSpaces, PAUSE_TYPES } from "../state.js";
 import type { PauseType, StreamMeta } from "../state.js";
 import { SegmentCollector } from "../segment-collector.js";
-import { getViewerCount, registerViewer, viewers } from "../viewer-tracking.js";
+import { getViewerCount, isValidViewerId, registerViewer, removeViewer, viewers } from "../viewer-tracking.js";
 import { determineStreamStatus } from "../stream-status.js";
 import { uploadPauseSegments } from "../pause-segments.js";
 import { stitchPlaylist, buildPartList } from "../playlist-stitcher.js";
@@ -804,13 +804,30 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     }
   );
 
-  // POST /api/streams/:id/view — Register viewer heartbeat (no auth)
-  app.post<{ Params: { id: string } }>(
+  // POST /api/streams/:id/view?v=<viewerId> — Register viewer heartbeat (no auth).
+  // Counted per player id, not per IP: behind the platform's proxies every
+  // request comes from a proxy address. Only streams that are live count, so
+  // nobody can fill memory with made-up stream ids.
+  app.post<{ Params: { id: string }; Querystring: { v?: string } }>(
     "/api/streams/:id/view",
     async (request, reply) => {
       const { id } = request.params;
-      const ip = request.ip || "unknown";
-      registerViewer(id, ip);
+      const viewerId = request.query.v;
+      const meta = streamMeta.get(id);
+      if (isValidViewerId(viewerId) && meta && !meta.stoppedAt) {
+        registerViewer(id, viewerId);
+      }
+      return reply.code(204).send();
+    }
+  );
+
+  // POST /api/streams/:id/view/leave?v=<viewerId> — The player closed (no auth).
+  // A POST so the browser can send it with sendBeacon while the page goes away.
+  app.post<{ Params: { id: string }; Querystring: { v?: string } }>(
+    "/api/streams/:id/view/leave",
+    async (request, reply) => {
+      const viewerId = request.query.v;
+      if (isValidViewerId(viewerId)) removeViewer(request.params.id, viewerId);
       return reply.code(204).send();
     }
   );
