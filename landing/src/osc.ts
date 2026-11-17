@@ -10,8 +10,8 @@ import {
   Context,
   createInstance,
   getInstance,
+  getInstanceHealth,
   removeInstance,
-  waitForInstanceReady,
 } from "@osaas/client-core";
 
 export const STORAGE_SERVICE = "minio-minio";
@@ -137,6 +137,29 @@ export function oscFor(token: string, environment = "prod"): Osc {
     return (await getInstance(ctx, service, name, sat)) ?? undefined;
   }
 
+  /** The instance's address, once it can be looked up and has one. */
+  async function address(service: string, name: string): Promise<string | undefined> {
+    const url = (await instance(service, name))?.url;
+    return typeof url === "string" && url ? url : undefined;
+  }
+
+  /**
+   * Waits until a just-created instance is up and returns its address.
+   *
+   * Right after it is created, OSC's lookup by name flickers: the instance
+   * shows up, answers 404 the next time, and can lack an address for a while.
+   * waitForInstanceReady in @osaas/client-core throws on the first 404 (alanif,
+   * 2026-11-17), so every miss here counts as "not yet" until the deadline.
+   */
+  function ready(service: string, name: string): Promise<string> {
+    return until(async () => {
+      const url = await address(service, name);
+      if (!url) return undefined;
+      const sat = await ctx.getServiceAccessToken(service);
+      return (await getInstanceHealth(ctx, service, name, sat)) === "running" ? url : undefined;
+    }, () => new OscError(`${service} ${name} was created but never came up`), 300_000);
+  }
+
   // A store that was just created answers 404 or a gateway error until its
   // routes are up, and the parameter API sits behind it.  Retry those.
   async function configCall(url: string, init: RequestInit): Promise<Response> {
@@ -179,12 +202,7 @@ export function oscFor(token: string, environment = "prod"): Osc {
     async createStorage(name, password) {
       const sat = await ctx.getServiceAccessToken(STORAGE_SERVICE);
       await createInstance(ctx, STORAGE_SERVICE, sat, { name, RootUser: "root", RootPassword: password });
-      await whenListed(() => instance(STORAGE_SERVICE, name), `${STORAGE_SERVICE} ${name}`);
-      await waitForInstanceReady(STORAGE_SERVICE, name, ctx);
-      const created = await instance(STORAGE_SERVICE, name);
-      const url = created?.url;
-      if (typeof url !== "string" || !url) throw new OscError(`Storage ${name} has no address`);
-      return url;
+      return ready(STORAGE_SERVICE, name);
     },
 
     async storageAccess(name) {
@@ -196,15 +214,20 @@ export function oscFor(token: string, environment = "prod"): Osc {
     },
 
     async removeInstance(service, name) {
-      const sat = await ctx.getServiceAccessToken(service);
-      await removeInstance(ctx, service, name, sat);
+      await untilGone(
+        async () => {
+          const sat = await ctx.getServiceAccessToken(service);
+          await removeInstance(ctx, service, name, sat);
+        },
+        async () => (await instance(service, name)) !== undefined,
+        `${service} ${name}`,
+      );
     },
 
     async createParameterStore(name) {
       const created = await deploy<{ configApiKey?: string }>("POST", "/parameter-stores", { name, enableSecrets: true });
       if (!created?.configApiKey) throw new OscError(`Parameter store ${name} returned no API key`);
-      await whenListed(() => instance(CONFIG_SERVICE, name), `${CONFIG_SERVICE} ${name}`);
-      await waitForInstanceReady(CONFIG_SERVICE, name, ctx);
+      await ready(CONFIG_SERVICE, name);
       // The app runner looks the store up by name when it starts, and that
       // lookup answers 404 for a while after the store is ready.  An app
       // created in that window never starts, so wait it out here.
@@ -221,18 +244,34 @@ export function oscFor(token: string, environment = "prod"): Osc {
       return info?.configApiKey || undefined;
     },
 
+    // A store that was just created can answer 404 to the delete and turn up
+    // a moment later (alanifconfig was left behind, 2026-11-17), so it is
+    // deleted again until it has stayed gone for a while.
     async removeParameterStore(name) {
-      try {
-        await deploy("DELETE", `/parameter-stores/${encodeURIComponent(name)}`);
-      } catch (err) {
-        if (!(err instanceof OscError && err.status === 404)) throw err;
-      }
+      await untilGone(
+        async () => {
+          try {
+            await deploy("DELETE", `/parameter-stores/${encodeURIComponent(name)}`);
+          } catch (err) {
+            if (!(err instanceof OscError && err.status === 404)) throw err;
+          }
+        },
+        async () =>
+          (await instance(CONFIG_SERVICE, name)) !== undefined ||
+          (await deploy("GET", `/parameter-stores/${encodeURIComponent(name)}`).then(() => true, (err) => {
+            if (err instanceof OscError && err.status === 404) return false;
+            throw err;
+          })),
+        `Parameter store ${name}`,
+      );
     },
 
     async writeParameters(store, apiKey, params) {
-      const found = await instance(CONFIG_SERVICE, store);
-      const base = typeof found?.url === "string" ? found.url.replace(/\/$/, "") : "";
-      if (!base) throw new OscError(`Parameter store ${store} has no address yet`);
+      // The lookup can miss or lack the address for a while after the store
+      // was reported ready, so wait for it rather than give up at once.
+      const url = await until(() => address(CONFIG_SERVICE, store),
+        () => new OscError(`Parameter store ${store} has no address yet`));
+      const base = url.replace(/\/$/, "");
       const sat = await ctx.getServiceAccessToken(CONFIG_SERVICE);
       const headers = { "x-jwt": `Bearer ${sat}`, "x-config-api-key": apiKey, "Content-Type": "application/json" };
       for (const p of params) {
@@ -360,31 +399,57 @@ export function oscFor(token: string, environment = "prod"): Osc {
 }
 
 /**
- * Wait until a just-created instance shows up when looked up by name.
- *
- * OSC can answer "created" before the instance can be looked up, and
- * waitForInstanceReady in @osaas/client-core throws "Instance … not found" at
- * once instead of waiting.  The install then undid itself and removed the
- * very storage it had just made (altaiftest, 2026-11-11).  Errors from the
- * lookup count as "not yet"; after the deadline the last one is thrown.
+ * Polls probe until it returns something.  A probe that throws counts as
+ * "not yet"; after the deadline its last error is thrown, or else timeout().
  */
-export async function whenListed(
-  lookup: () => Promise<unknown>,
-  what: string,
+export async function until<T>(
+  probe: () => Promise<T | undefined>,
+  timeout: () => Error,
   timeoutMs = 120_000,
   pollMs = 2000,
-): Promise<void> {
+): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     let failure: unknown;
     try {
-      if ((await lookup()) !== undefined) return;
+      const found = await probe();
+      if (found !== undefined) return found;
     } catch (err) {
       failure = err;
     }
-    if (Date.now() >= deadline) {
-      throw failure ?? new OscError(`${what} was created but never showed up`);
+    if (Date.now() >= deadline) throw failure ?? timeout();
+    await sleep(pollMs);
+  }
+}
+
+/**
+ * Removes something and keeps removing it until it has stayed gone for
+ * `settle` checks in a row.  A lookup that fails counts as still there.
+ */
+export async function untilGone(
+  remove: () => Promise<void>,
+  exists: () => Promise<boolean>,
+  what: string,
+  timeoutMs = 120_000,
+  pollMs = 3000,
+  settle = 3,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let gone = 0;
+  let failure: unknown;
+  for (;;) {
+    if (gone === 0) {
+      try {
+        await remove();
+        failure = undefined;
+      } catch (err) {
+        failure = err;
+      }
     }
+    const there = await exists().catch(() => true);
+    gone = there ? 0 : gone + 1;
+    if (gone >= settle) return;
+    if (Date.now() >= deadline) throw failure ?? new OscError(`${what} could not be removed`);
     await sleep(pollMs);
   }
 }
