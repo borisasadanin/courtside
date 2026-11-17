@@ -40,7 +40,7 @@ import { config } from "../config.js";
 import { mutableConfig } from "../config.js";
 import { stitchPlaylist, buildPartList } from "../playlist-stitcher.js";
 import { uploadPauseSegments } from "../pause-segments.js";
-import { viewers } from "../viewer-tracking.js";
+import { viewers, getViewerCount } from "../viewer-tracking.js";
 import streamRoutes from "../routes/streams.js";
 import vodRoutes from "../routes/vod.js";
 
@@ -822,6 +822,46 @@ describe("E2E Smoke Tests: Recording → VOD flow", () => {
       expect(vodEntry.awayTeam).toBe("AIK");
       expect(vodEntry.cameraName).toBe("Kamera 1");
       expect(vodEntry.hlsUrl).toBe(`/api/vod/${streamId}/playlist.m3u8`);
+    });
+  });
+
+  describe("Viewer count", () => {
+    const viewer1 = "0123456789abcdef0123456789abcdef";
+    const viewer2 = "fedcba9876543210fedcba9876543210";
+    const view = (id: string, v?: string, action = "") =>
+      app.inject({ method: "POST", url: `/api/streams/${id}/view${action}${v ? `?v=${v}` : ""}` });
+
+    it("counts players, not addresses: one player behind changing proxies is one viewer", async () => {
+      const { id } = (await createStream(app, { name: "Kamera 1" })).json();
+      // The same player through two different proxy addresses
+      await app.inject({ method: "POST", url: `/api/streams/${id}/view?v=${viewer1}`, remoteAddress: "192.168.233.39" });
+      await app.inject({ method: "POST", url: `/api/streams/${id}/view?v=${viewer1}`, remoteAddress: "192.168.78.236" });
+      expect(getViewerCount(id)).toBe(1);
+      // Two players through the same proxy address
+      await app.inject({ method: "POST", url: `/api/streams/${id}/view?v=${viewer2}`, remoteAddress: "192.168.78.236" });
+      expect(getViewerCount(id)).toBe(2);
+    });
+
+    it("takes a player off when it leaves", async () => {
+      const { id } = (await createStream(app, { name: "Kamera 1" })).json();
+      await view(id, viewer1);
+      await view(id, viewer2);
+      expect((await view(id, viewer1, "/leave")).statusCode).toBe(204);
+      expect(getViewerCount(id)).toBe(1);
+    });
+
+    it("ignores heartbeats without a player id or for streams that are not live", async () => {
+      const { id } = (await createStream(app, { name: "Kamera 1" })).json();
+      expect((await view(id)).statusCode).toBe(204);
+      expect((await view(id, "bad id")).statusCode).toBe(204);
+      expect(getViewerCount(id)).toBe(0);
+
+      await view("made-up-stream", viewer1);
+      expect(viewers.has("made-up-stream")).toBe(false);
+
+      streamMeta.get(id)!.stoppedAt = new Date().toISOString();
+      await view(id, viewer1);
+      expect(getViewerCount(id)).toBe(0);
     });
   });
 });

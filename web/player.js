@@ -12,6 +12,7 @@ import {
   stopStreamPolling,
   startViewerHeartbeat,
   stopViewerHeartbeat,
+  leaveViewerCount,
   pollCurrentStream,
 } from "./modules/player.js";
 import { initStreams, startListPolling, stopListPolling } from "./modules/streams.js";
@@ -77,6 +78,13 @@ function bindGlobalEvents() {
   });
   window.addEventListener("online", () => {
     offlineBanner.classList.add("hidden");
+  });
+
+  // Page closing or navigating away: stop being counted as a viewer at once.
+  // Coming back from the back/forward cache, visibilitychange counts it again.
+  window.addEventListener("pagehide", () => {
+    stopViewerHeartbeat();
+    leaveViewerCount();
   });
 
   // Visibility change — pause/resume polling
