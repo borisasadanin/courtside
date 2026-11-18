@@ -13,6 +13,7 @@ export const club = {
   venue: "",
   accentColor: "",
   logoUrl: "",
+  backgroundUrl: "",
   siteUrl: "",
   tagline: "",
   sport: null,
@@ -106,6 +107,15 @@ export function applyTheme() {
   document.querySelectorAll("[data-club-logo]").forEach((el) => {
     el.setAttribute("alt", club.shortName || club.name);
   });
+
+  // The picture behind "startar snart": the one uploaded in the admin view
+  // wins over the one the site was built with; without either, none.
+  if (club.backgroundUrl) {
+    const url = new URL(club.backgroundUrl, `${CONFIG.API_URL}/`).href;
+    document.documentElement.style.setProperty("--empty-bg", `url("${url.replace(/"/g, "%22")}")`);
+  } else {
+    document.documentElement.style.removeProperty("--empty-bg");
+  }
 
   document.querySelectorAll("[data-club-name]").forEach((el) => {
     el.textContent = club.name;

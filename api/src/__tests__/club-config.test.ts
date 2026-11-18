@@ -145,6 +145,39 @@ describe("club branding from the admin view", () => {
     await app.close();
   });
 
+  it("keeps a picture for \"startar snart\", serves it publicly and lets an admin remove it", async () => {
+    const { default: clubRoutes } = await import("../routes/club-routes.js");
+    const { Branding } = await import("../club-branding.js");
+    const { clubManifest } = await import("../club-config.js");
+    const storage = memoryStorage();
+    const branding = new Branding(storage);
+    await branding.load();
+    expect(clubManifest.backgroundUrl).toBe("");
+    const app = Fastify();
+    await app.register(clubRoutes, { branding });
+
+    expect((await app.inject({ method: "GET", url: "/api/club/background" })).statusCode).toBe(404);
+    const JPEG = "data:image/jpeg;base64," + Buffer.from("not really a jpeg").toString("base64");
+    const denied = await app.inject({ method: "PUT", url: "/api/admin/club/background", payload: { dataUrl: JPEG } });
+    expect(denied.statusCode).toBe(401);
+    expect(await branding.setBackground("data:image/svg+xml;base64,PHN2Zz4=")).toMatch(/PNG/);
+
+    expect(await branding.setBackground(JPEG)).toBeNull();
+    const res = await app.inject({ method: "GET", url: "/api/club/background" });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toBe("image/jpeg");
+
+    // Kept over a restart, and independent of the logo
+    await new Branding(storage).load();
+    expect(clubManifest.backgroundUrl).toMatch(/^\/api\/club\/background\?v=/);
+    expect(clubManifest.logoUrl).toBe("");
+
+    await branding.removeBackground();
+    expect(clubManifest.backgroundUrl).toBe("");
+    expect((await app.inject({ method: "GET", url: "/api/club/background" })).statusCode).toBe(404);
+    await app.close();
+  });
+
   it("says who answers for the recordings, set by the admin and kept", async () => {
     const { default: clubRoutes } = await import("../routes/club-routes.js");
     const { Branding } = await import("../club-branding.js");
