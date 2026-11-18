@@ -10,10 +10,13 @@ import { clubManifest, type ClubPrivacy } from "./club-config.js";
 
 export const BRANDING_KEY = "config/club.json";
 export const LOGO_KEY = "config/logo";
+export const BACKGROUND_KEY = "config/background";
 
 /** Logos are resized in the browser before upload, so this is generous. */
 export const MAX_LOGO_BYTES = 1024 * 1024;
 const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"];
+/** The picture behind "startar snart" is a photo, resized in the browser too. */
+export const MAX_BACKGROUND_BYTES = 2 * 1024 * 1024;
 
 export interface BrandingRecord {
   name?: string;
@@ -21,6 +24,8 @@ export interface BrandingRecord {
   accentColor?: string;
   /** Content type of the uploaded logo, or absent when there is none. */
   logoType?: string;
+  /** Content type of the picture shown while a match is about to start. */
+  backgroundType?: string;
   privacy?: ClubPrivacy;
   updatedAt: string;
 }
@@ -37,12 +42,16 @@ interface BrandingStorage {
  * an error message for the admin. Team logos (teams.ts) use it too.
  */
 export function decodeLogo(dataUrl: string): { bytes: Buffer; type: string } | string {
+  return decodeImage(dataUrl, MAX_LOGO_BYTES, "Logotypen");
+}
+
+function decodeImage(dataUrl: string, maxBytes: number, what: string): { bytes: Buffer; type: string } | string {
   const match = /^data:([a-z/]+);base64,(.+)$/.exec(dataUrl ?? "");
-  if (!match || !LOGO_TYPES.includes(match[1])) return "Logotypen ska vara PNG, JPG eller WebP.";
+  if (!match || !LOGO_TYPES.includes(match[1])) return `${what} ska vara PNG, JPG eller WebP.`;
 
   const bytes = Buffer.from(match[2], "base64");
   if (bytes.length === 0) return "Bilden är tom.";
-  if (bytes.length > MAX_LOGO_BYTES) return "Bilden är för stor (max 1 MB).";
+  if (bytes.length > maxBytes) return `Bilden är för stor (max ${maxBytes / (1024 * 1024)} MB).`;
   return { bytes, type: match[1] };
 }
 
@@ -126,6 +135,29 @@ export class Branding {
     return { bytes: await this.storage.downloadBuffer(LOGO_KEY), type: this.record.logoType };
   }
 
+  /** Store the "startar snart" picture sent as a data URL. Returns an error message, or null. */
+  async setBackground(dataUrl: string): Promise<string | null> {
+    const image = decodeImage(dataUrl, MAX_BACKGROUND_BYTES, "Bilden");
+    if (typeof image === "string") return image;
+
+    await this.storage.uploadBuffer(BACKGROUND_KEY, image.bytes, image.type);
+    await this.save({ ...this.record, backgroundType: image.type });
+    return null;
+  }
+
+  async removeBackground(): Promise<void> {
+    if (!this.record?.backgroundType) return;
+    await this.storage.deleteObject(BACKGROUND_KEY);
+    const { backgroundType: _removed, ...rest } = this.record;
+    await this.save(rest);
+  }
+
+  /** The uploaded "startar snart" picture, or null when the club has not uploaded one. */
+  async background(): Promise<{ bytes: Buffer; type: string } | null> {
+    if (!this.record?.backgroundType) return null;
+    return { bytes: await this.storage.downloadBuffer(BACKGROUND_KEY), type: this.record.backgroundType };
+  }
+
   private async save(fields: Omit<BrandingRecord, "updatedAt">): Promise<void> {
     const record: BrandingRecord = { ...fields, updatedAt: new Date().toISOString() };
     await this.storage.uploadBuffer(BRANDING_KEY, JSON.stringify(record, null, 2), "application/json");
@@ -144,5 +176,9 @@ export class Branding {
     clubManifest.logoUrl = r?.logoType
       ? `/api/club/logo?v=${encodeURIComponent(r.updatedAt)}`
       : this.defaults.logoUrl;
+    // Empty: the website keeps the picture it was built with, if any.
+    clubManifest.backgroundUrl = r?.backgroundType
+      ? `/api/club/background?v=${encodeURIComponent(r.updatedAt)}`
+      : "";
   }
 }

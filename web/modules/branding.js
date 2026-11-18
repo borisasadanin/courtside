@@ -13,6 +13,8 @@ import { initPrivacy } from "./privacy.js";
 
 /** Logos are scaled down to this before upload — plenty for a header and an icon. */
 const LOGO_MAX_PX = 512;
+/** The "startar snart" picture fills the player area; this is sharp on a large screen. */
+const BACKGROUND_MAX_PX = 1920;
 
 function adminHeaders() {
   return { "X-Admin-Token": state.adminToken, "Content-Type": "application/json" };
@@ -30,6 +32,17 @@ export function renderBranding() {
         <input type="file" id="brandingLogoInput" accept="image/*" class="visually-hidden-file">
         ${club.logoUrl.startsWith("/api/club/logo") ? '<button class="branding-link" id="brandingLogoRemove">Ta bort logotyp</button>' : ""}
         <span class="branding-status" id="brandingLogoStatus" role="status"></span>
+      </div>
+    </div>
+    <div class="branding-field branding-bg-field">
+      <span>Bild när en match startar snart</span>
+      <span class="branding-hint">Visas för tittarna bakom "En basketmatch startar snart!" när en kamera har tryckt på Meddela tittare. Välj gärna en liggande bild.</span>
+      <div class="branding-bg" id="brandingBgPreview" role="img" aria-label="Nuvarande bild"><span class="branding-bg-empty">Ingen bild</span></div>
+      <div class="branding-logo-actions">
+        <button type="button" class="admin-pair-btn branding-upload" id="brandingBgPick">${club.backgroundUrl ? "Byt bild" : "Ladda upp bild"}</button>
+        <input type="file" id="brandingBgInput" accept="image/*" class="visually-hidden-file">
+        ${club.backgroundUrl ? '<button class="branding-link" id="brandingBgRemove">Ta bort bild</button>' : ""}
+        <span class="branding-status" id="brandingBgStatus" role="status"></span>
       </div>
     </div>
     <label class="branding-field">Namn
@@ -66,6 +79,24 @@ export function renderBranding() {
     if (file) uploadLogo(file);
   });
   document.getElementById("brandingLogoRemove")?.addEventListener("click", removeLogo);
+
+  const bgInput = document.getElementById("brandingBgInput");
+  document.getElementById("brandingBgPick").addEventListener("click", () => bgInput.click());
+  bgInput.addEventListener("change", () => {
+    const file = bgInput.files?.[0];
+    bgInput.value = "";
+    if (file) uploadBackground(file);
+  });
+  document.getElementById("brandingBgRemove")?.addEventListener("click", removeBackground);
+  showBackgroundPreview();
+}
+
+/** "Ingen bild" over the preview when neither an upload nor the built-in picture is there. */
+function showBackgroundPreview() {
+  const empty = document.querySelector("#brandingBgPreview .branding-bg-empty");
+  if (!empty) return;
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--empty-bg").trim();
+  empty.hidden = !!bg && bg !== "none";
 }
 
 /** Who answers for the recordings, shown to viewers under "Om inspelningarna". */
@@ -171,17 +202,43 @@ async function removeLogo() {
   }
 }
 
-/** Scale an image down in the browser, so a photo straight off a phone is fine to pick. */
-export async function resize(file) {
+async function uploadBackground(file) {
+  setStatus("Laddar upp…", false, "brandingBgStatus");
+  try {
+    const dataUrl = await resize(file, { maxPx: BACKGROUND_MAX_PX, type: "image/jpeg" });
+    await send("PUT", "/api/admin/club/background", { dataUrl });
+    renderBranding();
+    setStatus("Bilden är bytt.", false, "brandingBgStatus");
+  } catch (err) {
+    setStatus(err.message, true, "brandingBgStatus");
+  }
+}
+
+async function removeBackground() {
+  setStatus("Tar bort…", false, "brandingBgStatus");
+  try {
+    await send("DELETE", "/api/admin/club/background");
+    renderBranding();
+    setStatus("Bilden är borttagen.", false, "brandingBgStatus");
+  } catch (err) {
+    setStatus(err.message, true, "brandingBgStatus");
+  }
+}
+
+/**
+ * Scale an image down in the browser, so a photo straight off a phone is fine
+ * to pick. Logos stay PNG (they may be transparent); photos go as JPEG.
+ */
+export async function resize(file, { maxPx = LOGO_MAX_PX, type = "image/png" } = {}) {
   const bitmap = await decode(file).catch(() => {
     throw new Error("Bilden gick inte att läsa. Välj en PNG eller JPG.");
   });
-  const scale = Math.min(1, LOGO_MAX_PX / Math.max(bitmap.width || bitmap.naturalWidth, bitmap.height || bitmap.naturalHeight));
+  const scale = Math.min(1, maxPx / Math.max(bitmap.width || bitmap.naturalWidth, bitmap.height || bitmap.naturalHeight));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round((bitmap.width || bitmap.naturalWidth) * scale);
   canvas.height = Math.round((bitmap.height || bitmap.naturalHeight) * scale);
   canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL("image/png");
+  return canvas.toDataURL(type, 0.85);
 }
 
 /** createImageBitmap where it works, an <img> otherwise (older Safari, HEIC). */

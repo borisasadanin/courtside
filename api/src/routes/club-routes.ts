@@ -37,6 +37,17 @@ export default async function clubRoutes(
       .send(logo.bytes);
   });
 
+  // GET /api/club/background — the picture shown while a match is about to
+  // start. Public, like the logo; versioned in its URL, so cached hard.
+  app.get("/api/club/background", async (_request, reply) => {
+    const image = await branding.background();
+    if (!image) return reply.code(404).send({ error: "no_background" });
+    return reply
+      .header("Content-Type", image.type)
+      .header("Cache-Control", "public, max-age=31536000, immutable")
+      .send(image.bytes);
+  });
+
   // PUT /api/admin/club — name, tagline and colour
   app.put<{ Body: { name?: string; tagline?: string; accentColor?: string } }>(
     "/api/admin/club",
@@ -70,6 +81,25 @@ export default async function clubRoutes(
       return reply.send(clubManifest);
     },
   );
+
+  // PUT /api/admin/club/background — a data URL, resized by the admin view first
+  app.put<{ Body: { dataUrl?: string } }>(
+    "/api/admin/club/background",
+    { bodyLimit: 4 * 1024 * 1024 },
+    async (request, reply) => {
+      if (!requireAdminAuth(request, reply)) return;
+      const error = await branding.setBackground(request.body?.dataUrl ?? "");
+      if (error) return reply.code(400).send({ error });
+      return reply.send(clubManifest);
+    },
+  );
+
+  // DELETE /api/admin/club/background — back to the picture the site was built with
+  app.delete("/api/admin/club/background", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    await branding.removeBackground();
+    return reply.send(clubManifest);
+  });
 
   // DELETE /api/admin/club/logo — back to the default logo
   app.delete("/api/admin/club/logo", async (request, reply) => {
