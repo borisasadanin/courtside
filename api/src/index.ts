@@ -5,7 +5,7 @@ import rateLimit from "@fastify/rate-limit";
 
 import { config, validateConfig } from "./config.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "./club-config.js";
-import { initServices, streamMeta, collectors, teams, guestSpaces } from "./state.js";
+import { initServices, streamMeta, collectors, teams, guestSpaces, sponsorQueue } from "./state.js";
 import { startGuestCleanup } from "./guest-cleanup.js";
 import { restoreStreamMeta } from "./stream-meta-store.js";
 import { SegmentCollector } from "./segment-collector.js";
@@ -32,6 +32,7 @@ import matchRoutes from "./routes/match-routes.js";
 import shareRoutes from "./routes/share-routes.js";
 import guestAdminRoutes from "./routes/guest-admin-routes.js";
 import guestRoutes from "./routes/guest-routes.js";
+import sponsorRoutes from "./routes/sponsor-routes.js";
 import { Setup } from "./setup.js";
 import { Branding } from "./club-branding.js";
 import { VERSION } from "./version.js";
@@ -113,6 +114,7 @@ await app.register(teamRoutes);
 await app.register(matchRoutes);
 await app.register(guestAdminRoutes);
 await app.register(guestRoutes);
+await app.register(sponsorRoutes);
 
 const webRoot = webDistDir();
 await app.register(shareRoutes, { branding, webRoot });
@@ -190,6 +192,10 @@ startGuestCleanup(guestSpaces, minio, {
   info: (msg) => app.log.info(msg),
   error: (obj, msg) => app.log.error(obj, msg),
 });
+
+// A sponsor clip cut off by the last restart is marked failed; queued ones are
+// transcoded now (#92). In the background, like the rest of start-up's chores.
+sponsorQueue.resume().catch((err) => console.error("Could not resume sponsor clips:", err));
 
 // Start background health polling for Restreamer
 oscManager.startBackgroundPolling();

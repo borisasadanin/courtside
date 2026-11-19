@@ -33,6 +33,11 @@ Undantaget är en delad matchlänk: förhandsbilden i chatten visar utan kod lag
 Bilden ritas av Courtside och visar inga personer, och den sparas inte i lagringen. Själva matchen kräver
 fortfarande tittarkoden.
 
+Sponsorklippen under *Hantera → Sponsring* ligger i samma lagring. Listan, i den ordning de spelas, och
+pauslängderna finns i `config/sponsors.json`. Varje klipp ligger under `sponsors/<id>/`, omkodat till 1080p
+med en miniatyrbild. Filen ni laddade upp raderas när omkodningen är klar. Klippen visas bara med
+tittarkoden. Tar ni bort ett klipp följer dess filer med, och tas Courtside bort försvinner alla klipp.
+
 ## Vad får videon att försvinna?
 
 | Det här | Händer med videon |

@@ -175,6 +175,25 @@ describe("pause types", () => {
     expect(body.period).toBe(1);
   });
 
+  it("numbers period breaks without the timeouts, for the sponsor clips (#95)", async () => {
+    await pause({ type: "timeout" });
+    expect((await get()).json()).not.toHaveProperty("periodBreak");
+    await resume();
+
+    const first = await pause({ type: "period" });
+    expect(first.json()).toMatchObject({ pauseType: "period", periodBreak: 1 });
+    expect((await get()).json()).toMatchObject({ status: "paused", periodBreak: 1 });
+    await resume();
+
+    await pause({ type: "timeout" });
+    await resume();
+    await pause({ type: "period" });
+    expect((await get()).json()).toMatchObject({ periodBreak: 2 });
+
+    await resume();
+    expect((await get()).json()).not.toHaveProperty("periodBreak");
+  });
+
   it("shows the pause type in the stream list too", async () => {
     await pause({ type: "timeout" });
     const list = (await app.inject({ method: "GET", url: "/api/streams" })).json();
