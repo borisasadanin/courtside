@@ -3867,3 +3867,82 @@ footer a:hover { color: var(--accent-ink); }
   .admin-head-actions .admin-pair-btn { flex: 1; }
   .invite-buttons .admin-pair-btn, .invite-buttons .device-revoke { flex: 1 1 100%; }
 }
+
+/* === Sponsor clips in Hantera (#87) === */
+.sponsor-uploads { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.sponsor-upload {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+}
+.sponsor-upload-name { font-weight: 600; flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
+.sponsor-progress { flex: 2 1 160px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.sponsor-progress > span { display: block; height: 100%; background: var(--accent); transition: width 0.2s; }
+.sponsor-upload-pct { font-variant-numeric: tabular-nums; color: var(--text-muted); min-width: 3.5em; text-align: right; }
+.sponsor-upload-error { color: var(--red); flex: 1 1 100%; margin: 0; font-size: 0.9rem; }
+
+/* The grid scrolls sideways on a phone rather than squeezing six columns of boxes. */
+.sponsor-scroll {
+  overflow-x: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+}
+.sponsor-grid { min-width: 600px; }
+.sponsor-body { position: relative; }
+.sponsor-row {
+  display: grid;
+  grid-template-columns: 40px minmax(170px, 1fr) repeat(6, 64px);
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.sponsor-head {
+  font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted); min-height: 40px;
+}
+.sponsor-head > span:nth-child(2) { padding-left: 4px; }
+.sponsor-col { display: flex; justify-content: center; text-align: center; }
+.sponsor-handle-cell { display: flex; justify-content: center; }
+.sponsor-handle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 44px; border: none; background: none; color: var(--text-muted);
+  cursor: grab; touch-action: none; border-radius: 8px;
+}
+.sponsor-handle:focus-visible { outline: 2px solid var(--accent); }
+.sponsor-dragging { position: relative; z-index: 2; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+.sponsor-dragging .sponsor-handle { cursor: grabbing; color: var(--accent-ink); }
+.sponsor-info {
+  display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 8px 4px;
+  border: none; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; min-width: 0;
+}
+.sponsor-thumb {
+  flex: none; width: 64px; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: var(--line);
+}
+.sponsor-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sponsor-thumb-empty img { display: none; }
+.sponsor-text { display: flex; flex-direction: column; min-width: 0; }
+.sponsor-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sponsor-meta { font-size: 0.85rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.sponsor-status-failed { color: var(--red); }
+.sponsor-status-queued, .sponsor-status-processing, .sponsor-status-uploading { color: var(--accent-ink); }
+.sponsor-check { width: 22px; height: 22px; accent-color: var(--accent); cursor: pointer; }
+.sponsor-foot { min-height: 48px; font-variant-numeric: tabular-nums; }
+.sponsor-foot:last-child { border-bottom: none; }
+.sponsor-foot-label { font-weight: 600; padding-left: 4px; }
+.sponsor-over { color: var(--red); font-weight: 700; }
+.sponsor-na { color: var(--text-muted); }
+.sponsor-break {
+  width: 56px; min-height: 36px; padding: 4px; text-align: center;
+  background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+  font: inherit; font-variant-numeric: tabular-nums;
+}
+.sponsor-detail { border-bottom: 1px solid var(--line); background: var(--bg); }
+.sponsor-detail-inner { display: flex; flex-direction: column; gap: 8px; padding: 16px; max-width: 560px; }
+.sponsor-preview { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; }
+.sponsor-rename { display: flex; gap: 8px; }
+.sponsor-rename .invite-input { flex: 1; }
+.sponsor-delete { align-self: flex-start; }
+.sponsor-move { display: flex; gap: 8px; }
+.sponsor-warnings { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.sponsor-warning {
+  margin: 0; padding: 10px 14px; border-radius: 12px;
+  background: rgba(231, 76, 60, 0.12); border: 1px solid rgba(231, 76, 60, 0.4); color: var(--text); font-size: 0.9rem;
+}
