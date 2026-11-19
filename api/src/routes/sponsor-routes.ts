@@ -73,6 +73,7 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
 
   app.get("/api/admin/sponsors", async (request, reply) => {
     if (!requireAdminAuth(request, reply)) return;
+    await sponsors.expireAbandonedUploads();
     const { clips, breakSeconds } = await sponsors.read();
     return { clips: clips.map(present), breakSeconds, maxUploadBytes: MAX_UPLOAD_BYTES };
   });

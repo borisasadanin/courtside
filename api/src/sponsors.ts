@@ -42,6 +42,8 @@ export const DEFAULT_BREAK_SECONDS: Record<BreakSlot, number> = {
 /** A break can be set to anything from no time at all to an hour. */
 const MAX_BREAK_SECONDS = 3600;
 const MAX_NAME = 80;
+/** The PUT link lasts an hour; an upload still unconfirmed after three has been abandoned. */
+const ABANDONED_UPLOAD_MS = 3 * 60 * 60 * 1000;
 
 /**
  * uploading:  the admin has a PUT link and the file is on its way
@@ -268,6 +270,32 @@ export class SponsorRegistry {
       const queued = clips.filter((c) => c.status === "queued");
       return { settings: changed ? { ...s, clips } : s, result: queued };
     });
+  }
+
+  /**
+   * An upload the browser never confirmed (tab closed, connection lost) would
+   * stay "uploading" for ever. Once its PUT link has long expired it is marked
+   * failed, so the admin sees why and can delete it, and anything that did
+   * arrive is removed. Returns how many clips were given up on.
+   */
+  async expireAbandonedUploads(now = Date.now()): Promise<number> {
+    const expired = await this.exclusive(async (s) => {
+      const stale = new Set(
+        s.clips
+          .filter((c) => c.status === "uploading" && now - Date.parse(c.createdAt) > ABANDONED_UPLOAD_MS)
+          .map((c) => c.id),
+      );
+      if (stale.size === 0) return { settings: s, result: [] as string[] };
+      const at = new Date(now).toISOString();
+      const clips = s.clips.map((c) =>
+        stale.has(c.id)
+          ? { ...c, status: "failed" as const, error: "Uppladdningen blev aldrig klar. Ladda upp klippet igen.", updatedAt: at }
+          : c,
+      );
+      return { settings: { ...s, clips }, result: [...stale] };
+    });
+    for (const id of expired) await this.storage.deletePrefix(sponsorPrefix(id));
+    return expired.length;
   }
 
   // --- Internals ---

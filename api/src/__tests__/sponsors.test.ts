@@ -191,6 +191,25 @@ describe("sponsor registry (#88)", () => {
   });
 });
 
+describe("abandoned uploads", () => {
+  it("fails an upload that was never confirmed and removes what arrived", async () => {
+    const storage = memoryStorage();
+    const registry = new SponsorRegistry(storage);
+    const old = await registry.create("Gammal", 3, "video/mp4");
+    const fresh = await registry.create("Ny", 3, "video/mp4");
+    storage.files.set(originalKey(old.id), { body: "raw", type: "video/mp4" });
+    const later = Date.parse(old.createdAt) + 3 * 60 * 60 * 1000 + 1000;
+    // createdAt of "fresh" is moved forward so only "old" is stale.
+    await registry.patch(fresh.id, { createdAt: new Date(later).toISOString() } as never);
+    expect(await registry.expireAbandonedUploads(later)).toBe(1);
+    expect((await registry.get(old.id))?.status).toBe("failed");
+    expect((await registry.get(old.id))?.error).toMatch(/aldrig klar/);
+    expect((await registry.get(fresh.id))?.status).toBe("uploading");
+    expect(storage.files.has(originalKey(old.id))).toBe(false);
+    expect(await registry.expireAbandonedUploads(later)).toBe(0);
+  });
+});
+
 describe("transcode queue (#92)", () => {
   let storage: ReturnType<typeof memoryStorage>;
   let registry: SponsorRegistry;
