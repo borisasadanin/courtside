@@ -53,8 +53,16 @@ function fail(reply: FastifyReply, err: unknown) {
   throw err;
 }
 
-/** The admin previews clips in the same player the viewers use, so either PIN opens the media. */
+/**
+ * The admin previews clips too, so either PIN opens the media. The admin's
+ * token comes as "Authorization: Bearer", not X-Admin-Token: the files are a
+ * redirect to storage, a browser carries a custom header along on that
+ * redirect, and storage's CORS allows only Content-Type, Authorization and
+ * x-jwt. Authorization is dropped on a cross-origin redirect.
+ */
 function viewerOrAdmin(request: FastifyRequest, reply: FastifyReply): boolean {
+  const auth = request.headers.authorization;
+  if (typeof auth === "string" && auth.startsWith("Bearer ") && isValidAdminToken(auth.slice(7))) return true;
   const token = request.headers["x-admin-token"];
   if (typeof token === "string" && isValidAdminToken(token)) return true;
   return requireViewerAuth(request, reply);

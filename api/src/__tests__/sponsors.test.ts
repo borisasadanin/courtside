@@ -464,8 +464,11 @@ describe("sponsor routes (#89, #90, #93, #94, #96)", () => {
     expect(manifest.statusCode).toBe(200);
     expect(manifest.body).toContain(`/api/sponsors/${a}/seg_00000.ts`);
     expect((await app.inject({ url: `/api/sponsors/${a}/index.m3u8` })).statusCode).toBe(401);
-    // The admin previews with the admin PIN alone.
+    // The admin previews with the admin PIN alone, also as a Bearer token,
+    // which is the one header storage's CORS lets through a redirect.
     expect((await app.inject({ url: `/api/sponsors/${a}/index.m3u8`, headers: admin })).statusCode).toBe(200);
+    const bearer = { authorization: `Bearer ${admin["x-admin-token"]}` };
+    expect((await app.inject({ url: `/api/sponsors/${a}/seg_00000.ts`, headers: bearer })).statusCode).toBe(302);
 
     const seg = await app.inject({ url: `/api/sponsors/${a}/seg_00001.ts`, headers: viewer });
     expect(seg.statusCode).toBe(302);
