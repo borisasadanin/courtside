@@ -1124,6 +1124,35 @@ main {
   opacity: 0.8;
 }
 
+/* "Jag är redo – slå på ljud" on the waiting screen (#104) */
+.ready-sound-btn {
+  margin: 18px auto 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: 700 1rem/1.2 var(--font-display, sans-serif);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.ready-sound-btn:hover { background: var(--accent-dim); }
+.ready-sound-btn:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
+
+.empty-state .ready-sound-note {
+  margin-top: 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
+.ready-sound-btn.hidden,
+.empty-state .ready-sound-note.hidden { display: none; }
+
 /* Upcoming: gold glow */
 .empty-state.upcoming {
   border: 1px solid var(--accent-dim);
@@ -1397,6 +1426,12 @@ main {
   color: #fff;
 }
 
+/* Behind live in the DVR: the badge is grey until "Hoppa till live" (#102) */
+.live-badge.live.behind {
+  background: #555;
+  animation: none;
+}
+
 .live-badge.offline {
   background: #555;
   color: #aaa;
@@ -1557,6 +1592,33 @@ main {
 }
 
 /* Overlay */
+
+/* "Tryck för ljud": the browser started the video muted (#105) */
+.tap-for-sound {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  min-height: 48px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font: 700 1rem/1 var(--font-display, sans-serif);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.tap-for-sound:hover { background: rgba(0, 0, 0, 0.85); }
+.tap-for-sound:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.tap-for-sound.hidden { display: none; }
 
 .overlay {
   position: absolute;

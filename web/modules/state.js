@@ -61,6 +61,8 @@ export function initDom() {
   dom.emptyLogo = document.getElementById("emptyLogo");
   dom.emptyTitle = document.getElementById("emptyTitle");
   dom.emptySub = document.getElementById("emptySub");
+  dom.readySoundBtn = document.getElementById("readySoundBtn");
+  dom.readySoundNote = document.getElementById("readySoundNote");
   dom.emptySchedule = document.getElementById("emptySchedule");
 
   // VOD list
@@ -105,6 +107,7 @@ export function initDom() {
   dom.liveBadge = document.getElementById("liveBadge");
   dom.statusDot = document.getElementById("statusDot");
   dom.backToLiveBtn = document.getElementById("backToLiveBtn");
+  dom.tapForSoundBtn = document.getElementById("tapForSoundBtn");
   dom.streamTitle = document.getElementById("streamTitle");
   dom.streamDesc = document.getElementById("streamDesc");
   dom.pipBtn = document.getElementById("pipBtn");

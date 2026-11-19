@@ -115,6 +115,8 @@
           <img src="icon.png" alt="" data-club-logo class="empty-logo" id="emptyLogo">
           <p id="emptyTitle">Ingen sänder just nu</p>
           <p class="empty-sub" id="emptySub">Matchen dyker upp här av sig själv när en kamera börjar sända. Du behöver inte ladda om sidan.</p>
+          <button class="ready-sound-btn hidden" id="readySoundBtn" type="button">Jag är redo – slå på ljud</button>
+          <p class="ready-sound-note hidden" id="readySoundNote" role="status" tabindex="-1">Ljudet är på. Matchen startar här av sig själv.</p>
           <div class="empty-schedule hidden" id="emptySchedule"></div>
         </div>
       </div>
@@ -174,7 +176,7 @@
             </button>
 
             <div class="live-badge offline" id="liveBadge">OFFLINE</div>
-            <button id="backToLiveBtn" class="back-to-live-btn hidden" aria-label="Tillbaka till live">LIVE &#x25B6;</button>
+            <button id="backToLiveBtn" class="back-to-live-btn hidden" type="button">Hoppa till live</button>
 
             <div class="volume-group">
               <button id="muteBtn" class="control-btn" aria-label="Ljud">
@@ -205,6 +207,11 @@
               <svg class="icon icon-fs-exit" viewBox="0 0 24 24" style="display:none"><polyline points="4,14 10,14 10,20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="20,10 14,10 14,4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14,10 21,3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="10,14 3,21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
           </div>
+
+          <button id="tapForSoundBtn" class="tap-for-sound hidden" type="button">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19" fill="currentColor"/><line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="17" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Tryck för ljud
+          </button>
 
           <div class="overlay" id="overlay">
             <div class="overlay-content">
