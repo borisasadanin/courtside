@@ -14,6 +14,7 @@ import { renderPins } from "./pins.js";
 import { renderUpdate } from "./update.js";
 import { showImage } from "./images.js";
 import { renderTeamsAdmin } from "./team-admin.js";
+import { renderSponsorsAdmin } from "./sponsor-admin.js";
 import { renderMatchesAdmin } from "./match-admin.js";
 import { renderGuestSpacesAdmin } from "./guest-admin.js";
 
@@ -96,6 +97,7 @@ export async function loadAdminStorage() {
   renderUpdate();
   renderDeletions();
   renderTeamsAdmin();
+  renderSponsorsAdmin();
   // Before Matcher, whose matches link to their guest spaces once these are in.
   renderGuestSpacesAdmin();
   renderMatchesAdmin();
