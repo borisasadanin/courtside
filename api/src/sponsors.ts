@@ -24,25 +24,31 @@ export const SPONSORS_KEY = "config/sponsors.json";
 export const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 
 /** Where in a match a clip can be shown. The order here is the order of the admin's columns. */
-export const SPONSOR_SLOTS = ["start", "pause1", "pause2", "pause3", "overtime", "end"] as const;
+export const SPONSOR_SLOTS = ["start", "p1", "p2", "p3", "ot", "end"] as const;
 export type SponsorSlot = (typeof SPONSOR_SLOTS)[number];
 
 /** The slots that are breaks, and so have a length the clips should fit into. */
-export const BREAK_SLOTS = ["pause1", "pause2", "pause3", "overtime"] as const;
+export const BREAK_SLOTS = ["p1", "p2", "p3", "ot"] as const;
 export type BreakSlot = (typeof BREAK_SLOTS)[number];
 
 /** Break lengths in seconds until the admin changes them. */
 export const DEFAULT_BREAK_SECONDS: Record<BreakSlot, number> = {
-  pause1: 120,
-  pause2: 900,
-  pause3: 120,
-  overtime: 120,
+  p1: 120,
+  p2: 900,
+  p3: 120,
+  ot: 120,
 };
 
-/** A break can be set to anything from no time at all to an hour. */
+/** A break can be set to anything from a second to an hour (#94). */
 const MAX_BREAK_SECONDS = 3600;
 const MAX_NAME = 80;
-/** The PUT link lasts an hour; an upload still unconfirmed after three has been abandoned. */
+/** How long the presigned PUT link is valid (#89). */
+export const UPLOAD_LINK_SECONDS = 15 * 60;
+/**
+ * An upload still unconfirmed after this long has been abandoned. Storage
+ * checks the link when the PUT starts, so a slow upload begun in time may
+ * run well past the link's 15 minutes.
+ */
 const ABANDONED_UPLOAD_MS = 3 * 60 * 60 * 1000;
 
 /**
@@ -109,15 +115,15 @@ export class SponsorError extends Error {
 
 /**
  * The slots in play order for a period break, counted among period breaks
- * only: the first is pause1, the second pause2, the third pause3, and every
- * one after that overtime. Timeouts never get a slot.
+ * only: the first is p1, the second p2, the third p3, and every one after
+ * that ot (overtime). Timeouts never get a slot.
  */
 export function slotForPeriodBreak(n: number): BreakSlot | null {
   if (!Number.isInteger(n) || n < 1) return null;
-  if (n === 1) return "pause1";
-  if (n === 2) return "pause2";
-  if (n === 3) return "pause3";
-  return "overtime";
+  if (n === 1) return "p1";
+  if (n === 2) return "p2";
+  if (n === 3) return "p3";
+  return "ot";
 }
 
 /**
@@ -243,8 +249,8 @@ export class SponsorRegistry {
     const entries = Object.entries(input as Record<string, unknown>);
     for (const [slot, value] of entries) {
       if (!BREAK_SLOTS.includes(slot as BreakSlot)) throw new SponsorError("Okänd paus.", 400);
-      if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > MAX_BREAK_SECONDS) {
-        throw new SponsorError("Pauslängden ska vara 0–60 minuter i hela sekunder.", 400);
+      if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > MAX_BREAK_SECONDS) {
+        throw new SponsorError("Pauslängden ska vara 1 sekund till 60 minuter, i hela sekunder.", 400);
       }
     }
     return this.exclusive(async (s) => {
@@ -255,17 +261,21 @@ export class SponsorRegistry {
 
   /**
    * After a restart nothing is transcoding, so a clip that was "processing"
-   * never will be. It is marked failed and the admin uploads it again. Queued
+   * never will be, and neither will an upload whose link ran out before it was
+   * confirmed (#92). They are marked failed and the admin uploads again. Queued
    * clips are returned so the caller can put them back in the queue.
    */
-  async recoverAfterRestart(): Promise<SponsorClip[]> {
+  async recoverAfterRestart(nowMs = Date.now()): Promise<SponsorClip[]> {
     return this.exclusive(async (s) => {
       let changed = false;
-      const now = new Date().toISOString();
+      const now = new Date(nowMs).toISOString();
       const clips = s.clips.map((c) => {
-        if (c.status !== "processing") return c;
+        const interrupted =
+          c.status === "processing" ||
+          (c.status === "uploading" && nowMs - Date.parse(c.createdAt) > UPLOAD_LINK_SECONDS * 1000);
+        if (!interrupted) return c;
         changed = true;
-        return { ...c, status: "failed" as const, error: "Servern startades om under bearbetningen. Ladda upp klippet igen.", updatedAt: now };
+        return { ...c, status: "failed" as const, error: "Avbröts av en omstart – ladda upp igen.", updatedAt: now };
       });
       const queued = clips.filter((c) => c.status === "queued");
       return { settings: changed ? { ...s, clips } : s, result: queued };

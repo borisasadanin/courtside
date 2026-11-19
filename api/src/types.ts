@@ -24,11 +24,10 @@ export interface StreamPublicInfo {
   /** Current match period (1-based) */
   period?: number;
   /**
-   * Set only during a period break: which period break it is, timeouts not
-   * counted (1-based). Decides the sponsor clips: 1–3 are breaks 1–3, the
-   * rest overtime (#95).
+   * Set only during a period break: the sponsor clips it shows, counted among
+   * period breaks only. The 1st–3rd are p1–p3, every one after that ot (#95).
    */
-  periodBreak?: number;
+  sponsorSurface?: "p1" | "p2" | "p3" | "ot";
   viewers: number;
   /** A recent frame of the stream, behind the viewer PIN (ABL-045). */
   posterUrl?: string;

@@ -177,21 +177,28 @@ describe("pause types", () => {
 
   it("numbers period breaks without the timeouts, for the sponsor clips (#95)", async () => {
     await pause({ type: "timeout" });
-    expect((await get()).json()).not.toHaveProperty("periodBreak");
+    expect((await get()).json()).not.toHaveProperty("sponsorSurface");
     await resume();
 
     const first = await pause({ type: "period" });
-    expect(first.json()).toMatchObject({ pauseType: "period", periodBreak: 1 });
-    expect((await get()).json()).toMatchObject({ status: "paused", periodBreak: 1 });
+    expect(first.json()).toMatchObject({ pauseType: "period", sponsorSurface: "p1" });
+    expect((await get()).json()).toMatchObject({ status: "paused", sponsorSurface: "p1" });
     await resume();
 
     await pause({ type: "timeout" });
     await resume();
     await pause({ type: "period" });
-    expect((await get()).json()).toMatchObject({ periodBreak: 2 });
+    expect((await get()).json()).toMatchObject({ sponsorSurface: "p2" });
 
     await resume();
-    expect((await get()).json()).not.toHaveProperty("periodBreak");
+    expect((await get()).json()).not.toHaveProperty("sponsorSurface");
+
+    // The third and fourth period breaks: p3, then overtime from there on.
+    for (const surface of ["p3", "ot", "ot"]) {
+      await pause({ type: "period" });
+      expect((await get()).json()).toMatchObject({ sponsorSurface: surface });
+      await resume();
+    }
   });
 
   it("shows the pause type in the stream list too", async () => {

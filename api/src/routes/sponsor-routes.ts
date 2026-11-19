@@ -13,7 +13,8 @@
  *
  * Viewers, behind the viewer PIN like every other piece of video (#96):
  *
- *   GET    /api/sponsors                    the ready clips of every slot, in play order
+ *   GET    /api/sponsors/play?surface=…     the ready clips of one surface, in play order,
+ *                                           and the team to name in the banner
  *   GET    /api/sponsors/:id/:file          a clip's playlist, segments and thumbnail
  *
  * The file itself never passes through the API: the proxy in front of it
@@ -21,11 +22,14 @@
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isValidAdminToken, requireAdminAuth, requireViewerAuth } from "../auth.js";
-import { minio, sponsors, sponsorQueue } from "../state.js";
+import { minio, sponsors, sponsorQueue, streamMeta } from "../state.js";
+import { defaultHomeTeam } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import {
   MAX_UPLOAD_BYTES,
+  SPONSOR_SLOTS,
   SponsorError,
+  UPLOAD_LINK_SECONDS,
   originalKey,
   sponsorManifestKey,
   sponsorPrefix,
@@ -87,7 +91,7 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
       try {
         const clip = await sponsors.create(name, sizeBytes, contentType);
         const type = clip.contentType ?? "application/octet-stream";
-        const uploadUrl = await minio.presignPut(originalKey(clip.id), type);
+        const uploadUrl = await minio.presignPut(originalKey(clip.id), type, UPLOAD_LINK_SECONDS);
         return reply.code(201).send({
           clip: present(clip),
           upload: { method: "PUT", url: uploadUrl, headers: { "Content-Type": type } },
@@ -172,19 +176,24 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
 
   // --- Viewers (#96) ---
 
-  app.get("/api/sponsors", async (request, reply) => {
+  // `surface` is start, p1, p2, p3, ot or end. `stream` is optional: the
+  // banner names that stream's home team, the team broadcasting, and
+  // otherwise the club's own short name.
+  app.get<{ Querystring: { surface?: string; stream?: string } }>("/api/sponsors/play", async (request, reply) => {
     if (!requireViewerAuth(request, reply)) return;
-    const playlist = await sponsors.playlist();
-    const slots: Record<string, { id: string; name: string; durationSeconds?: number; hlsUrl: string }[]> = {};
-    for (const [slot, clips] of Object.entries(playlist)) {
-      slots[slot] = clips!.map((c) => ({
-        id: c.id,
-        name: c.name,
-        durationSeconds: c.durationSeconds,
-        hlsUrl: `/api/sponsors/${c.id}/index.m3u8`,
-      }));
+    const { surface, stream } = request.query;
+    if (!SPONSOR_SLOTS.includes(surface as (typeof SPONSOR_SLOTS)[number])) {
+      return reply.code(400).send({ error: "invalid_surface" });
     }
-    return reply.header("Cache-Control", "no-cache").send({ slots });
+    const playlist = await sponsors.playlist();
+    const clips = (playlist[surface as (typeof SPONSOR_SLOTS)[number]] ?? []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      durationSec: c.durationSeconds,
+      hlsUrl: `/api/sponsors/${c.id}/index.m3u8`,
+    }));
+    const teamName = (stream && streamMeta.get(stream)?.homeTeam) || defaultHomeTeam;
+    return reply.header("Cache-Control", "no-cache").send({ surface, teamName, clips });
   });
 
   app.get<{ Params: { id: string; file: string } }>("/api/sponsors/:id/:file", async (request, reply) => {

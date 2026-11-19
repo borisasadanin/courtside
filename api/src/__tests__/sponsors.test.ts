@@ -25,8 +25,9 @@ import {
   slotForPeriodBreak,
   periodBreakNumber,
 } from "../sponsors.js";
-import { SponsorTranscodeQueue, playlistDuration, transcodeSponsorClip, type TranscodeResult } from "../sponsor-transcode.js";
-import { initServices, sponsors, sponsorQueue } from "../state.js";
+import { SponsorTranscodeQueue, playlistDuration, probeHasAudio, transcodeSponsorClip, type TranscodeResult } from "../sponsor-transcode.js";
+import { initServices, sponsors, sponsorQueue, streamMeta } from "../state.js";
+import { defaultHomeTeam } from "../club-config.js";
 import { createAdminToken, createViewerToken } from "../auth.js";
 import sponsorRoutes from "../routes/sponsor-routes.js";
 
@@ -94,11 +95,11 @@ describe("period breaks (#95)", () => {
   });
 
   it("map to a slot: 1–3, then overtime for every one after", () => {
-    expect(slotForPeriodBreak(1)).toBe("pause1");
-    expect(slotForPeriodBreak(2)).toBe("pause2");
-    expect(slotForPeriodBreak(3)).toBe("pause3");
-    expect(slotForPeriodBreak(4)).toBe("overtime");
-    expect(slotForPeriodBreak(7)).toBe("overtime");
+    expect(slotForPeriodBreak(1)).toBe("p1");
+    expect(slotForPeriodBreak(2)).toBe("p2");
+    expect(slotForPeriodBreak(3)).toBe("p3");
+    expect(slotForPeriodBreak(4)).toBe("ot");
+    expect(slotForPeriodBreak(7)).toBe("ot");
     expect(slotForPeriodBreak(0)).toBeNull();
   });
 });
@@ -114,7 +115,7 @@ describe("sponsor registry (#88)", () => {
 
   it("starts with no clips and the default break lengths", async () => {
     expect(await registry.read()).toEqual({ clips: [], breakSeconds: DEFAULT_BREAK_SECONDS });
-    expect(DEFAULT_BREAK_SECONDS).toEqual({ pause1: 120, pause2: 900, pause3: 120, overtime: 120 });
+    expect(DEFAULT_BREAK_SECONDS).toEqual({ p1: 120, p2: 900, p3: 120, ot: 120 });
   });
 
   it("refuses empty, oversized and non-video files before handing out a link", async () => {
@@ -132,13 +133,13 @@ describe("sponsor registry (#88)", () => {
 
     await registry.reorder([b.id, a.id]);
     // Given in any order, stored in column order.
-    await registry.setSlots(a.id, ["end", "start", "pause2"]);
-    await registry.setBreakSeconds({ pause2: 600 });
+    await registry.setSlots(a.id, ["end", "start", "p2"]);
+    await registry.setBreakSeconds({ p2: 600 });
 
     const again = await new SponsorRegistry(storage).read();
     expect(again.clips.map((c) => c.name)).toEqual(["Bilfirman", "ICA Maxi"]);
-    expect(again.clips[1].slots).toEqual(["start", "pause2", "end"]);
-    expect(again.breakSeconds).toEqual({ ...DEFAULT_BREAK_SECONDS, pause2: 600 });
+    expect(again.clips[1].slots).toEqual(["start", "p2", "end"]);
+    expect(again.breakSeconds).toEqual({ ...DEFAULT_BREAK_SECONDS, p2: 600 });
     expect(storage.files.has(SPONSORS_KEY)).toBe(true);
   });
 
@@ -150,23 +151,25 @@ describe("sponsor registry (#88)", () => {
     await expect(registry.reorder([a.id, b.id, "x"])).rejects.toMatchObject({ status: 409 });
     await expect(registry.setSlots(a.id, ["halftime"])).rejects.toMatchObject({ status: 400 });
     await expect(registry.setBreakSeconds({ start: 60 })).rejects.toMatchObject({ status: 400 });
-    await expect(registry.setBreakSeconds({ pause1: -1 })).rejects.toMatchObject({ status: 400 });
-    await expect(registry.setBreakSeconds({ pause1: 1.5 })).rejects.toMatchObject({ status: 400 });
+    await expect(registry.setBreakSeconds({ p1: -1 })).rejects.toMatchObject({ status: 400 });
+    await expect(registry.setBreakSeconds({ p1: 0 })).rejects.toMatchObject({ status: 400 });
+    await expect(registry.setBreakSeconds({ p1: 3601 })).rejects.toMatchObject({ status: 400 });
+    await expect(registry.setBreakSeconds({ p1: 1.5 })).rejects.toMatchObject({ status: 400 });
   });
 
   it("gives viewers only ready clips, per slot, in play order", async () => {
     const a = await registry.create("A", 1, "video/mp4");
     const b = await registry.create("B", 1, "video/mp4");
     const c = await registry.create("C", 1, "video/mp4");
-    for (const clip of [a, b, c]) await registry.setSlots(clip.id, ["start", "overtime"]);
+    for (const clip of [a, b, c]) await registry.setSlots(clip.id, ["start", "ot"]);
     await registry.patch(a.id, { status: "ready" });
     await registry.patch(c.id, { status: "ready" });
     await registry.reorder([c.id, b.id, a.id]);
 
     const playlist = await registry.playlist();
     expect(playlist.start?.map((x) => x.name)).toEqual(["C", "A"]);
-    expect(playlist.overtime?.map((x) => x.name)).toEqual(["C", "A"]);
-    expect(playlist.pause1).toBeUndefined();
+    expect(playlist.ot?.map((x) => x.name)).toEqual(["C", "A"]);
+    expect(playlist.p1).toBeUndefined();
   });
 
   it("removes a clip together with its files", async () => {
@@ -180,14 +183,20 @@ describe("sponsor registry (#88)", () => {
   it("after a restart fails the clip that was processing and hands back the queued ones", async () => {
     const a = await registry.create("A", 1, "video/mp4");
     const b = await registry.create("B", 1, "video/mp4");
+    const c = await registry.create("C", 1, "video/mp4");
     await registry.patch(a.id, { status: "processing" });
     await registry.patch(b.id, { status: "queued" });
 
-    const queued = await new SponsorRegistry(storage).recoverAfterRestart();
-    expect(queued.map((c) => c.id)).toEqual([b.id]);
-    const after = await new SponsorRegistry(storage).get(a.id);
+    // C is still uploading: kept while its link may be in use, failed once it has run out.
+    const restarted = new SponsorRegistry(storage);
+    expect((await restarted.recoverAfterRestart()).map((x) => x.id)).toEqual([b.id]);
+    expect((await restarted.get(c.id))?.status).toBe("uploading");
+    const after = await restarted.get(a.id);
     expect(after?.status).toBe("failed");
-    expect(after?.error).toMatch(/startades om/);
+    expect(after?.error).toBe("Avbröts av en omstart – ladda upp igen.");
+
+    await restarted.recoverAfterRestart(Date.parse(c.createdAt) + 16 * 60 * 1000);
+    expect((await restarted.get(c.id))?.status).toBe("failed");
   });
 });
 
@@ -343,6 +352,30 @@ describe("transcoding with ffmpeg (#91)", () => {
     expect(probe.stderr).toMatch(/30 fps/);
     expect(probe.stderr).toMatch(/aac/);
   }, 60_000);
+
+  it("cuts a long clip at 30 s and gives a clip without sound a silent track", async () => {
+    const input = join(dir, "mute.mp4");
+    await promisify(execFile)(ffmpeg, [
+      "-hide_banner", "-loglevel", "error", "-y",
+      "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=30",
+      "-t", "40", "-c:v", "libx264", "-preset", "ultrafast", input,
+    ]);
+    expect(await probeHasAudio(input)).toBe(false);
+
+    const result = await transcodeSponsorClip(input);
+    expect(result.durationSeconds).toBeGreaterThan(29.5);
+    expect(result.durationSeconds).toBeLessThanOrEqual(30.1);
+    const seg = join(dir, "mute-seg.ts");
+    await import("node:fs/promises").then((fs) => fs.writeFile(seg, result.files.find((f) => f.name === "seg_00000.ts")!.body));
+    const probe = await promisify(execFile)(ffmpeg, ["-hide_banner", "-i", seg]).catch((e) => e as { stderr: string });
+    expect(probe.stderr).toMatch(/Audio: aac.*48000 Hz, stereo/);
+  }, 120_000);
+
+  it("fails clearly on a file that is not a video", async () => {
+    const input = join(dir, "broken.mp4");
+    await import("node:fs/promises").then((fs) => fs.writeFile(input, "inte en video"));
+    await expect(transcodeSponsorClip(input)).rejects.toThrow(/ffmpeg avslutades/);
+  });
 });
 
 describe("sponsor routes (#89, #90, #93, #94, #96)", () => {
@@ -386,7 +419,7 @@ describe("sponsor routes (#89, #90, #93, #94, #96)", () => {
   it("is closed to viewers and to anyone without a PIN", async () => {
     expect((await app.inject({ url: "/api/admin/sponsors" })).statusCode).toBe(401);
     expect((await app.inject({ url: "/api/admin/sponsors", headers: viewer })).statusCode).toBe(401);
-    expect((await app.inject({ url: "/api/sponsors" })).statusCode).toBe(401);
+    expect((await app.inject({ url: "/api/sponsors/play?surface=start" })).statusCode).toBe(401);
     const list = await app.inject({ url: "/api/admin/sponsors", headers: admin });
     expect(list.json()).toEqual({ clips: [], breakSeconds: DEFAULT_BREAK_SECONDS, maxUploadBytes: MAX_UPLOAD_BYTES });
   });
@@ -444,16 +477,16 @@ describe("sponsor routes (#89, #90, #93, #94, #96)", () => {
     const renamed = await app.inject({ method: "PATCH", url: `/api/admin/sponsors/${a}`, headers: admin, payload: { name: "ICA" } });
     expect(renamed.json().clip.name).toBe("ICA");
 
-    const slotted = await app.inject({ method: "PATCH", url: `/api/admin/sponsors/${a}`, headers: admin, payload: { slots: ["pause1", "start"] } });
-    expect(slotted.json().clip.slots).toEqual(["start", "pause1"]);
+    const slotted = await app.inject({ method: "PATCH", url: `/api/admin/sponsors/${a}`, headers: admin, payload: { slots: ["p1", "start"] } });
+    expect(slotted.json().clip.slots).toEqual(["start", "p1"]);
 
     const ordered = await app.inject({ method: "PUT", url: "/api/admin/sponsors/order", headers: admin, payload: { ids: [b, a] } });
     expect(ordered.json().clips.map((c: { id: string }) => c.id)).toEqual([b, a]);
     const badOrder = await app.inject({ method: "PUT", url: "/api/admin/sponsors/order", headers: admin, payload: { ids: [b] } });
     expect(badOrder.statusCode).toBe(409);
 
-    const breaks = await app.inject({ method: "PATCH", url: "/api/admin/sponsors/breaks", headers: admin, payload: { pause2: 600 } });
-    expect(breaks.json().breakSeconds.pause2).toBe(600);
+    const breaks = await app.inject({ method: "PATCH", url: "/api/admin/sponsors/breaks", headers: admin, payload: { p2: 600 } });
+    expect(breaks.json().breakSeconds.p2).toBe(600);
 
     const missing = await app.inject({ method: "PATCH", url: "/api/admin/sponsors/aaaaaaaaaaaa", headers: admin, payload: { name: "X" } });
     expect(missing.statusCode).toBe(404);
@@ -471,13 +504,16 @@ describe("sponsor routes (#89, #90, #93, #94, #96)", () => {
     await sponsorQueue.idle();
 
     // B was never confirmed, so it is not ready and not shown.
-    const list = await app.inject({ url: "/api/sponsors", headers: viewer });
-    expect(list.json()).toEqual({
-      slots: {
-        start: [{ id: a, name: "A", durationSeconds: 12, hlsUrl: `/api/sponsors/${a}/index.m3u8` }],
-        end: [{ id: a, name: "A", durationSeconds: 12, hlsUrl: `/api/sponsors/${a}/index.m3u8` }],
-      },
-    });
+    const play = (q: string) => app.inject({ url: `/api/sponsors/play?${q}`, headers: viewer });
+    const clipA = { id: a, name: "A", durationSec: 12, hlsUrl: `/api/sponsors/${a}/index.m3u8` };
+    expect((await play("surface=start")).json()).toEqual({ surface: "start", teamName: defaultHomeTeam, clips: [clipA] });
+    expect((await play("surface=end")).json()).toMatchObject({ clips: [clipA] });
+    expect((await play("surface=p2")).json()).toMatchObject({ surface: "p2", clips: [] });
+    expect((await play("surface=halftime")).statusCode).toBe(400);
+    // The banner names the home team of the stream that is broadcasting.
+    streamMeta.set("s1", { homeTeam: "Älta U14" } as never);
+    expect((await play("surface=start&stream=s1")).json()).toMatchObject({ teamName: "Älta U14" });
+    streamMeta.delete("s1");
 
     const manifest = await app.inject({ url: `/api/sponsors/${a}/index.m3u8`, headers: viewer });
     expect(manifest.statusCode).toBe(200);

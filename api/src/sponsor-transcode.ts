@@ -31,9 +31,9 @@ const require = createRequire(import.meta.url);
 const ffmpegPath: string = require("ffmpeg-static");
 
 /** Longest a single clip may take before it is given up. */
-const TRANSCODE_TIMEOUT_MS = 20 * 60_000;
-/** Longest sponsor clip accepted, so a full match uploaded by mistake does not run for an hour. */
-export const MAX_CLIP_SECONDS = 5 * 60;
+const TRANSCODE_TIMEOUT_MS = 10 * 60_000;
+/** A sponsor clip is cut after this many seconds (#91). It also keeps a full match uploaded by mistake short. */
+export const MAX_CLIP_SECONDS = 30;
 
 export interface TranscodeResult {
   /** Files to store under sponsors/<id>/, by name. */
@@ -45,12 +45,18 @@ export interface TranscodeResult {
  * ffmpeg arguments: whatever comes in, 1080p30 H.264 + AAC as 4 s HLS segments
  * comes out. Exported for the tests.
  */
-export function transcodeArgs(input: string, outDir: string): string[] {
+export function transcodeArgs(input: string, outDir: string, hasAudio = true): string[] {
+  // A clip without sound gets a silent track. hls.js and Safari stall when the
+  // audio track comes and goes between the match, the clips and the highlights.
+  const audio = hasAudio
+    ? ["-map", "0:a:0"]
+    : ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000", "-map", "1:a:0", "-shortest"];
   return [
     "-hide_banner", "-nostdin", "-y",
     "-i", input,
-    // First video stream, and the first audio stream if there is one.
-    "-map", "0:v:0", "-map", "0:a:0?",
+    ...(hasAudio ? [] : audio.slice(0, 4)),
+    "-map", "0:v:0",
+    ...(hasAudio ? audio : audio.slice(4)),
     "-t", String(MAX_CLIP_SECONDS),
     // Never larger than 1080p, never upscaled, even dimensions for H.264.
     "-vf", "scale=w='min(1920,iw)':h='min(1080,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p",
@@ -77,6 +83,21 @@ export function playlistDuration(manifest: string): number {
 /** The last lines ffmpeg wrote, for the log when it fails. */
 function tail(text: string, lines = 8): string {
   return text.trim().split("\n").slice(-lines).join("\n");
+}
+
+/**
+ * Whether the file has an audio stream. ffmpeg without an output lists the
+ * streams on stderr and exits with an error, which is expected here.
+ */
+export function probeHasAudio(input: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const child = spawn(ffmpegPath, ["-hide_banner", "-nostdin", "-i", input], { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    child.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+    const timer = setTimeout(() => child.kill("SIGKILL"), 60_000);
+    child.on("error", () => { clearTimeout(timer); resolve(true); });
+    child.on("close", () => { clearTimeout(timer); resolve(/Stream #\d+:\d+[^\n]*: Audio:/.test(stderr)); });
+  });
 }
 
 function runFfmpeg(args: string[]): Promise<void> {
@@ -107,7 +128,7 @@ export async function transcodeSponsorClip(inputUrl: string): Promise<TranscodeR
   const workDir = join(tmpdir(), `sponsor-${crypto.randomUUID().slice(0, 8)}`);
   await mkdir(workDir, { recursive: true });
   try {
-    await runFfmpeg(transcodeArgs(inputUrl, workDir));
+    await runFfmpeg(transcodeArgs(inputUrl, workDir, await probeHasAudio(inputUrl)));
 
     const manifest = await readFile(join(workDir, "index.m3u8"), "utf8");
     const durationSeconds = playlistDuration(manifest);
