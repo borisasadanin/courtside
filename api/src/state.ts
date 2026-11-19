@@ -8,6 +8,8 @@ import { DeviceRegistry } from "./devices.js";
 import { TeamRegistry } from "./teams.js";
 import { MatchSchedule } from "./matches.js";
 import { GuestSpaces } from "./guest-spaces.js";
+import { SponsorRegistry } from "./sponsors.js";
+import { SponsorTranscodeQueue } from "./sponsor-transcode.js";
 import type { SegmentCollector } from "./segment-collector.js";
 import type { HighlightClip, RecordedPause } from "./types.js";
 
@@ -76,6 +78,11 @@ export let matches: MatchSchedule;
 /** The opponents' highlights, one space per match — see guest-spaces.ts. */
 export let guestSpaces: GuestSpaces;
 
+/** The club's sponsor clips — see sponsors.ts. */
+export let sponsors: SponsorRegistry;
+/** Transcodes uploaded sponsor clips one at a time — see sponsor-transcode.ts. */
+export let sponsorQueue: SponsorTranscodeQueue;
+
 export function initServices(r: RestreamerClient, m: MinioClient, o: OscInstanceManager): void {
   restreamer = r;
   minio = m;
@@ -84,4 +91,9 @@ export function initServices(r: RestreamerClient, m: MinioClient, o: OscInstance
   teams = new TeamRegistry(m);
   matches = new MatchSchedule(m, teams, () => streamMeta);
   guestSpaces = new GuestSpaces(m);
+  sponsors = new SponsorRegistry(m);
+  sponsorQueue = new SponsorTranscodeQueue(sponsors, m, {
+    info: (msg) => console.log(msg),
+    warn: (obj, msg) => console.warn(msg, obj),
+  });
 }
