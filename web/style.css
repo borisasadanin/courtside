@@ -3940,6 +3940,7 @@ footer a:hover { color: var(--accent-ink); }
 .sponsor-rename { display: flex; gap: 8px; }
 .sponsor-rename .invite-input { flex: 1; }
 .sponsor-delete { align-self: flex-start; }
+.sponsor-move { display: flex; gap: 8px; }
 .sponsor-warnings { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
 .sponsor-warning {
   margin: 0; padding: 10px 14px; border-radius: 12px;

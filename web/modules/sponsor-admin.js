@@ -21,13 +21,13 @@ import { deactivateAdmin } from "./admin.js";
 /** The admin's columns, in the order a match goes. */
 const SLOTS = [
   { id: "start", label: "Start" },
-  { id: "pause1", label: "Paus 1" },
-  { id: "pause2", label: "Paus 2" },
-  { id: "pause3", label: "Paus 3" },
-  { id: "overtime", label: "Övertid" },
+  { id: "p1", label: "Paus 1" },
+  { id: "p2", label: "Paus 2" },
+  { id: "p3", label: "Paus 3" },
+  { id: "ot", label: "Övertid" },
   { id: "end", label: "Avslut" },
 ];
-const BREAKS = ["pause1", "pause2", "pause3", "overtime"];
+const BREAKS = ["p1", "p2", "p3", "ot"];
 
 const STATUS_TEXT = {
   uploading: "Laddas upp",
@@ -124,7 +124,7 @@ export async function renderSponsorsAdmin() {
   schedulePoll();
 }
 
-/** While a clip is on its way, ask again every few seconds. */
+/** While a clip is on its way, ask again every five seconds (#97). */
 function schedulePoll() {
   clearTimeout(pollTimer);
   const busy = data.clips.some((c) => c.status === "queued" || c.status === "processing");
@@ -137,7 +137,7 @@ function schedulePoll() {
       draw();
     } catch { /* try again on the next round */ }
     schedulePoll();
-  }, 3000);
+  }, 5000);
 }
 
 // --- Upload (#97) ---
@@ -161,6 +161,11 @@ async function upload(file) {
   uploads.set(key, entry);
   drawUploads();
 
+  // Some phones leave the type empty for a .mov; the server checks the file anyway.
+  if (file.type && !file.type.startsWith("video/")) {
+    entry.error = "Filen är ingen video. Välj en film, till exempel MP4 eller MOV.";
+    return drawUploads();
+  }
   if (file.size > data.maxUploadBytes) {
     entry.error = "Filen är större än 200 MB. Exportera den i lägre kvalitet och försök igen.";
     return drawUploads();
@@ -336,7 +341,9 @@ function clipRow(clip) {
     box.type = "checkbox";
     box.className = "sponsor-check";
     box.checked = clip.slots.includes(s.id);
-    box.setAttribute("aria-label", `Visa ${clip.name} vid ${s.label}`);
+    // A clip that cannot be played yet cannot be chosen either (#99).
+    box.disabled = clip.status !== "ready";
+    box.setAttribute("aria-label", `${clip.name} – ${s.label}`);
     box.addEventListener("change", () => toggleSlot(clip, s.id, box));
     cell.append(box);
     row.append(cell);
@@ -359,8 +366,8 @@ async function toggleSlot(clip, slot, box) {
 function bindBreakInput(input) {
   input.addEventListener("change", async () => {
     const seconds = parseClock(input.value);
-    if (seconds === null || seconds > 3600) {
-      alert("Skriv pausens längd som minuter och sekunder, till exempel 2:00 eller 15:00.");
+    if (seconds === null || seconds < 1 || seconds > 3600) {
+      alert("Skriv pausens längd som minuter och sekunder, högst 60:00, till exempel 2:00 eller 15:00.");
       input.value = clock(data.breakSeconds[input.dataset.break]);
       return;
     }
@@ -385,7 +392,7 @@ function warnings(sums) {
     if (sums[s.id] <= limit) continue;
     const p = document.createElement("p");
     p.className = "sponsor-warning";
-    p.textContent = `${s.label}: klippen är ${clock(sums[s.id])} men pausen ${clock(limit)}. Tittarna ser klart klippen och kommer tillbaka till matchen ${clock(sums[s.id] - limit)} för sent.`;
+    p.textContent = `${s.label}: Klippen är längre än pausen (${clock(sums[s.id])} mot ${clock(limit)}). Tittarna ser klart klippen och kommer tillbaka till matchen ${clock(sums[s.id] - limit)} för sent.`;
     box.append(p);
   }
   return box;
@@ -411,6 +418,10 @@ function detailPanel(clip) {
       <input class="invite-input" id="sponsorName-${clip.id}" maxlength="80" value="${escapeHtml(clip.name)}">
       <button class="admin-pair-btn" type="button" data-act="save">Spara</button>
     </div>
+    <div class="sponsor-move" role="group" aria-label="Ordning">
+      <button class="admin-pair-btn" type="button" data-act="up"${index(clip) === 0 ? " disabled" : ""}>Flytta upp</button>
+      <button class="admin-pair-btn" type="button" data-act="down"${index(clip) === data.clips.length - 1 ? " disabled" : ""}>Flytta ner</button>
+    </div>
     <button class="device-revoke sponsor-delete" type="button" data-act="delete">Ta bort klippet</button>
   </div>`;
 
@@ -427,6 +438,16 @@ function detailPanel(clip) {
       alert(err.message);
     }
   });
+
+  // Buttons for the order too, for the keyboard and screen readers (#100).
+  for (const act of ["up", "down"]) {
+    panel.querySelector(`[data-act="${act}"]`).addEventListener("click", () => {
+      move(clip.id, act === "up" ? -1 : 1).then(() => {
+        const again = document.querySelector(`#adminSponsors .sponsor-detail [data-act="${act}"]`);
+        (again && !again.disabled ? again : document.querySelector(`#adminSponsors .sponsor-detail [data-act="${act === "up" ? "down" : "up"}"]`))?.focus();
+      });
+    });
+  }
 
   const del = panel.querySelector('[data-act="delete"]');
   del.addEventListener("click", async () => {
@@ -536,15 +557,24 @@ function bindDrag(handle, row) {
   handle.addEventListener("keydown", (e) => {
     if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
     e.preventDefault();
-    const ids = data.clips.map((c) => c.id);
-    const i = ids.indexOf(row.dataset.id);
-    const j = e.key === "ArrowUp" ? i - 1 : i + 1;
-    if (j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j], ids[i]];
-    saveOrder(ids).then(() => {
+    move(row.dataset.id, e.key === "ArrowUp" ? -1 : 1).then(() => {
       document.querySelector(`.sponsor-clip[data-id="${row.dataset.id}"] .sponsor-handle`)?.focus();
     });
   });
+}
+
+function index(clip) {
+  return data.clips.findIndex((c) => c.id === clip.id);
+}
+
+/** Move one clip a step up (-1) or down (1) and save. */
+async function move(id, step) {
+  const ids = data.clips.map((c) => c.id);
+  const i = ids.indexOf(id);
+  const j = i + step;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  await saveOrder(ids);
 }
 
 /** The clip ids in the order the rows are on screen. */
