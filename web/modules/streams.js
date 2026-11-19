@@ -6,6 +6,8 @@ import { state, dom } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { authHeaders, showPinScreen } from "./auth.js";
 import { openPlayer, pauseLabel } from "./player.js";
+import { setSoundChoice, unlockVideoSound } from "./sound.js";
+import { unlockResumeSignal } from "./resume-signal.js";
 import { showImage } from "./images.js";
 import { club } from "./club.js";
 import { loadMatches, findMatch, upcomingMatches, describeMatch, downloadIcs } from "./matches.js";
@@ -89,12 +91,60 @@ function updateEmptyState(broadcastState) {
   }
 
   renderSchedule(status, announced);
+  showReadyForSound(status === "upcoming");
 
   // Toggle background image for non-idle states
   dom.emptyBg.classList.toggle("active", showBg);
 
   // Toggle state-specific class on empty-state container
   dom.emptyState.className = "empty-state" + (status !== "idle" ? ` ${status}` : "");
+}
+
+// ============================
+// "Jag är redo – slå på ljud" (#104)
+// ============================
+
+// A browser plays sound only after the viewer has tapped the page, and Safari
+// on iOS only in a <video> that a tap started. The tap here does both, and the
+// match then opens by itself when it starts, with sound. Kept in memory only:
+// after a reload the tap is gone too, so the viewer is asked again.
+let readyForSound = false;
+
+function showReadyForSound(upcoming) {
+  const btn = dom.readySoundBtn;
+  if (!btn) return;
+  if (!btn.dataset.bound) {
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", () => {
+      setSoundChoice(true);
+      unlockVideoSound();
+      unlockResumeSignal();
+      readyForSound = true;
+      showReadyForSound(true);
+      // The button goes away; keep the keyboard focus on what replaced it
+      dom.readySoundNote.focus();
+    });
+  }
+  btn.classList.toggle("hidden", !upcoming || readyForSound);
+  dom.readySoundNote.classList.toggle("hidden", !upcoming || !readyForSound);
+}
+
+/**
+ * After "Jag är redo", open the match that has just gone live: the one that
+ * was announced if it is among them, otherwise the first live one. Only once,
+ * and only while the viewer is still on the live list.
+ */
+function openWhenReady(streams, broadcastState) {
+  if (!readyForSound) return;
+  if (!dom.playerView.classList.contains("hidden") || dom.streamListView.classList.contains("hidden")) return;
+  const live = streams.filter((s) => s.status === "live");
+  if (live.length === 0) return;
+  const announced = new Set((broadcastState?.upcoming ?? []).map((u) => u.matchId).filter(Boolean));
+  const stream = live.find((s) => s.matchId && announced.has(s.matchId)) ?? live[0];
+  const card = dom.streamGrid.querySelector(`button.stream-card[data-id="${CSS.escape(stream.id)}"]`);
+  if (!card) return;
+  readyForSound = false;
+  openPlayer(card.dataset.hls, card.dataset.name, card.dataset.id, card.dataset.dvr);
 }
 
 // ============================
@@ -351,7 +401,9 @@ function renderStreamList(streams, broadcastState) {
     });
   });
 
-  // No auto-open — user always picks which stream to watch
+  // No auto-open — the viewer picks which stream to watch, unless they said
+  // "Jag är redo" on the waiting screen
+  openWhenReady(streams, broadcastState);
 }
 
 // ============================

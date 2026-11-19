@@ -11,6 +11,7 @@ import { stopListPolling } from "./streams.js";
 import { stopVodPolling } from "./vod.js";
 import { fetchClipsForStream } from "./highlights.js";
 import { unlockResumeSignal, playResumeSignal } from "./resume-signal.js";
+import { playWithSound, unlockVideoSound, onMuteChangedByViewer, hideTapForSound, bindTapForSound } from "./sound.js";
 import { loadReplayMarkers, setReplayFragments, fetchReplayFragments, clearReplayMarkers, initReplayMarkers } from "./replay-markers.js";
 
 // Callbacks injected by the orchestrator
@@ -202,6 +203,7 @@ function startNative() {
     () => {
       setStatus("live");
       buildNativeQualityMenu();
+      playWithSound();
     },
     { once: true }
   );
@@ -228,7 +230,7 @@ function tryConnectVod() {
       "loadedmetadata",
       () => {
         buildNativeQualityMenu();
-        dom.video.play().catch(() => {});
+        playWithSound();
       },
       { once: true }
     );
@@ -274,11 +276,7 @@ function startHlsVod() {
 
   state.hls.on(Hls.Events.MANIFEST_PARSED, () => {
     buildQualityMenu();
-    dom.video.play().catch(() => {
-      dom.video.muted = true;
-      dom.video.play().catch(() => {});
-      updateMuteButton();
-    });
+    playWithSound();
   });
 
   state.hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -317,11 +315,8 @@ function onManifestParsed() {
   }
   setStatus("live");
   buildQualityMenu();
-  dom.video.play().catch(() => {
-    dom.video.muted = true;
-    dom.video.play().catch(() => {});
-    updateMuteButton();
-  });
+  // Never muted without saying so: a refused play() shows "Tryck för ljud" (#105)
+  playWithSound();
   showControls();
 }
 
@@ -514,23 +509,22 @@ function updateProgress() {
 
     updateBufferBar(duration);
   } else if (state.isDvrMode) {
-    // DVR: seekable timeline with live edge at duration
+    // DVR: seekable timeline with live at the right end
     const current = dom.video.currentTime || 0;
-    const duration = dom.video.duration || 0;
+    const end = dvrEnd();
 
-    if (duration > 0 && isFinite(duration)) {
-      const pct = (current / duration) * 100;
+    if (end > 0) {
+      const behind = isBehindLive();
+      // At live the bar is full, though the picture is a few segments behind the end
+      const pct = behind ? (current / end) * 100 : 100;
       dom.progressFilled.style.width = pct + "%";
       dom.progressHandle.style.left = pct + "%";
       dom.timeElapsed.textContent = formatTime(current);
       dom.timeDuration.textContent = "LIVE";
-
-      // Show/hide "back to live" button based on distance from live edge
-      const behindLive = duration - current;
-      updateBackToLive(behindLive > 10);
+      updateBackToLive(behind);
     }
 
-    updateBufferBar(duration);
+    updateBufferBar(end);
   } else {
     // Live (no DVR): show elapsed wall-clock time
     if (state.liveStartTime) {
@@ -598,10 +592,23 @@ function getSeekPosition(e) {
   return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
 }
 
+/** The end of the seek bar: the recording's length, or in a live match the newest second there is. */
+function timelineEnd() {
+  return state.isDvrMode ? dvrEnd() : dom.video.duration;
+}
+
 function seekTo(ratio) {
-  const duration = dom.video.duration;
-  if (!duration || !isFinite(duration)) return;
-  dom.video.currentTime = ratio * duration;
+  const end = timelineEnd();
+  if (!end || !isFinite(end)) return;
+  dom.video.currentTime = ratio * end;
+}
+
+/** A drag let go this close to the right end of a live match goes to live (#103). */
+const LIVE_SNAP_PX = 16;
+
+function atLiveEnd(clientX) {
+  if (!state.isDvrMode) return false;
+  return dom.progressBar.getBoundingClientRect().right - clientX <= LIVE_SNAP_PX;
 }
 
 function canSeek() {
@@ -656,10 +663,7 @@ function onSeekStart(e) {
   state.isSeeking = true;
   dom.progressContainer.classList.add("seeking");
 
-  const ratio = getSeekPosition(e);
-  dom.progressFilled.style.width = ratio * 100 + "%";
-  dom.progressHandle.style.left = ratio * 100 + "%";
-  dom.timeElapsed.textContent = formatTime(ratio * dom.video.duration);
+  showSeekPosition(e);
 
   document.addEventListener("mousemove", onSeekMove);
   document.addEventListener("mouseup", onSeekEnd);
@@ -670,10 +674,17 @@ function onSeekStart(e) {
 function onSeekMove(e) {
   if (!state.isSeeking) return;
   e.preventDefault();
-  const ratio = getSeekPosition(e);
+  showSeekPosition(e);
+}
+
+/** Move the handle with the pointer. At the right end of a live match it says LIVE. */
+function showSeekPosition(e) {
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const live = atLiveEnd(clientX);
+  const ratio = live ? 1 : getSeekPosition(e);
   dom.progressFilled.style.width = ratio * 100 + "%";
   dom.progressHandle.style.left = ratio * 100 + "%";
-  dom.timeElapsed.textContent = formatTime(ratio * dom.video.duration);
+  dom.timeElapsed.textContent = live ? "LIVE" : formatTime(ratio * timelineEnd());
 }
 
 function onSeekEnd(e) {
@@ -682,7 +693,8 @@ function onSeekEnd(e) {
   const rect = dom.progressBar.getBoundingClientRect();
   const clientX = touch.clientX;
   const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-  seekTo(ratio);
+  if (atLiveEnd(clientX)) jumpToLive();
+  else seekTo(ratio);
   state.isSeeking = false;
   dom.progressContainer.classList.remove("seeking");
 
@@ -704,18 +716,52 @@ function togglePlay() {
   }
 }
 
-// --- Back to live (DVR) ---
+// --- Back to live (DVR, #102) ---
 
+/**
+ * Where live is, as hls.js plays it: three segments before the newest one
+ * (liveSyncDurationCount). The DVR playlist has 4 s segments, so a viewer at
+ * live is about 12 s from the end, and "behind" is counted from here.
+ */
+const LIVE_OFFSET_S = 12;
+/** "Hoppa till live" shows when the viewer is more than this behind live. */
+const BEHIND_LIVE_S = 10;
+
+/**
+ * The newest second that can be played. hls.js gives the video a duration;
+ * Safari's own player says Infinity for a live playlist and has only the
+ * seekable range.
+ */
+function dvrEnd() {
+  const d = dom.video.duration;
+  if (d && isFinite(d)) return d;
+  const r = dom.video.seekable;
+  return r && r.length ? r.end(r.length - 1) : 0;
+}
+
+function livePosition() {
+  const sync = state.hls?.liveSyncPosition;
+  if (sync && isFinite(sync)) return sync;
+  return Math.max(0, dvrEnd() - LIVE_OFFSET_S);
+}
+
+function isBehindLive() {
+  if (!state.isDvrMode || dvrEnd() <= 0) return false;
+  return livePosition() - (dom.video.currentTime || 0) > BEHIND_LIVE_S;
+}
+
+/** The button, and the LIVE badge greyed out while the viewer is behind. */
 function updateBackToLive(show) {
   if (!dom.backToLiveBtn) return;
   dom.backToLiveBtn.classList.toggle("hidden", !show);
+  dom.liveBadge.classList.toggle("behind", show && state.currentStatus === "live");
 }
 
 function jumpToLive() {
   if (!state.isDvrMode) return;
-  const duration = dom.video.duration;
-  if (duration && isFinite(duration)) {
-    dom.video.currentTime = duration;
+  const target = livePosition();
+  if (target > 0) {
+    dom.video.currentTime = target;
     dom.video.play().catch(() => {});
     updateBackToLive(false);
   }
@@ -729,8 +775,10 @@ function updatePlayButton() {
 
 function toggleMute() {
   dom.video.muted = !dom.video.muted;
+  if (!dom.video.muted && dom.video.volume === 0) dom.video.volume = 1;
   dom.volumeSlider.value = dom.video.muted ? 0 : dom.video.volume;
   updateMuteButton();
+  onMuteChangedByViewer();
 }
 
 function updateMuteButton() {
@@ -743,6 +791,7 @@ function onVolumeChange() {
   dom.video.volume = parseFloat(dom.volumeSlider.value);
   dom.video.muted = dom.video.volume === 0;
   updateMuteButton();
+  onMuteChangedByViewer();
 }
 
 function toggleFullscreen() {
@@ -895,10 +944,7 @@ function playNextHighlight(isFirst = false) {
         hideOverlay();
         // Fade in
         dom.video.classList.remove("video-fade");
-        dom.video.play().catch(() => {
-          dom.video.muted = true;
-          dom.video.play().catch(() => {});
-        });
+        playWithSound();
       });
       state.highlightHls.on(Hls.Events.ERROR, (_event, data) => {
         if (data.fatal) {
@@ -933,7 +979,7 @@ function playNextHighlight(isFirst = false) {
           consecutiveClipFailures = 0;
           hideOverlay();
           dom.video.classList.remove("video-fade");
-          dom.video.play().catch(() => {});
+          playWithSound();
         },
         { once: true }
       );
@@ -1183,8 +1229,10 @@ export function openPlayer(hlsUrl, name, streamId, dvrUrl) {
   // Guard: don't re-open the same stream
   if (state.currentStreamId === streamId && !dom.playerView.classList.contains("hidden")) return;
 
-  // Opening the player is a click — the chance to allow the resume chime later
+  // Opening the player is usually a click: the chance to allow the resume
+  // chime, and sound in the video on iOS (#104)
   unlockResumeSignal();
+  unlockVideoSound();
 
   state.isVodMode = false;
   clearReplayMarkers();
@@ -1268,6 +1316,7 @@ export function openVodPlayer(hlsUrl, title, vodId) {
  */
 export function closePlayer() {
   stopHighlightCarousel();
+  hideTapForSound();
   destroyHls();
   clearReplayMarkers();
   stopStreamPolling();
@@ -1297,6 +1346,7 @@ export { startStreamPolling, stopStreamPolling, startViewerHeartbeat, stopViewer
 
 function bindPlayerEvents() {
   dom.backBtn.addEventListener("click", closePlayer);
+  bindTapForSound();
 
   dom.playBtn.addEventListener("click", (e) => {
     e.stopPropagation();
