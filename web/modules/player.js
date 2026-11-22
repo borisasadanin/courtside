@@ -12,6 +12,10 @@ import { stopVodPolling } from "./vod.js";
 import { fetchClipsForStream } from "./highlights.js";
 import { unlockResumeSignal, playResumeSignal } from "./resume-signal.js";
 import { playWithSound, unlockVideoSound, onMuteChangedByViewer, hideTapForSound, bindTapForSound } from "./sound.js";
+import {
+  fetchSponsorReel, playSponsorReel, cancelSponsorReel, isSponsorReelPlaying,
+  claimTransition, transitionClaimed, sawStreamStart, noteStreamWaiting,
+} from "./sponsors.js";
 import { loadReplayMarkers, setReplayFragments, fetchReplayFragments, clearReplayMarkers, initReplayMarkers } from "./replay-markers.js";
 
 // Callbacks injected by the orchestrator
@@ -188,6 +192,17 @@ function startHls() {
     },
   });
 
+  // After sponsor clips the match does not start at live, but from the
+  // beginning (#108) or from where it was resumed during the clips (#109)
+  const startAt = connectAt;
+  connectAt = null;
+  if (startAt) {
+    state.hls.config.autoStartLoad = false;
+    state.hls.once(Hls.Events.LEVEL_LOADED, (_e, data) => {
+      state.hls?.startLoad(startPosition(startAt, data.details.totalduration));
+    });
+  }
+
   state.hls.loadSource(state.currentStreamUrl);
   state.hls.attachMedia(dom.video);
 
@@ -196,7 +211,27 @@ function startHls() {
   state.hls.on(Hls.Events.LEVEL_SWITCHED, onLevelSwitched);
 }
 
+/**
+ * Where the match starts when it is not at live. `end` is the newest second
+ * in the DVR playlist. Resumed: the playlist has grown by about the time
+ * since the resume, and a few seconds before it is better than a few after.
+ */
+function startPosition(at, end) {
+  if (at.fromStart) return 0;
+  const since = (Date.now() - at.resumedAt) / 1000;
+  return Math.max(0, end - since - 4);
+}
+
 function startNative() {
+  const startAt = connectAt;
+  connectAt = null;
+  if (startAt) {
+    dom.video.addEventListener("loadedmetadata", () => {
+      const r = dom.video.seekable;
+      if (!r.length) return;
+      dom.video.currentTime = Math.max(r.start(0), startPosition(startAt, r.end(r.length - 1)));
+    }, { once: true });
+  }
   dom.video.src = state.currentStreamUrl;
   dom.video.addEventListener(
     "loadedmetadata",
@@ -309,6 +344,13 @@ function startHlsVod() {
 // ============================
 
 function onManifestParsed() {
+  // The match went live while the player waited for it: the start clips
+  // come first, then the match from the beginning (#107, #108)
+  if (startClipsDue()) {
+    destroyHls();
+    playStartClips();
+    return;
+  }
   state.hlsReconnectAttempts = 0;
   if (!state.isVodMode && !state.liveStartTime) {
     state.liveStartTime = Date.now();
@@ -381,15 +423,16 @@ async function checkIfStreamStopped() {
       return;
     }
     const stream = await res.json();
+    latestStream = stream;
     if (stream.status === "stopped") {
-      showOverlay("S\u00e4ndningen har avslutats", false);
-      setTimeout(closePlayer, 2500);
+      endStream(stream);
     } else if (stream.status === "paused") {
       // Stream was paused while we had an HLS error — show pause overlay
       setStatus("paused");
       destroyHls();
     } else if (stream.status === "waiting") {
       // Stream is resuming — wait for it to go live (polling will pick it up)
+      noteStreamWaiting(stream.id);
       setStatus("connecting");
       showOverlay("V\u00e4ntar p\u00e5 s\u00e4ndningen\u2026", true);
     } else {
@@ -612,6 +655,8 @@ function atLiveEnd(clientX) {
 }
 
 function canSeek() {
+  // Sponsor clips are not the match: no seeking in them (#106)
+  if (isSponsorReelPlaying()) return false;
   return state.isVodMode || state.isDvrMode;
 }
 
@@ -709,6 +754,9 @@ function onSeekEnd(e) {
 // ============================
 
 function togglePlay() {
+  // Sponsor clips: pausing is allowed with the video's own controls, but a
+  // tap on the picture is not meant to do anything (#106)
+  if (isSponsorReelPlaying()) return;
   if (dom.video.paused) {
     dom.video.play();
   } else {
@@ -868,6 +916,8 @@ function scheduleCarouselRetry(delayMs) {
 async function startHighlightCarousel() {
   const streamId = state.currentStreamId;
   if (!streamId) return;
+  // Sponsor clips first; the carousel starts when they are over (#109)
+  if (reelPending || isSponsorReelPlaying()) return;
 
   console.info(`[carousel] Fetching clips for stream ${streamId}…`);
   const clips = await fetchClipsForStream(streamId);
@@ -1085,16 +1135,28 @@ async function pollCurrentStream() {
     pollFailCount = 0;
 
     const stream = await res.json();
+    latestStream = stream;
+    if (stream.status === "waiting") noteStreamWaiting(stream.id);
+    // While sponsor clips play, only note what happens; when they are over,
+    // afterReel() acts on the stream as it is then (#109)
+    if (reelPending || isSponsorReelPlaying()) {
+      if (stream.status === "live" && !resumedDuringReelAt) resumedDuringReelAt = Date.now();
+      return;
+    }
     const wasPaused = state.currentStatus === "paused";
     if (stream.status === "stopped") {
-      showOverlay("S\u00e4ndningen har avslutats", false);
-      setTimeout(closePlayer, 2500);
+      endStream(stream);
     } else if (stream.status === "paused") {
       if (state.currentStatus !== "paused") {
         state.pauseType = stream.pauseType || null;
+        // A period break shows its sponsor clips before the highlights (#109)
+        const surface = stream.sponsorSurface;
+        const reel = surface && wasWatching() && claimTransition(`${stream.id}:${surface}:${stream.period ?? 0}`);
+        if (reel) reelPending = true;
         setStatus("paused");
         // Destroy current HLS to free resources while paused
         destroyHls();
+        if (reel) playSurface(surface, stream.id);
       } else if ((stream.pauseType || null) !== state.pauseType) {
         // A new pause began between two polls (resume and pause again)
         showPauseBanner(stream.pauseType);
@@ -1114,12 +1176,12 @@ async function pollCurrentStream() {
       state.hlsReconnectAttempts = 0;
       if (state.currentStatus !== "live") {
         stopHighlightCarousel();
-        // Update stream URL — prefer DVR playlist for catch-up support
-        if (stream.dvrUrl) {
-          state.currentStreamUrl = `${CONFIG.API_URL}${stream.dvrUrl}`;
-          state.isDvrMode = true;
-        } else if (stream.hlsUrl) {
-          state.currentStreamUrl = mediaUrl(stream.hlsUrl);
+        // Prefer the DVR playlist, for catch-up
+        useStreamUrl(stream);
+        if (startClipsDue()) {
+          destroyHls();
+          playStartClips();
+          return;
         }
         setStatus("connecting");
         tryConnect();
@@ -1256,25 +1318,161 @@ export function openPlayer(hlsUrl, name, streamId, dvrUrl) {
 
   setupProgressForLive();
   setStatus("connecting");
-  tryConnect();
+  latestStream = null;
+  resumedDuringReelAt = 0;
+  ending = false;
+  startWatching(streamId);
   startStreamPolling();
   startViewerHeartbeat();
-  // Joining in the middle of a pause: show it now, not at the first poll
-  checkPausedNow(streamId);
 }
 
-async function checkPausedNow(streamId) {
+/**
+ * Ask once how the match stands before connecting. Live, and the viewer was
+ * here before it started: the start clips first (#108). In the middle of a
+ * pause: show the pause now, not at the first poll. Otherwise connect.
+ */
+async function startWatching(streamId) {
+  let stream = null;
   try {
     const res = await fetch(`${CONFIG.API_URL}/api/streams/${streamId}`, { headers: authHeaders() });
-    if (!res.ok) return;
-    const stream = await res.json();
-    if (stream.status !== "paused" || state.currentStreamId !== streamId || state.currentStatus === "paused") return;
-    state.pauseType = stream.pauseType || null;
-    setStatus("paused");
-    destroyHls();
+    if (res.ok) stream = await res.json();
   } catch {
     // The regular poll picks it up
   }
+  if (state.currentStreamId !== streamId) return;
+  if (stream) latestStream = stream;
+  if (stream?.status === "waiting") noteStreamWaiting(streamId);
+  if (stream?.status === "live") useStreamUrl(stream);
+  if (stream?.status === "live" && startClipsDue()) return playStartClips();
+  if (stream?.status === "paused") {
+    state.pauseType = stream.pauseType || null;
+    setStatus("paused");
+    return;
+  }
+  tryConnect();
+}
+
+// ============================
+// Sponsor clips (#107–#110)
+// ============================
+
+/** The stream as the last poll saw it. */
+let latestStream = null;
+/** Set when the match was resumed while sponsor clips played. */
+let resumedDuringReelAt = 0;
+/** Sponsor clips are being fetched; the carousel and the poll wait. */
+let reelPending = false;
+/** The match has ended and is on its way out. */
+let ending = false;
+/** Where the next connect starts, when not at live. */
+let connectAt = null;
+
+function useStreamUrl(stream) {
+  if (stream.dvrUrl) {
+    state.currentStreamUrl = `${CONFIG.API_URL}${stream.dvrUrl}`;
+    state.isDvrMode = true;
+  } else if (stream.hlsUrl) {
+    state.currentStreamUrl = mediaUrl(stream.hlsUrl);
+  }
+}
+
+/** Whether the viewer has been watching this match, not just opened it at the end. */
+function wasWatching() {
+  return ["live", "paused", "connecting"].includes(state.currentStatus);
+}
+
+function startClipsDue() {
+  const id = state.currentStreamId;
+  return Boolean(id) && sawStreamStart(id) && !transitionClaimed(`${id}:start`);
+}
+
+/** Start clips, then the match from its first second (#108). */
+function playStartClips() {
+  if (!claimTransition(`${state.currentStreamId}:start`)) return tryConnect();
+  reelPending = true;
+  playSurface("start", state.currentStreamId, { fromStart: true });
+}
+
+/**
+ * Fetch and play one surface's clips, then carry on from however the match
+ * stands by then. No clips, or none that play, and it carries on at once.
+ */
+async function playSurface(surface, streamId, { fromStart = false } = {}) {
+  reelPending = true;
+  resumedDuringReelAt = 0;
+  const reel = await fetchSponsorReel(surface, streamId);
+  if (state.currentStreamId !== streamId) {
+    reelPending = false;
+    return;
+  }
+  if (reel) {
+    stopHighlightCarousel();
+    hideOverlay();
+    await playSponsorReel(reel.clips, reel.teamName);
+  }
+  reelPending = false;
+  if (state.currentStreamId !== streamId) return;
+  afterReel(surface, { fromStart, hadClips: Boolean(reel) });
+}
+
+function afterReel(surface, { fromStart, hadClips }) {
+  const stream = latestStream;
+  const status = stream?.status;
+  if (surface === "end") return;
+  if (status === "stopped") return endStream(stream);
+
+  if (surface === "start") {
+    if (status === "paused") {
+      state.pauseType = stream.pauseType || null;
+      setStatus("paused");
+      return;
+    }
+    // Clips first, then the match from the beginning, behind live (#108)
+    if (fromStart && hadClips) connectAt = { fromStart: true };
+    setStatus("connecting");
+    tryConnect();
+    return;
+  }
+
+  // A period break (#109)
+  if (status === "paused") {
+    startHighlightCarousel();
+    if (!state.isPlayingHighlights) showOverlay("Sändningen är pausad — återkommer snart", false);
+    return;
+  }
+  // Resumed while the clips played: the match from where it was resumed
+  if (resumedDuringReelAt && hadClips) connectAt = { resumedAt: resumedDuringReelAt };
+  resumedDuringReelAt = 0;
+  if (stream) useStreamUrl(stream);
+  setStatus("connecting");
+  tryConnect();
+  announceResume();
+}
+
+/**
+ * The match has ended: its end clips, if the viewer was watching, then the
+ * end screen as before (#110).
+ */
+async function endStream(stream) {
+  if (ending) return;
+  ending = true;
+  const id = state.currentStreamId;
+  if (id && wasWatching() && claimTransition(`${id}:end`)) {
+    stopHighlightCarousel();
+    destroyHls();
+    reelPending = true;
+    const reel = await fetchSponsorReel("end", id);
+    if (reel && state.currentStreamId === id) {
+      hideOverlay();
+      await playSponsorReel(reel.clips, reel.teamName);
+    }
+    reelPending = false;
+    if (state.currentStreamId !== id) return;
+  }
+  showOverlay("S\u00e4ndningen har avslutats", false);
+  setTimeout(() => {
+    if (state.currentStreamId === id) closePlayer();
+  }, 2500);
 }
 
 /**
@@ -1315,6 +1513,9 @@ export function openVodPlayer(hlsUrl, title, vodId) {
  * Delegates tab-restoration to the orchestrator callback.
  */
 export function closePlayer() {
+  cancelSponsorReel();
+  reelPending = false;
+  connectAt = null;
   stopHighlightCarousel();
   hideTapForSound();
   destroyHls();
@@ -1424,6 +1625,11 @@ function bindPlayerEvents() {
   document.addEventListener("keydown", (e) => {
     if (e.target.tagName === "INPUT") return;
     if (dom.playerView.classList.contains("hidden")) return;
+    // Sponsor clips: sound, fullscreen and leaving work; pausing and seeking do not (#106)
+    if (isSponsorReelPlaying() && !["m", "f", "Escape"].includes(e.key)) {
+      if (e.key === " " || e.key.startsWith("Arrow")) e.preventDefault();
+      return;
+    }
     switch (e.key) {
       case " ":
       case "k":

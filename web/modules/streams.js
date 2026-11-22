@@ -7,6 +7,7 @@ import { escapeHtml } from "./utils.js";
 import { authHeaders, showPinScreen } from "./auth.js";
 import { openPlayer, pauseLabel } from "./player.js";
 import { setSoundChoice, unlockVideoSound } from "./sound.js";
+import { noteStreamList } from "./sponsors.js";
 import { unlockResumeSignal } from "./resume-signal.js";
 import { showImage } from "./images.js";
 import { club } from "./club.js";
@@ -350,6 +351,8 @@ function streamCard(s, { withCamera }) {
 }
 
 function renderStreamList(streams, broadcastState) {
+  // Which matches were already going when the page opened: they get no start clips (#107)
+  noteStreamList(streams || []);
   // If broadcast is "upcoming", the operator's just-posted announcement
   // must win over lingering stopped cards (backend keeps stopped streams in
   // the list for STOPPED_TTL_MS). Treat an all-stopped list as empty so the

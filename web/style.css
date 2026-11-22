@@ -1593,6 +1593,72 @@ main {
 
 /* Overlay */
 
+/* Sponsor clips (#106): no seeking, pausing or jumping to live; sound stays */
+.video-wrapper.sponsor-reel .progress-bar-container,
+.video-wrapper.sponsor-reel #playBtn,
+.video-wrapper.sponsor-reel #backToLiveBtn,
+.video-wrapper.sponsor-reel .quality-group,
+.video-wrapper.sponsor-reel #qualityBtn {
+  display: none !important;
+}
+
+.video-wrapper.sponsor-reel .controls {
+  opacity: 1;
+}
+
+.live-badge.sponsor {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.sponsor-banner {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 6;
+  max-width: calc(100% - 24px);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 14px;
+  align-items: end;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border-left: 3px solid var(--accent);
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  pointer-events: none;
+}
+
+.sponsor-banner-lead {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.sponsor-banner-name {
+  font: 800 1.25rem/1.15 var(--font-display, sans-serif);
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+.sponsor-banner-time {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* With a pause banner at the top centre, the sponsor banner goes below it */
+.video-wrapper.sponsor-reel .pause-banner:not(.hidden) ~ .sponsor-banner {
+  top: auto;
+  bottom: 64px;
+}
+
+@media (max-width: 480px) {
+  .sponsor-banner { left: 8px; top: 8px; padding: 6px 10px; }
+  .sponsor-banner-name { font-size: 1rem; }
+}
+
 /* "Tryck för ljud": the browser started the video muted (#105) */
 .tap-for-sound {
   position: absolute;
