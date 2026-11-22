@@ -5,6 +5,7 @@ import {
   GetObjectCommand,
   PutObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
   DeleteBucketCommand,
@@ -102,6 +103,32 @@ export class MinioClient {
       new GetObjectCommand({ Bucket: BUCKET, Key: key }),
       { expiresIn: expiresInSeconds }
     );
+  }
+
+  /**
+   * Presigned PUT URL, so the browser can upload a file straight to storage.
+   * The API is behind a proxy that refuses request bodies over 64 MiB, which
+   * a sponsor film easily is. The browser must send exactly this Content-Type
+   * and no x-amz-* headers: storage's CORS allows Content-Type only.
+   */
+  async presignPut(key: string, contentType: string, expiresInSeconds = 3600): Promise<string> {
+    return getSignedUrl(
+      this.s3,
+      new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }),
+      { expiresIn: expiresInSeconds }
+    );
+  }
+
+  /** Size of an object in bytes, or null when there is none. */
+  async objectSize(key: string): Promise<number | null> {
+    try {
+      const res = await this.s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+      return res.ContentLength ?? 0;
+    } catch (err) {
+      const e = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+      if (e.name === "NotFound" || e.name === "NoSuchKey" || e.$metadata?.httpStatusCode === 404) return null;
+      throw err;
+    }
   }
 
   /** True when the object exists. Used to reject media requests for unknown keys. */

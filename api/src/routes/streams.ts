@@ -13,6 +13,7 @@ import { determineStreamStatus } from "../stream-status.js";
 import { uploadPauseSegments } from "../pause-segments.js";
 import { stitchPlaylist, buildPartList } from "../playlist-stitcher.js";
 import type { CreateStreamBody, StreamInfo, StreamPublicInfo, VodEntry } from "../types.js";
+import { periodBreakNumber, slotForPeriodBreak } from "../sponsors.js";
 import { streamStartedBy } from "../broadcast-state.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "../club-config.js";
 import { saveStreamMetaSoon } from "../stream-meta-store.js";
@@ -29,10 +30,13 @@ function dvrUrl(id: string): string {
  * Match fields for the public API: the match in the schedule, the current
  * period, and the pause type while paused.
  */
-function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["status"]): Pick<StreamPublicInfo, "pauseType" | "period" | "matchId" | "homeTeam" | "awayTeam"> {
+function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["status"]): Pick<StreamPublicInfo, "pauseType" | "period" | "sponsorSurface" | "matchId" | "homeTeam" | "awayTeam"> {
   if (!meta) return {};
-  const info: Pick<StreamPublicInfo, "pauseType" | "period" | "matchId" | "homeTeam" | "awayTeam"> = { ...ofMatch(meta), period: meta.periodNumber };
-  if (status === "paused") info.pauseType = meta.pauseType ?? "period";
+  const info: Pick<StreamPublicInfo, "pauseType" | "period" | "sponsorSurface" | "matchId" | "homeTeam" | "awayTeam"> = { ...ofMatch(meta), period: meta.periodNumber };
+  if (status === "paused") {
+    info.pauseType = meta.pauseType ?? "period";
+    if (info.pauseType === "period") info.sponsorSurface = slotForPeriodBreak(periodBreakNumber(meta.pauses)) ?? undefined;
+  }
   return info;
 }
 
@@ -423,7 +427,13 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
     // at the next part — nothing has to be built up again.
     oscManager.streamPaused();
 
-    return reply.code(200).send({ status: "paused", pauseType, pausedAt: meta.pausedAt, period: meta.periodNumber });
+    return reply.code(200).send({
+      status: "paused",
+      pauseType,
+      pausedAt: meta.pausedAt,
+      period: meta.periodNumber,
+      ...(pauseType === "period" && { sponsorSurface: slotForPeriodBreak(periodBreakNumber(meta.pauses)) ?? undefined }),
+    });
   });
 
   // PATCH /api/streams/:id/resume — Resume a paused stream
