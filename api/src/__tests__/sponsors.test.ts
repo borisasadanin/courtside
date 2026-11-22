@@ -25,7 +25,7 @@ import {
   slotForPeriodBreak,
   periodBreakNumber,
 } from "../sponsors.js";
-import { SponsorTranscodeQueue, playlistDuration, probeHasAudio, transcodeSponsorClip, type TranscodeResult } from "../sponsor-transcode.js";
+import { SponsorTranscodeQueue, parseSourceInfo, playlistDuration, probeSource, transcodeSponsorClip, type TranscodeResult } from "../sponsor-transcode.js";
 import { initServices, sponsors, sponsorQueue, streamMeta } from "../state.js";
 import { defaultHomeTeam } from "../club-config.js";
 import { createAdminToken, createViewerToken } from "../auth.js";
@@ -360,7 +360,7 @@ describe("transcoding with ffmpeg (#91)", () => {
       "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=30",
       "-t", "40", "-c:v", "libx264", "-preset", "ultrafast", input,
     ]);
-    expect(await probeHasAudio(input)).toBe(false);
+    expect(await probeSource(input)).toEqual({ hasAudio: false, hdr: false });
 
     const result = await transcodeSponsorClip(input);
     expect(result.durationSeconds).toBeGreaterThan(29.5);
@@ -370,6 +370,38 @@ describe("transcoding with ffmpeg (#91)", () => {
     const probe = await promisify(execFile)(ffmpeg, ["-hide_banner", "-i", seg]).catch((e) => e as { stderr: string });
     expect(probe.stderr).toMatch(/Audio: aac.*48000 Hz, stereo/);
   }, 120_000);
+
+  it("tone maps an HLG clip, as an iPhone films, to ordinary BT.709", async () => {
+    const input = join(dir, "hlg.mp4");
+    await promisify(execFile)(ffmpeg, [
+      "-hide_banner", "-loglevel", "error", "-y",
+      "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30",
+      "-t", "2", "-vf", "format=yuv420p10le",
+      "-c:v", "libx264", "-preset", "ultrafast", "-profile:v", "high10",
+      "-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc",
+      input,
+    ]);
+    expect(await probeSource(input)).toEqual({ hasAudio: false, hdr: "hlg" });
+
+    const result = await transcodeSponsorClip(input);
+    const seg = join(dir, "hlg-seg.ts");
+    await import("node:fs/promises").then((fs) => fs.writeFile(seg, result.files.find((f) => f.name === "seg_00000.ts")!.body));
+    const probe = await promisify(execFile)(ffmpeg, ["-hide_banner", "-i", seg]).catch((e) => e as { stderr: string });
+    // 8-bit BT.709, not the 10-bit BT.2020 HLG that went in
+    expect(probe.stderr).toMatch(/yuv420p\(tv, bt709[,)]/);
+  }, 60_000);
+
+  it("reads HDR and sound from ffmpeg's listing", () => {
+    const iphone = [
+      "  Stream #0:0[0x1](und): Video: hevc (Main 10) (hvc1 / 0x31637668), yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67), 3840x2160, 60 fps",
+      "  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 191 kb/s",
+    ].join("\n");
+    expect(parseSourceInfo(iphone)).toEqual({ hasAudio: true, hdr: "hlg" });
+    const hdr10 = "  Stream #0:0: Video: hevc (Main 10), yuv420p10le(tv, bt2020nc/bt2020/smpte2084), 3840x2160";
+    expect(parseSourceInfo(hdr10)).toEqual({ hasAudio: false, hdr: "pq" });
+    const sdr = "  Stream #0:0: Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080";
+    expect(parseSourceInfo(sdr)).toEqual({ hasAudio: false, hdr: false });
+  });
 
   it("fails clearly on a file that is not a video", async () => {
     const input = join(dir, "broken.mp4");

@@ -41,28 +41,61 @@ export interface TranscodeResult {
   durationSeconds: number;
 }
 
+/** What the transcode needs to know about the original before it starts. */
+export interface SourceInfo {
+  hasAudio: boolean;
+  /**
+   * The picture's HDR kind: "hlg" as an iPhone films by default (Dolby Vision
+   * on an iPhone has HLG underneath), "pq" for HDR10, false for ordinary video.
+   */
+  hdr: "hlg" | "pq" | false;
+}
+
+/** Never larger than 1080p, never upscaled, even dimensions for H.264. */
+const SCALE = "scale=w='min(1920,iw)':h='min(1080,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2";
+
+/**
+ * HDR to ordinary (SDR, BT.709) video. Without it an iPhone clip comes out
+ * pale and grey: its HDR colours would be read as if they were ordinary ones.
+ *
+ * HLG is made to be shown on ordinary screens as it is, so it is converted
+ * straight to BT.709; only the brightest highlights clip. PQ needs a tone
+ * map: Mobius keeps the mid-tones where they were and rolls off the rest.
+ * Measured on a test picture, average brightness 129 in the original: HLG
+ * straight 129, PQ with Mobius 113, with Hable 86 (too dark).
+ */
+const TO_SDR = {
+  hlg: "zscale=t=bt709:p=bt709:m=bt709:r=tv",
+  pq:
+    "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709," +
+    "tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv",
+};
+
 /**
  * ffmpeg arguments: whatever comes in, 1080p30 H.264 + AAC as 4 s HLS segments
  * comes out. Exported for the tests.
  */
-export function transcodeArgs(input: string, outDir: string, hasAudio = true): string[] {
+export function transcodeArgs(input: string, outDir: string, source: SourceInfo = { hasAudio: true, hdr: false }): string[] {
   // A clip without sound gets a silent track. hls.js and Safari stall when the
   // audio track comes and goes between the match, the clips and the highlights.
-  const audio = hasAudio
-    ? ["-map", "0:a:0"]
-    : ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000", "-map", "1:a:0", "-shortest"];
+  const silence = source.hasAudio
+    ? []
+    : ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000"];
+  const audioMap = source.hasAudio ? ["-map", "0:a:0"] : ["-map", "1:a:0", "-shortest"];
+  const video = [SCALE, ...(source.hdr ? [TO_SDR[source.hdr]] : []), "format=yuv420p"].join(",");
   return [
     "-hide_banner", "-nostdin", "-y",
     "-i", input,
-    ...(hasAudio ? [] : audio.slice(0, 4)),
+    ...silence,
     "-map", "0:v:0",
-    ...(hasAudio ? audio : audio.slice(4)),
+    ...audioMap,
     "-t", String(MAX_CLIP_SECONDS),
-    // Never larger than 1080p, never upscaled, even dimensions for H.264.
-    "-vf", "scale=w='min(1920,iw)':h='min(1080,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p",
+    "-vf", video,
     "-fpsmax", "30",
     "-c:v", "libx264", "-preset", "veryfast", "-profile:v", "high",
     "-b:v", "5M", "-maxrate", "5M", "-bufsize", "10M",
+    // Say what the colours are, so no player guesses
+    "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
     // A keyframe every 4 s at 30 fps, so every segment starts on one.
     "-g", "120", "-keyint_min", "120", "-sc_threshold", "0",
     "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000",
@@ -86,18 +119,33 @@ function tail(text: string, lines = 8): string {
 }
 
 /**
- * Whether the file has an audio stream. ffmpeg without an output lists the
- * streams on stderr and exits with an error, which is expected here.
+ * Whether the file has sound, and whether its picture is HDR. ffmpeg without
+ * an output lists the streams on stderr and exits with an error, which is
+ * expected here. When the listing cannot be read, the transcode assumes an
+ * ordinary clip with sound and lets ffmpeg report any real problem.
  */
-export function probeHasAudio(input: string): Promise<boolean> {
+export function probeSource(input: string): Promise<SourceInfo> {
   return new Promise((resolve) => {
     const child = spawn(ffmpegPath, ["-hide_banner", "-nostdin", "-i", input], { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
     child.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
     const timer = setTimeout(() => child.kill("SIGKILL"), 60_000);
-    child.on("error", () => { clearTimeout(timer); resolve(true); });
-    child.on("close", () => { clearTimeout(timer); resolve(/Stream #\d+:\d+[^\n]*: Audio:/.test(stderr)); });
+    child.on("error", () => { clearTimeout(timer); resolve({ hasAudio: true, hdr: false }); });
+    child.on("close", () => {
+      clearTimeout(timer);
+      resolve(parseSourceInfo(stderr));
+    });
   });
+}
+
+/** Read ffmpeg's stream listing. Exported for the tests. */
+export function parseSourceInfo(listing: string): SourceInfo {
+  const video = listing.match(/Stream #\d+:\d+[^\n]*: Video:[^\n]*/)?.[0] ?? "";
+  return {
+    hasAudio: /Stream #\d+:\d+[^\n]*: Audio:/.test(listing),
+    // The transfer characteristic: HLG (iPhone) or PQ (HDR10)
+    hdr: /arib-std-b67/.test(video) ? "hlg" : /smpte2084/.test(video) ? "pq" : false,
+  };
 }
 
 function runFfmpeg(args: string[]): Promise<void> {
@@ -128,7 +176,7 @@ export async function transcodeSponsorClip(inputUrl: string): Promise<TranscodeR
   const workDir = join(tmpdir(), `sponsor-${crypto.randomUUID().slice(0, 8)}`);
   await mkdir(workDir, { recursive: true });
   try {
-    await runFfmpeg(transcodeArgs(inputUrl, workDir, await probeHasAudio(inputUrl)));
+    await runFfmpeg(transcodeArgs(inputUrl, workDir, await probeSource(inputUrl)));
 
     const manifest = await readFile(join(workDir, "index.m3u8"), "utf8");
     const durationSeconds = playlistDuration(manifest);
