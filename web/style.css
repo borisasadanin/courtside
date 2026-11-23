@@ -4013,11 +4013,11 @@ footer a:hover { color: var(--accent-ink); }
   overflow-x: auto;
   background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
 }
-.sponsor-grid { min-width: 600px; }
+.sponsor-grid { min-width: 630px; }
 .sponsor-body { position: relative; }
 .sponsor-row {
   display: grid;
-  grid-template-columns: 40px minmax(170px, 1fr) repeat(6, 64px);
+  grid-template-columns: 40px minmax(200px, 1fr) repeat(6, 64px);
   align-items: center;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
@@ -4062,8 +4062,28 @@ footer a:hover { color: var(--accent-ink); }
   background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
   font: inherit; font-variant-numeric: tabular-nums;
 }
-.sponsor-detail { border-bottom: 1px solid var(--line); background: var(--bg); }
+.sponsor-chevron { flex: none; margin-left: auto; margin-right: -2px; color: var(--text-muted); transition: transform 0.15s; }
+.sponsor-info[aria-expanded="true"] .sponsor-chevron { transform: rotate(90deg); color: var(--accent-ink); }
+.sponsor-open { background: var(--accent-soft); }
+/* Below the table, at full width (#118) */
+.sponsor-detail {
+  margin-top: 12px; border: 1px solid var(--accent-dim); border-radius: var(--radius); background: var(--surface);
+}
 .sponsor-detail-inner { display: flex; flex-direction: column; gap: 8px; padding: 16px; max-width: 560px; }
+.sponsor-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sponsor-detail-title { margin: 0; font-size: 1.05rem; overflow-wrap: anywhere; }
+.sponsor-detail-close {
+  flex: none; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 50%;
+  background: none; color: var(--text); font-size: 1rem; cursor: pointer;
+}
+.sponsor-detail-close:focus-visible { outline: 2px solid var(--accent); }
+.sponsor-upload-error { overflow-wrap: anywhere; }
+.sponsor-confirm {
+  display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  border: 1px solid var(--red); border-radius: 8px; background: rgba(231, 76, 60, 0.08);
+}
+.sponsor-confirm p { margin: 0; line-height: 1.45; }
+.sponsor-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .sponsor-preview { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; }
 .sponsor-rename { display: flex; gap: 8px; }
 .sponsor-rename .invite-input { flex: 1; }

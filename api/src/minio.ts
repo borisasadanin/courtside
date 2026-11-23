@@ -11,6 +11,9 @@ import {
   DeleteBucketCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { createWriteStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
+import type { Readable } from "node:stream";
 import type { VodEntry, HighlightClip } from "./types.js";
 import type { Device, DeviceInvite } from "./devices.js";
 import { config } from "./config.js";
@@ -117,6 +120,18 @@ export class MinioClient {
       new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }),
       { expiresIn: expiresInSeconds }
     );
+  }
+
+  /**
+   * Stream an object to a local file, without holding it in memory. For files
+   * a child process must read: ffmpeg from ffmpeg-static on Linux cannot look
+   * up a host name (statically linked glibc), so it cannot fetch from storage
+   * itself (#117).
+   */
+  async downloadToFile(key: string, path: string): Promise<void> {
+    const res = await this.s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    if (!res.Body) throw new Error(`Tomt svar för ${key}`);
+    await pipeline(res.Body as Readable, createWriteStream(path));
   }
 
   /** Size of an object in bytes, or null when there is none. */
