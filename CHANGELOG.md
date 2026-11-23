@@ -18,6 +18,13 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.8.1 — 2026-11-23
+
+- **Sponsorklippen bearbetas.** Uppladdade klipp blev "Fel" direkt efter "Väntar på bearbetning", oavsett
+  format. Nu går de igenom. Om ett klipp ändå inte kan bearbetas står orsaken i klippets detaljer (#117).
+- **Ta bort ett sponsorklipp.** Tryck på klippet: detaljerna öppnas under listan, och "Ta bort klippet"
+  frågar en gång med Ja, ta bort och Avbryt, utan tidsgräns. Fungerar även på mobilen (#118).
+
 ## v0.8.0 — 2026-11-23
 
 - **Sponsorklipp.** Under *Hantera → Sponsring* laddar klubben upp korta filmer, högst 200 MB, som kortas
