@@ -18,6 +18,19 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.8.0 — 2026-11-23
+
+- **Sponsorklipp.** Under *Hantera → Sponsring* laddar klubben upp korta filmer, högst 200 MB, som kortas
+  till 30 sekunder och görs om till 1080p. Bocka i var de ska visas: vid matchstart, i periodpaus 1–3, vid
+  övertid och när matchen slutar. Totaltiden per paus syns, med en varning när klippen är längre än pausen.
+  Tittarna ser klippen live under "*Laget* är sponsrat av:" och kan inte spola förbi dem. De som öppnar
+  sidan mitt i en match ser inga startklipp, och repriserna innehåller inga klipp (#87).
+- **Hoppa till live.** Knappen visas när man ligger mer än 10 sekunder efter, och att dra förloppsmätaren
+  hela vägen till höger tar en till live.
+- **Ljudet följer tittarens val.** Stänger webbläsaren av ljudet visas "Tryck för ljud" i stället för att
+  ljudet bara försvinner. På skärmen "En basketmatch startar snart!" slår "Jag är redo – slå på ljud" på
+  ljudet, och matchen öppnas av sig själv när den börjar.
+
 ## v0.7.8 — 2026-11-17
 
 - **Rätt antal tittare.** Tittarsiffran kunde visa för många, till exempel två tittare när bara en person
