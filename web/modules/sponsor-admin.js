@@ -42,6 +42,8 @@ let data = { clips: [], breakSeconds: {}, maxUploadBytes: 200 * 1024 * 1024 };
 const uploads = new Map();
 /** The clip whose details are open. */
 let openId = null;
+/** The clip whose removal waits for "Ja, ta bort". No timer: the admin decides (#118). */
+let confirmDeleteId = null;
 let pollTimer = null;
 /** thumbnail URL → blob URL, so a redraw does not fetch it again. */
 const thumbs = new Map();
@@ -265,10 +267,7 @@ function draw() {
   const body = document.createElement("div");
   body.className = "sponsor-body";
   body.setAttribute("role", "rowgroup");
-  for (const clip of data.clips) {
-    body.append(clipRow(clip));
-    if (clip.id === openId) body.append(detailPanel(clip));
-  }
+  for (const clip of data.clips) body.append(clipRow(clip));
   grid.append(body);
 
   const total = document.createElement("div");
@@ -296,12 +295,24 @@ function draw() {
   scroller.className = "sponsor-scroll";
   scroller.append(grid);
 
-  root.replaceChildren(scroller, warnings(sums));
+  // The details go below the table, at full width: inside it they scrolled
+  // sideways with the columns and were cut off on a phone (#118).
+  const open = data.clips.find((c) => c.id === openId);
+  if (!open) openId = null;
+  root.replaceChildren(scroller, ...(open ? [detailPanel(open)] : []), warnings(sums));
+}
+
+/** Open or close a clip's details, and bring them into view. */
+function toggleDetails(id) {
+  openId = openId === id ? null : id;
+  confirmDeleteId = null;
+  draw();
+  if (openId) document.querySelector("#adminSponsors .sponsor-detail")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 function clipRow(clip) {
   const row = document.createElement("div");
-  row.className = "sponsor-row sponsor-clip";
+  row.className = `sponsor-row sponsor-clip${clip.id === openId ? " sponsor-open" : ""}`;
   row.setAttribute("role", "row");
   row.dataset.id = clip.id;
 
@@ -321,16 +332,17 @@ function clipRow(clip) {
   info.className = "sponsor-info";
   info.setAttribute("role", "cell");
   info.setAttribute("aria-expanded", String(clip.id === openId));
+  info.setAttribute("aria-controls", "sponsorDetail");
   const status = clip.status === "ready"
     ? clock(clip.durationSeconds)
-    : `<span class="sponsor-status sponsor-status-${clip.status}">${STATUS_TEXT[clip.status] ?? clip.status}</span>`;
+    : clip.status === "failed"
+      ? `<span class="sponsor-status sponsor-status-failed">Fel – tryck här</span>`
+      : `<span class="sponsor-status sponsor-status-${clip.status}">${STATUS_TEXT[clip.status] ?? clip.status}</span>`;
   info.innerHTML = `<span class="sponsor-thumb"><img alt=""></span>
-    <span class="sponsor-text"><span class="sponsor-name">${escapeHtml(clip.name)}</span><span class="sponsor-meta">${status}</span></span>`;
+    <span class="sponsor-text"><span class="sponsor-name">${escapeHtml(clip.name)}</span><span class="sponsor-meta">${status}</span></span>
+    <svg class="sponsor-chevron" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   loadThumb(info.querySelector("img"), clip.thumbnailUrl);
-  info.addEventListener("click", () => {
-    openId = openId === clip.id ? null : clip.id;
-    draw();
-  });
+  info.addEventListener("click", () => toggleDetails(clip.id));
 
   row.append(handleCell, info);
   for (const s of SLOTS) {
@@ -401,9 +413,10 @@ function warnings(sums) {
 // --- Details: preview, rename, delete (#98) ---
 
 function detailPanel(clip) {
-  const panel = document.createElement("div");
+  const panel = document.createElement("section");
   panel.className = "sponsor-detail";
-  panel.setAttribute("role", "row");
+  panel.id = "sponsorDetail";
+  panel.setAttribute("aria-label", `Klippet ${clip.name}`);
 
   const media = clip.status === "ready"
     ? `<video class="sponsor-preview" controls playsinline preload="metadata"></video>`
@@ -411,7 +424,22 @@ function detailPanel(clip) {
       ? `<p class="sponsor-upload-error">${escapeHtml(clip.error || "Klippet kunde inte bearbetas.")}</p>`
       : `<p class="privacy-admin-intro">${STATUS_TEXT[clip.status]}. Förhandsvisningen kommer när klippet är klart.</p>`;
 
-  panel.innerHTML = `<div role="cell" class="sponsor-detail-inner">
+  const confirming = confirmDeleteId === clip.id;
+  const removal = confirming
+    ? `<div class="sponsor-confirm" role="alertdialog" aria-labelledby="sponsorConfirm-${clip.id}">
+        <p id="sponsorConfirm-${clip.id}">Ta bort <strong>${escapeHtml(clip.name)}</strong>? Klippet och dess filer tas bort för gott, och det visas inte längre för tittarna.</p>
+        <div class="sponsor-confirm-actions">
+          <button class="device-revoke sponsor-delete-yes" type="button" data-act="delete-yes">Ja, ta bort</button>
+          <button class="admin-pair-btn" type="button" data-act="delete-no">Avbryt</button>
+        </div>
+      </div>`
+    : `<button class="device-revoke sponsor-delete" type="button" data-act="delete">Ta bort klippet</button>`;
+
+  panel.innerHTML = `<div class="sponsor-detail-inner">
+    <div class="sponsor-detail-head">
+      <h3 class="sponsor-detail-title">${escapeHtml(clip.name)}</h3>
+      <button class="sponsor-detail-close" type="button" data-act="close" aria-label="Stäng">✕</button>
+    </div>
     ${media}
     <label class="invite-label" for="sponsorName-${clip.id}">Namn</label>
     <div class="sponsor-rename">
@@ -422,7 +450,7 @@ function detailPanel(clip) {
       <button class="admin-pair-btn" type="button" data-act="up"${index(clip) === 0 ? " disabled" : ""}>Flytta upp</button>
       <button class="admin-pair-btn" type="button" data-act="down"${index(clip) === data.clips.length - 1 ? " disabled" : ""}>Flytta ner</button>
     </div>
-    <button class="device-revoke sponsor-delete" type="button" data-act="delete">Ta bort klippet</button>
+    ${removal}
   </div>`;
 
   const video = panel.querySelector("video");
@@ -449,23 +477,38 @@ function detailPanel(clip) {
     });
   }
 
-  const del = panel.querySelector('[data-act="delete"]');
-  del.addEventListener("click", async () => {
-    // Same two-step confirm as removing a camera.
-    if (del.dataset.confirm !== "1") {
-      del.dataset.confirm = "1";
-      del.textContent = "Tryck igen för att ta bort";
-      setTimeout(() => { del.dataset.confirm = ""; del.textContent = "Ta bort klippet"; }, 4000);
-      return;
-    }
+  panel.querySelector('[data-act="close"]').addEventListener("click", () => {
+    toggleDetails(clip.id);
+    document.querySelector(`#adminSponsors .sponsor-clip[data-id="${clip.id}"] .sponsor-info`)?.focus();
+  });
+
+  // Removing asks once, in words, and waits for the answer: no timer that
+  // quietly takes the question back (#118).
+  panel.querySelector('[data-act="delete"]')?.addEventListener("click", () => {
+    confirmDeleteId = clip.id;
+    draw();
+    document.querySelector('#adminSponsors [data-act="delete-no"]')?.focus();
+  });
+  panel.querySelector('[data-act="delete-no"]')?.addEventListener("click", () => {
+    confirmDeleteId = null;
+    draw();
+    document.querySelector('#adminSponsors [data-act="delete"]')?.focus();
+  });
+  const yes = panel.querySelector('[data-act="delete-yes"]');
+  yes?.addEventListener("click", async () => {
+    yes.disabled = true;
+    yes.textContent = "Tar bort…";
     try {
       await send("DELETE", `/api/admin/sponsors/${clip.id}`);
       data.clips = data.clips.filter((c) => c.id !== clip.id);
-      openId = null;
-      draw();
     } catch (err) {
-      alert(`Kunde inte ta bort: ${err.message}`);
+      // Already gone on the server: it is gone here too
+      if (err.message === "Klippet finns inte.") data.clips = data.clips.filter((c) => c.id !== clip.id);
+      else alert(`Kunde inte ta bort: ${err.message}`);
     }
+    openId = null;
+    confirmDeleteId = null;
+    draw();
   });
   return panel;
 }
@@ -520,8 +563,9 @@ function bindDrag(handle, row) {
     dragging = true;
     const body = row.parentElement;
     // The open details would sit between the rows being sorted.
-    body.querySelector(".sponsor-detail")?.remove();
+    document.querySelector("#adminSponsors .sponsor-detail")?.remove();
     openId = null;
+    confirmDeleteId = null;
     const startY = e.clientY;
     const startTop = row.offsetTop;
     const before = order();

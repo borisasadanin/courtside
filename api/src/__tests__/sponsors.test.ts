@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vites
 import Fastify, { type FastifyInstance } from "fastify";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile as readLocal, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createRequire } from "node:module";
@@ -25,7 +25,7 @@ import {
   slotForPeriodBreak,
   periodBreakNumber,
 } from "../sponsors.js";
-import { SponsorTranscodeQueue, parseSourceInfo, playlistDuration, probeSource, transcodeSponsorClip, type TranscodeResult } from "../sponsor-transcode.js";
+import { SponsorTranscodeQueue, failureText, parseSourceInfo, playlistDuration, probeSource, transcodeSponsorClip, type TranscodeResult } from "../sponsor-transcode.js";
 import { initServices, sponsors, sponsorQueue, streamMeta } from "../state.js";
 import { defaultHomeTeam } from "../club-config.js";
 import { createAdminToken, createViewerToken } from "../auth.js";
@@ -58,6 +58,11 @@ function memoryStorage() {
       return n;
     }),
     presignGet: vi.fn(async (key: string) => `https://storage.example.com/${key}?sig=get`),
+    downloadToFile: vi.fn(async (key: string, path: string) => {
+      const f = files.get(key);
+      if (!f) throw new Error(`NoSuchKey ${key}`);
+      await writeFile(path, f.body);
+    }),
     presignPut: vi.fn(async (key: string, type: string) => `https://storage.example.com/${key}?sig=put&type=${encodeURIComponent(type)}`),
     objectSize: vi.fn(async (key: string) => {
       const f = files.get(key);
@@ -230,7 +235,7 @@ describe("transcode queue (#92)", () => {
 
   async function uploaded(name: string) {
     const clip = await registry.create(name, 3, "video/mp4");
-    storage.files.set(originalKey(clip.id), { body: "raw", type: "video/mp4" });
+    storage.files.set(originalKey(clip.id), { body: `raw ${name}`, type: "video/mp4" });
     await registry.patch(clip.id, { status: "queued" });
     return clip;
   }
@@ -247,8 +252,32 @@ describe("transcode queue (#92)", () => {
     expect(storage.files.has(`sponsors/${clip.id}/index.m3u8`)).toBe(true);
     expect(storage.files.has(`sponsors/${clip.id}/thumb.jpg`)).toBe(true);
     expect(storage.files.has(originalKey(clip.id))).toBe(false);
-    // ffmpeg reads the original over a signed link; nothing downloads it.
-    expect(storage.presignGet).toHaveBeenCalledWith(originalKey(clip.id), expect.any(Number));
+  });
+
+  it("gives ffmpeg a local copy of the original, never a link, and removes it after (#117)", async () => {
+    const clip = await uploaded("A");
+    let seen = "";
+    let path = "";
+    const queue = new SponsorTranscodeQueue(registry, storage, quietLog, async (input) => {
+      path = input;
+      seen = await readLocal(input, "utf8");
+      return fakeTranscode()(input);
+    });
+    queue.enqueue(clip.id);
+    await queue.idle();
+    expect(path.startsWith(tmpdir())).toBe(true);
+    expect(seen).toBe("raw A");
+    expect(storage.presignGet).not.toHaveBeenCalled();
+    await expect(access(path)).rejects.toThrow();
+  });
+
+  it("fails with a reason when the original cannot be fetched", async () => {
+    const clip = await uploaded("A");
+    storage.files.delete(originalKey(clip.id));
+    const queue = new SponsorTranscodeQueue(registry, storage, quietLog, fakeTranscode());
+    queue.enqueue(clip.id);
+    await queue.idle();
+    expect((await registry.get(clip.id))?.error).toMatch(/Orsak: NoSuchKey/);
   });
 
   it("runs one clip at a time, in the order they came", async () => {
@@ -260,7 +289,7 @@ describe("transcode queue (#92)", () => {
     const slow = async (url: string) => {
       running++;
       most = Math.max(most, running);
-      order.push(url);
+      order.push(await readLocal(url, "utf8"));
       await new Promise((r) => setTimeout(r, 10));
       running--;
       return fakeTranscode()(url);
@@ -272,7 +301,7 @@ describe("transcode queue (#92)", () => {
     await queue.idle();
     expect(most).toBe(1);
     expect(order).toHaveLength(2);
-    expect(order[0]).toContain(a.id);
+    expect(order).toEqual(["raw A", "raw B"]);
     expect((await registry.get(b.id))?.status).toBe("ready");
   });
 
@@ -286,7 +315,7 @@ describe("transcode queue (#92)", () => {
     queue.enqueue(a.id);
     queue.enqueue(b.id);
     await queue.idle();
-    expect((await registry.get(a.id))).toMatchObject({ status: "failed", error: expect.any(String) });
+    expect((await registry.get(a.id))).toMatchObject({ status: "failed", error: expect.stringMatching(/Orsak: ffmpeg exited with 1$/) });
     expect(storage.files.has(originalKey(a.id))).toBe(false);
     expect((await registry.get(b.id))?.status).toBe("ready");
   });
@@ -401,6 +430,18 @@ describe("transcoding with ffmpeg (#91)", () => {
     expect(parseSourceInfo(hdr10)).toEqual({ hasAudio: false, hdr: "pq" });
     const sdr = "  Stream #0:0: Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080";
     expect(parseSourceInfo(sdr)).toEqual({ hasAudio: false, hdr: false });
+  });
+
+  it("tells the admin ffmpeg's last line, not the whole output (#117)", () => {
+    const err = new Error("ffmpeg avslutades med 1:\n  Stream mapping: ...\n\nhttps://x: Failed to resolve hostname x\n");
+    expect(failureText(err)).toBe(
+      "Klippet kunde inte bearbetas. Prova att exportera det som MP4 och ladda upp igen. Orsak: https://x: Failed to resolve hostname x",
+    );
+  });
+
+  it("leaves the temporary path out of the reason", () => {
+    const err = new Error("ffmpeg avslutades med 1:\n/tmp/sponsor-in-1234/original: Invalid data found when processing input");
+    expect(failureText(err)).toMatch(/Orsak: Invalid data found when processing input$/);
   });
 
   it("fails clearly on a file that is not a video", async () => {

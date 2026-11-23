@@ -169,14 +169,14 @@ function runFfmpeg(args: string[]): Promise<void> {
 }
 
 /**
- * Transcode one original, read from `inputUrl`, into HLS and a thumbnail.
+ * Transcode one original, a local file, into HLS and a thumbnail.
  * Nothing is stored here; the caller decides what to do with the files.
  */
-export async function transcodeSponsorClip(inputUrl: string): Promise<TranscodeResult> {
+export async function transcodeSponsorClip(inputPath: string): Promise<TranscodeResult> {
   const workDir = join(tmpdir(), `sponsor-${crypto.randomUUID().slice(0, 8)}`);
   await mkdir(workDir, { recursive: true });
   try {
-    await runFfmpeg(transcodeArgs(inputUrl, workDir, await probeSource(inputUrl)));
+    await runFfmpeg(transcodeArgs(inputPath, workDir, await probeSource(inputPath)));
 
     const manifest = await readFile(join(workDir, "index.m3u8"), "utf8");
     const durationSeconds = playlistDuration(manifest);
@@ -201,7 +201,7 @@ export async function transcodeSponsorClip(inputUrl: string): Promise<TranscodeR
 }
 
 interface QueueStorage {
-  presignGet(key: string, expiresInSeconds?: number): Promise<string>;
+  downloadToFile(key: string, path: string): Promise<void>;
   uploadBuffer(key: string, body: Buffer | string, contentType: string): Promise<void>;
   deleteObject(key: string): Promise<void>;
   deletePrefix(prefix: string): Promise<number>;
@@ -225,7 +225,7 @@ export class SponsorTranscodeQueue {
     private readonly registry: SponsorRegistry,
     private readonly storage: QueueStorage,
     private readonly log: Logger,
-    private readonly transcode: (inputUrl: string) => Promise<TranscodeResult> = transcodeSponsorClip,
+    private readonly transcode: (inputPath: string) => Promise<TranscodeResult> = transcodeSponsorClip,
   ) {}
 
   /** Put a clip in line. A clip already in line is not added twice. */
@@ -255,11 +255,16 @@ export class SponsorTranscodeQueue {
     if (!clip || clip.status !== "queued") return;
     await this.registry.patch(id, { status: "processing" });
     const started = Date.now();
+    const inputDir = join(tmpdir(), `sponsor-in-${crypto.randomUUID().slice(0, 8)}`);
 
     try {
-      // Long enough to outlast the slowest transcode, since ffmpeg reads as it goes.
-      const url = await this.storage.presignGet(originalKey(id), 3 * 3600);
-      const result = await this.transcode(url);
+      // The original is fetched by the API, not by ffmpeg: ffmpeg-static on
+      // Linux cannot look up storage's host name, so a link fails on OSC (#117).
+      // At most 200 MB, deleted as soon as the transcode is done.
+      await mkdir(inputDir, { recursive: true });
+      const input = join(inputDir, "original");
+      await this.storage.downloadToFile(originalKey(id), input);
+      const result = await this.transcode(input);
 
       // The admin may have deleted the clip while it was transcoding.
       if (!(await this.registry.get(id))) {
@@ -276,8 +281,23 @@ export class SponsorTranscodeQueue {
       this.log.warn(err, `Sponsor clip ${id} failed`);
       await this.storage.deleteObject(originalKey(id)).catch(() => {});
       await this.registry
-        .patch(id, { status: "failed", error: "Klippet kunde inte bearbetas. Prova att exportera det som MP4 och ladda upp igen." })
+        .patch(id, { status: "failed", error: failureText(err) })
         .catch(() => { /* deleted meanwhile */ });
+    } finally {
+      await rm(inputDir, { recursive: true, force: true }).catch(() => {});
     }
   }
+}
+
+/**
+ * What the admin reads when a clip fails: what to do, and the reason in
+ * ffmpeg's own words, so the next problem can be found without the platform's
+ * log (#117).
+ */
+export function failureText(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  const lines = message.split("\n").map((l) => l.trim()).filter(Boolean);
+  // ffmpeg names the file first; a temporary path says nothing to the admin
+  const reason = (lines.at(-1) ?? "okänt fel").replace(/^\S*\/original:\s*/, "").slice(0, 200);
+  return `Klippet kunde inte bearbetas. Prova att exportera det som MP4 och ladda upp igen. Orsak: ${reason}`;
 }
