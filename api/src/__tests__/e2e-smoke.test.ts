@@ -569,6 +569,8 @@ describe("E2E Smoke Tests: Recording → VOD flow", () => {
       streams = listRes.json();
       stream = streams.find((s: any) => s.id === streamId);
       expect(stream.status).toBe("stopped");
+      // The camera ended it: the match is over, not cut off (#183)
+      expect(stream.ended).toBe(true);
     });
 
     it("stopped stream appears in /api/vod list", async () => {

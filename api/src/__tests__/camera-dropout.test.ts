@@ -157,6 +157,8 @@ describe("a camera that drops out mid-match", () => {
     const meta = streamMeta.get(streamId)!;
     expect(meta.stoppedAt).toBeTruthy();
     expect(Date.parse(meta.stoppedAt!) - lastRunning).toBeGreaterThan(STREAM_IDLE_LIMIT_MS);
+    // Cut off, not ended by the camera: the card says AVBRUTEN, not SLUT (#183)
+    expect(meta.endedBy).toBe("cleanup");
     expect(storage.updateVodEntry).toHaveBeenCalledWith(streamId, expect.objectContaining({ stoppedAt: meta.stoppedAt }));
     expect(restreamer.deleteProcess).toHaveBeenCalledWith(streamId);
   });

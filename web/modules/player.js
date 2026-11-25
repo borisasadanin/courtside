@@ -467,10 +467,18 @@ async function checkIfStreamStopped() {
   }
 }
 
+/**
+ * "720p" for a level, or null when the playlist gives no height: a stream
+ * without RESOLUTION has height 0, which must never show as "0p" (#182).
+ */
+function levelLabel(level) {
+  return level && level.height > 0 ? `${level.height}p` : null;
+}
+
 function onLevelSwitched(_event, data) {
   if (state.hls && state.hls.autoLevelEnabled) {
-    const level = state.hls.levels[data.level];
-    dom.qualityLabel.textContent = `Auto (${level.height}p)`;
+    const label = levelLabel(state.hls.levels[data.level]);
+    dom.qualityLabel.textContent = label ? `Auto (${label})` : "Auto";
   }
   updateActiveQuality();
 }
@@ -489,10 +497,18 @@ function buildQualityMenu() {
   autoBtn.addEventListener("click", () => selectQuality(-1));
   dom.qualityMenu.appendChild(autoBtn);
 
-  state.hls.levels.forEach((level, i) => {
+  // Only levels with a known height can be picked. With fewer than two there
+  // is nothing to choose between, so the button is hidden (#182).
+  const choices = state.hls.levels
+    .map((level, i) => ({ i, label: levelLabel(level) }))
+    .filter((c) => c.label);
+  dom.qualityBtn.classList.toggle("hidden", choices.length < 2);
+  dom.qualityLabel.textContent = "Auto";
+
+  choices.forEach(({ i, label }) => {
     const btn = document.createElement("button");
     btn.className = "quality-option";
-    btn.textContent = `${level.height}p`;
+    btn.textContent = label;
     btn.dataset.level = i;
     btn.addEventListener("click", () => selectQuality(i));
     dom.qualityMenu.appendChild(btn);
@@ -501,6 +517,8 @@ function buildQualityMenu() {
 
 function buildNativeQualityMenu() {
   dom.qualityMenu.innerHTML = "";
+  dom.qualityBtn.classList.remove("hidden");
+  dom.qualityLabel.textContent = "Auto";
   const btn = document.createElement("button");
   btn.className = "quality-option active";
   btn.textContent = "Auto";
@@ -513,7 +531,7 @@ function selectQuality(levelIndex) {
     state.hls.currentLevel = -1;
     dom.qualityLabel.textContent = "Auto";
   } else {
-    dom.qualityLabel.textContent = `${state.hls.levels[levelIndex].height}p`;
+    dom.qualityLabel.textContent = levelLabel(state.hls.levels[levelIndex]) ?? "Auto";
   }
   updateActiveQuality();
   dom.qualityMenu.classList.remove("open");
