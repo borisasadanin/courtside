@@ -18,6 +18,14 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.8.2 — 2026-11-25
+
+- **SLUT i stället för AVBRUTEN.** En match som avslutas i kameraappen står nu som "SLUT" på Live-sidan.
+  "AVBRUTEN" visas bara när sändningen bröts, till exempel när kameran tappade kontakten och inte kom
+  tillbaka (#183).
+- **Ingen "0p" i kvalitetsväljaren.** Knappen visade "Auto (0p)". Nu visas en upplösning bara när den är
+  känd, och knappen göms när det inte finns något att välja mellan (#182).
+
 ## v0.8.1 — 2026-11-23
 
 - **Sponsorklippen bearbetas.** Uppladdade klipp blev "Fel" direkt efter "Väntar på bearbetning", oavsett
