@@ -44,6 +44,11 @@ function matchInfo(meta: StreamMeta | undefined, status: StreamPublicInfo["statu
  * The stream's match id, when it has one (ABL-048), and its teams as recorded,
  * so a live card can name them without the schedule (ABL-049).
  */
+/** A stopped stream's match, and whether the camera ended it (#183). */
+function ofStopped(meta: StreamMeta): Pick<StreamPublicInfo, "matchId" | "homeTeam" | "awayTeam" | "ended"> {
+  return { ...ofMatch(meta), ...(meta.endedBy === "camera" && { ended: true as const }) };
+}
+
 function ofMatch(meta: StreamMeta | undefined): Pick<StreamPublicInfo, "matchId" | "homeTeam" | "awayTeam"> {
   return {
     ...(meta?.matchId && { matchId: meta.matchId }),
@@ -96,9 +101,15 @@ export function lastSignOfLife(meta: StreamMeta): number {
  * End a stream and make its recording playable. Used by the camera's stop and
  * by cleanup, so a match ended either way is stitched the same.
  */
-export async function endStream(id: string, meta: StreamMeta, log: FastifyBaseLogger): Promise<void> {
+export async function endStream(
+  id: string,
+  meta: StreamMeta,
+  log: FastifyBaseLogger,
+  endedBy: NonNullable<StreamMeta["endedBy"]>,
+): Promise<void> {
   const stoppedAt = new Date().toISOString();
   meta.stoppedAt = stoppedAt;
+  meta.endedBy = endedBy;
   // The guest space's 14 days count from here (#52).
   guestSpaces.streamEnded(id, stoppedAt).catch((err) => log.error(err, "Could not note the guest space's end"));
 
@@ -508,7 +519,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             hlsUrl: restreamer.hlsUrl(streamId, meta.partNumber),
             createdAt: meta.createdAt,
             status: "stopped",
-            ...ofMatch(meta),
+            ...ofStopped(meta),
             viewers: 0,
           });
         } else if (meta.pausedAt) {
@@ -605,7 +616,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           hlsUrl: restreamer.hlsUrl(streamId, meta.partNumber),
           createdAt: meta.createdAt,
           status: "stopped",
-          ...ofMatch(meta),
+          ...ofStopped(meta),
           viewers: 0,
         });
       }
@@ -676,7 +687,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
             hlsUrl: restreamer.hlsUrl(id, partNum),
             createdAt: meta.createdAt,
             status: "stopped",
-            ...ofMatch(meta),
+            ...ofStopped(meta),
             viewers: 0,
           } satisfies StreamPublicInfo);
         }
@@ -799,7 +810,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
 
       // The collector's last poll needs the process, so it goes first
       if (meta) {
-        await endStream(id, meta, request.log);
+        await endStream(id, meta, request.log, "camera");
       } else {
         viewers.delete(id);
       }
@@ -905,7 +916,7 @@ export default async function streamRoutes(app: FastifyInstance): Promise<void> 
           app.log.info(`Ending abandoned stream ${streamId} (state: ${state}, quiet for ${Math.round(quietMs / 1000)}s)`);
           if (meta && !meta.stoppedAt) {
             // Collect and stitch while the process is still there
-            await endStream(streamId, meta, app.log);
+            await endStream(streamId, meta, app.log, "cleanup");
           }
           viewers.delete(streamId);
           await restreamer.deleteProcess(streamId);

@@ -19,6 +19,11 @@ export interface StreamPublicInfo {
   dvrUrl?: string;
   createdAt: string;
   status: "live" | "waiting" | "stopped" | "paused";
+  /**
+   * Set only on a stopped stream the camera ended on purpose: the match is
+   * over ("SLUT"). A stopped stream without it was cut off ("AVBRUTEN") (#183).
+   */
+  ended?: true;
   /** Set only when status is "paused" */
   pauseType?: "period" | "timeout";
   /** Current match period (1-based) */

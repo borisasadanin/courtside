@@ -22,6 +22,11 @@ export interface StreamMeta {
   name: string;
   createdAt: string;
   stoppedAt?: string;
+  /**
+   * Who ended the stream: the camera's stop (the match was ended) or cleanup
+   * (the camera went quiet, so the stream was cut off). Set with stoppedAt (#183).
+   */
+  endedBy?: "camera" | "cleanup";
   deviceId?: string;
   wasLive?: boolean;
   /** ISO timestamp when stream was paused (undefined = not paused) */

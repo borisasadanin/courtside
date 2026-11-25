@@ -295,6 +295,9 @@ const STREAM_STATUS = {
   paused: { cls: "paused", text: "PAUS", spoken: "paus" },
 };
 
+/** A stopped stream the camera ended: the match is over, not cut off (#183). */
+const STREAM_ENDED = { cls: "stopped", text: "SLUT", spoken: "slut" };
+
 /**
  * A live card: the live picture, then the match as on every other card,
  * "LIVE  Period 2 · 14 tittare" (ABL-049). A stream with no teams known (one
@@ -304,7 +307,9 @@ const STREAM_STATUS = {
 function streamCard(s, { withCamera }) {
   const status = s.status === "paused" && s.pauseType
     ? { cls: "paused", text: pauseLabel(s.pauseType), spoken: pauseLabel(s.pauseType).toLowerCase() }
-    : STREAM_STATUS[s.status] || STREAM_STATUS.waiting;
+    : s.status === "stopped" && s.ended
+      ? STREAM_ENDED
+      : STREAM_STATUS[s.status] || STREAM_STATUS.waiting;
   const isStopped = s.status === "stopped";
   const isPaused = s.status === "paused";
   const teams = matchTeams(findMatch(s.matchId), s.homeTeam, s.awayTeam);
