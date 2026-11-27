@@ -11,6 +11,10 @@
  *   PUT    /api/admin/sponsorship/sponsors/:id/logo  a logo as a data URL (#128)
  *   DELETE /api/admin/sponsorship/sponsors/:id/logo
  *   PATCH  /api/admin/sponsorship/surfaces           switch surfaces on or off for the installation
+ *   POST   /api/admin/sponsorship/packages           a new package (#154)
+ *   PUT    /api/admin/sponsorship/packages/order     the packages' order: who goes first
+ *   PATCH  /api/admin/sponsorship/packages/:id       name, surfaces; 409 with the conflicts
+ *   DELETE /api/admin/sponsorship/packages/:id       refused while a sponsor has it
  *   PATCH  /api/admin/sponsorship/season             where the season's report starts (#141)
  *   GET    /api/admin/sponsorship/report?sponsor=&season=  what viewers saw of one sponsor (#141)
  *
@@ -63,6 +67,7 @@ import {
   sponsorThumbKey,
   type Sponsor,
   type SponsorClip,
+  type PackageInput,
   type SponsorInput,
   type SponsorSettings,
 } from "../sponsors.js";
@@ -229,7 +234,7 @@ function eventsKey(request: FastifyRequest): string {
 
 /** Send a SponsorError as the admin's message; anything else is a 500 for Fastify to log. */
 function fail(reply: FastifyReply, err: unknown) {
-  if (err instanceof SponsorError) return reply.code(err.status).send({ error: err.message });
+  if (err instanceof SponsorError) return reply.code(err.status).send({ ...err.details, error: err.message });
   throw err;
 }
 
@@ -332,6 +337,48 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
     try {
       await sponsors.setSurfaces(request.body);
       return { surfaces: overview(await sponsors.readAll()).surfaces };
+    } catch (err) {
+      return fail(reply, err);
+    }
+  });
+
+  // --- Admin: packages (#154) ---
+
+  app.post<{ Body: PackageInput | undefined }>("/api/admin/sponsorship/packages", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    try {
+      const created = await sponsors.createPackage(request.body ?? {});
+      return reply.code(201).send({ package: created });
+    } catch (err) {
+      return fail(reply, err);
+    }
+  });
+
+  // Registered before /:id so "order" is not taken for a package id.
+  app.put<{ Body: { ids?: unknown } | undefined }>("/api/admin/sponsorship/packages/order", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    try {
+      await sponsors.reorderPackages(request.body?.ids);
+      return overview(await sponsors.readAll());
+    } catch (err) {
+      return fail(reply, err);
+    }
+  });
+
+  app.patch<{ Params: { id: string }; Body: PackageInput | undefined }>("/api/admin/sponsorship/packages/:id", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    try {
+      return { package: await sponsors.patchPackage(request.params.id, request.body ?? {}) };
+    } catch (err) {
+      return fail(reply, err);
+    }
+  });
+
+  app.delete<{ Params: { id: string } }>("/api/admin/sponsorship/packages/:id", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    try {
+      await sponsors.removePackage(request.params.id);
+      return reply.code(204).send();
     } catch (err) {
       return fail(reply, err);
     }

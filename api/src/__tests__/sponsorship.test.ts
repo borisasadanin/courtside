@@ -369,3 +369,106 @@ describe("sponsor registry changes (#126)", () => {
     expect((await registry.readAll()).seasonStart).toBeUndefined();
   });
 });
+
+// --- Packages (#154) ---
+
+describe("packages (#154)", () => {
+  let storage: ReturnType<typeof memoryStorage>;
+  let registry: SponsorRegistry;
+
+  beforeEach(() => {
+    storage = memoryStorage();
+    registry = new SponsorRegistry(storage, { teams });
+  });
+
+  it("creates a package last in the order, renames it and changes its surfaces", async () => {
+    const brons = await registry.createPackage({ name: " Brons ", surfaces: ["club-footer", "start", "club-footer"] });
+    expect(brons).toMatchObject({ name: "Brons", priority: 4, surfaces: ["start", "club-footer"] });
+    expect(brons.id).toMatch(/^[a-f0-9]{12}$/);
+    const changed = await registry.patchPackage(brons.id, { name: "Brons+", surfaces: ["club-footer", "waiting"] });
+    expect(changed).toMatchObject({ name: "Brons+", surfaces: ["waiting", "club-footer"] });
+    const s = await new SponsorRegistry(storage).readAll();
+    expect(s.packages.map((p) => p.name)).toEqual(["Platinum", "Guld", "Silver", "Brons+"]);
+  });
+
+  it("refuses a bad name, a name taken, an unknown surface and an unknown package", async () => {
+    await expect(registry.createPackage({ name: "" })).rejects.toMatchObject({ status: 400 });
+    await expect(registry.createPackage({ name: "x".repeat(41) })).rejects.toMatchObject({ status: 400 });
+    await expect(registry.createPackage({ name: "guld" })).rejects.toMatchObject({ status: 409, message: "Det finns redan ett paket som heter guld." });
+    await expect(registry.createPackage({ name: "Brons", surfaces: ["halftime"] })).rejects.toMatchObject({ status: 400 });
+    await expect(registry.createPackage({ name: "Brons", surfaces: "club-footer" })).rejects.toMatchObject({ status: 400 });
+    await expect(registry.patchPackage("gold", {})).rejects.toMatchObject({ status: 400 });
+    await expect(registry.patchPackage("nope", { name: "X" })).rejects.toMatchObject({ status: 404 });
+    // Renaming to its own name in another case is fine.
+    await expect(registry.patchPackage("gold", { name: "GULD" })).resolves.toMatchObject({ name: "GULD" });
+  });
+
+  it("refuses the corner in Guld when two Guld sponsors share a team, with every conflict, and writes nothing", async () => {
+    await registry.createSponsor({ name: "ICA", packageId: "gold", teamIds: ["p12"] });
+    await registry.createSponsor({ name: "Coop", packageId: "gold", teamIds: ["p12", "f14"] });
+    const gold = (await registry.readAll()).packages.find((p) => p.id === "gold")!;
+    const writes = storage.uploadBuffer.mock.calls.length;
+
+    const err = await registry.patchPackage("gold", { surfaces: [...gold.surfaces, "corner", "match-card"] }).catch((e) => e);
+    expect(err).toMatchObject({ status: 409, message: "Guld kan inte få hörnlogga: Älta P12 skulle få flera, ICA och Coop. Bara en per lag går." });
+    expect(err.details.conflicts).toEqual([
+      { surface: "corner", label: "Hörnlogga", teamId: "p12", teamName: "Älta P12", sponsors: [{ id: expect.any(String), name: "ICA" }, { id: expect.any(String), name: "Coop" }] },
+      { surface: "match-card", label: "Matchkortet", teamId: "p12", teamName: "Älta P12", sponsors: [{ id: expect.any(String), name: "ICA" }, { id: expect.any(String), name: "Coop" }] },
+    ]);
+    expect(storage.uploadBuffer.mock.calls.length).toBe(writes);
+    expect((await registry.readAll()).packages.find((p) => p.id === "gold")!.surfaces).not.toContain("corner");
+
+    // A non-exclusive surface is fine, and so is the corner in a package with one sponsor per team.
+    await expect(registry.patchPackage("gold", { surfaces: [...gold.surfaces, "club-footer", "waiting"] })).resolves.toBeTruthy();
+    await expect(registry.patchPackage("silver", { surfaces: ["club-footer", "corner"] })).resolves.toBeTruthy();
+  });
+
+  it("orders the packages, and the order decides who goes first (#125)", async () => {
+    const s0 = await registry.readAll();
+    const club = (name: string, packageId: string) => registry.createSponsor({ name, packageId });
+    await club("Guldet", "gold");
+    await club("Silvret", "silver");
+    await registry.setSurfaces({ "club-footer": true, corner: true });
+    await registry.patchPackage("silver", { surfaces: ["club-footer"] });
+    const names = async (surface: string) => sponsorsFor(await registry.readAll(), null, surface).map((p) => p.sponsor.name);
+    expect(await names("club-footer")).toEqual(["Guldet", "Silvret"]);
+
+    const ordered = await registry.reorderPackages(["silver", "gold", "platinum"]);
+    expect(ordered.map((p) => [p.id, p.priority])).toEqual([["silver", 1], ["gold", 2], ["platinum", 3]]);
+    expect(await names("club-footer")).toEqual(["Silvret", "Guldet"]);
+    expect((await new SponsorRegistry(storage).readAll()).packages.map((p) => p.id)).toEqual(["silver", "gold", "platinum"]);
+
+    await expect(registry.reorderPackages(["silver", "gold"])).rejects.toMatchObject({ status: 409 });
+    await expect(registry.reorderPackages(["silver", "gold", "gold"])).rejects.toMatchObject({ status: 409 });
+    await expect(registry.reorderPackages("silver")).rejects.toMatchObject({ status: 400 });
+    expect(s0.packages.map((p) => p.priority)).toEqual([1, 2, 3]);
+  });
+
+  it("removes a package only once no sponsor has it, and never the last one", async () => {
+    const x = await registry.createSponsor({ name: "ICA", packageId: "silver" });
+    await expect(registry.removePackage("silver")).rejects.toMatchObject({
+      status: 409, message: "Silver har en sponsor. Flytta den till ett annat paket först.", details: { sponsors: [{ id: x.id, name: "ICA" }] },
+    });
+    await registry.patchSponsor(x.id, { packageId: "gold" });
+    await registry.removePackage("silver");
+    // Stays removed on the next read: the defaults are not put back.
+    expect((await new SponsorRegistry(storage).readAll()).packages.map((p) => p.id)).toEqual(["platinum", "gold"]);
+    await expect(registry.removePackage("silver")).rejects.toMatchObject({ status: 404 });
+
+    await registry.removePackage("platinum");
+    await expect(registry.removePackage("gold")).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("puts new sponsors in the last package once Guld is gone", async () => {
+    const brons = await registry.createPackage({ name: "Brons", surfaces: ["club-footer"] });
+    await registry.removePackage("gold");
+    expect((await registry.createSponsor({ name: "ICA" })).packageId).toBe(brons.id);
+    const clip = await registry.create("Reklam", 1000, "video/mp4");
+    expect((await registry.getSponsor(clip.sponsorId))?.packageId).toBe(brons.id);
+  });
+
+  it("gives a file without packages the three defaults", () => {
+    expect(migrate({}).packages).toEqual(DEFAULT_PACKAGES);
+    expect(migrate({ packages: [] }).packages.map((p) => p.id)).toEqual(["platinum", "gold", "silver"]);
+  });
+});

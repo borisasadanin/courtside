@@ -108,6 +108,10 @@ describe("sponsorship routes", () => {
       ["DELETE", "/api/admin/sponsorship/sponsors/aaaaaaaaaaaa/logo"],
       ["PATCH", "/api/admin/sponsorship/surfaces", { p1: false }],
       ["PATCH", "/api/admin/sponsorship/season", { seasonStart: "2026-08-01" }],
+      ["POST", "/api/admin/sponsorship/packages", { name: "X" }],
+      ["PUT", "/api/admin/sponsorship/packages/order", { ids: [] }],
+      ["PATCH", "/api/admin/sponsorship/packages/gold", { name: "X" }],
+      ["DELETE", "/api/admin/sponsorship/packages/silver"],
     ];
 
     it.each(routes)("%s %s wants the admin PIN", async (method, url, payload) => {
@@ -202,6 +206,58 @@ describe("sponsorship routes", () => {
       expect((await inject("PATCH", "/api/admin/sponsorship/surfaces", { mvp: true })).statusCode).toBe(400);
       expect((await inject("PATCH", "/api/admin/sponsorship/season", { seasonStart: "2026-08-01" })).json()).toEqual({ seasonStart: "2026-08-01" });
       expect((await inject("PATCH", "/api/admin/sponsorship/season", { seasonStart: "igår" })).statusCode).toBe(400);
+    });
+  });
+
+  // --- #154 ---
+
+  describe("packages (#154)", () => {
+    it("creates, changes, orders and removes packages", async () => {
+      const created = await inject("POST", "/api/admin/sponsorship/packages", { name: "Brons", surfaces: ["club-footer"] });
+      expect(created.statusCode).toBe(201);
+      const brons = created.json().package;
+      expect(brons).toMatchObject({ name: "Brons", priority: 4, surfaces: ["club-footer"] });
+
+      const changed = await inject("PATCH", `/api/admin/sponsorship/packages/${brons.id}`, { surfaces: ["club-footer", "waiting"] });
+      expect(changed.json().package.surfaces).toEqual(["waiting", "club-footer"]);
+
+      const ordered = await inject("PUT", "/api/admin/sponsorship/packages/order", { ids: [brons.id, "platinum", "gold", "silver"] });
+      expect(ordered.statusCode).toBe(200);
+      expect(ordered.json().packages.map((p: { name: string; priority: number }) => [p.name, p.priority]))
+        .toEqual([["Brons", 1], ["Platinum", 2], ["Guld", 3], ["Silver", 4]]);
+
+      const x = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "ICA", packageId: brons.id })).json().sponsor;
+      const refused = await inject("DELETE", `/api/admin/sponsorship/packages/${brons.id}`);
+      expect(refused.statusCode).toBe(409);
+      expect(refused.json()).toEqual({ error: "Brons har en sponsor. Flytta den till ett annat paket först.", sponsors: [{ id: x.id, name: "ICA" }] });
+      await inject("PATCH", `/api/admin/sponsorship/sponsors/${x.id}`, { packageId: "gold" });
+      expect((await inject("DELETE", `/api/admin/sponsorship/packages/${brons.id}`)).statusCode).toBe(204);
+      expect((await inject("DELETE", `/api/admin/sponsorship/packages/${brons.id}`)).statusCode).toBe(404);
+    });
+
+    it("answers 409 with the conflicting sponsors when a package's new surface would be shared", async () => {
+      const p12 = (await teams.create({ name: "Älta P12", own: true })).id;
+      await inject("POST", "/api/admin/sponsorship/sponsors", { name: "ICA", teamIds: [p12] });
+      await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Coop", teamIds: [p12] });
+      const gold = (await inject("GET", "/api/admin/sponsorship")).json().packages.find((p: { id: string }) => p.id === "gold");
+      const res = await inject("PATCH", "/api/admin/sponsorship/packages/gold", { surfaces: [...gold.surfaces, "corner"] });
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toMatchObject({
+        error: "Guld kan inte få hörnlogga: Älta P12 skulle få flera, ICA och Coop. Bara en per lag går.",
+        conflicts: [{ surface: "corner", label: "Hörnlogga", teamId: p12, teamName: "Älta P12", sponsors: [{ name: "ICA" }, { name: "Coop" }] }],
+      });
+    });
+
+    it("takes a new package Brons with only the footer all the way to the footer (#155)", async () => {
+      const brons = (await inject("POST", "/api/admin/sponsorship/packages", { name: "Brons", surfaces: ["club-footer"] })).json().package;
+      const x = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Bageriet", packageId: brons.id, url: "https://bageriet.se" })).json().sponsor;
+      await inject("PUT", `/api/admin/sponsorship/sponsors/${x.id}/logo`, { dataUrl: await picture(64, 32) });
+      await inject("PATCH", "/api/admin/sponsorship/surfaces", { "club-footer": true, corner: true, waiting: true });
+
+      const footer = (await app.inject({ url: "/api/sponsors/club" })).json().sponsors;
+      expect(footer).toEqual([{ id: x.id, name: "Bageriet", url: "https://bageriet.se/", logoUrl: expect.stringMatching(`^/api/sponsor-logos/${x.id}\\?v=`) }]);
+      // Only the footer: nowhere else.
+      expect(Object.keys((await app.inject({ url: "/api/sponsors", headers: viewer() })).json().surfaces)).toEqual(["club-footer"]);
     });
   });
 
