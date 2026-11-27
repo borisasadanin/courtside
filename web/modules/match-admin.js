@@ -27,6 +27,8 @@ import { guestSpaceForMatch, openGuestSpace } from "./guest-admin.js";
 let openId = null;
 /** The match whose MVP choice is open, likewise. */
 let mvpOpenId = null;
+/** The match whose MVP was just saved or removed: its row stays in view. */
+let mvpChangedId = null;
 /** Whether the club has switched on the surface "mvp" (#163). */
 let mvpOn = false;
 
@@ -105,7 +107,7 @@ export async function renderMatchesAdmin() {
   if (played.length) {
     const details = document.createElement("details");
     details.className = "match-played";
-    details.open = played.some((m) => m.id === openId);
+    details.open = played.some((m) => m.id === openId || m.id === mvpOpenId || m.id === mvpChangedId);
     const summary = document.createElement("summary");
     summary.textContent = `Spelade matcher (${played.length})`;
     details.append(summary, ...played.map(matchRow));
@@ -150,7 +152,6 @@ function matchRow(match) {
   const n = match.recordingIds.length;
   if (n && match.status !== "live") meta.push(n === 1 ? "1 inspelning" : `${n} inspelningar`);
   if (match.result) meta.push(`${match.result.home}–${match.result.away}`);
-  if (match.mvp) meta.push(`MVP #${match.mvp.jersey}`);
 
   const info = document.createElement("div");
   info.className = "device-info";
@@ -300,6 +301,7 @@ function mvpPanel(match) {
       return;
     }
     mvpOpenId = null;
+    mvpChangedId = match.id;
     await renderMatchesAdmin();
   });
 
@@ -319,6 +321,7 @@ function mvpPanel(match) {
     try {
       await send("DELETE", `/api/admin/matches/${encodeURIComponent(match.id)}/mvp`);
       mvpOpenId = null;
+      mvpChangedId = match.id;
       await renderMatchesAdmin();
     } catch (err) {
       say(err.message, true);

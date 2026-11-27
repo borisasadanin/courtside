@@ -479,7 +479,8 @@ function createMvpLine(group) {
   const { jersey, clipId, sponsor } = group.match.mvp;
   const line = document.createElement("p");
   line.className = "match-mvp-line";
-  line.append("Matchens MVP: ");
+  // No-break spaces: a flex line drops plain spaces at the ends of its text.
+  line.append("Matchens MVP:\u00a0");
   const clip = group.clips.find((c) => c.id === clipId);
   if (clip) {
     const play = document.createElement("button");
@@ -498,7 +499,7 @@ function createMvpLine(group) {
     line.append(num);
   }
   if (sponsor) {
-    line.append(", presenteras av ");
+    line.append(",\u00a0presenteras av\u00a0");
     line.append(sponsorMark(sponsor, { className: "sponsor-mark mc-sponsor-mark" }));
   }
   return line;

@@ -3760,7 +3760,7 @@ footer a:hover { color: var(--accent-ink); }
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px 6px;
+  row-gap: 4px;
   margin-top: 14px;
   font-size: 0.85rem;
   color: var(--text-muted);
