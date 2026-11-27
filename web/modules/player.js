@@ -19,7 +19,11 @@ import {
   forgetSponsorSurfaces,
 } from "./sponsors.js";
 import { showCornerLogo, hideCornerLogo } from "./sponsor-corner.js";
-import { loadReplayMarkers, setReplayFragments, fetchReplayFragments, clearReplayMarkers, initReplayMarkers } from "./replay-markers.js";
+import {
+  loadReplayMarkers, setReplayFragments, fetchReplayFragments, clearReplayMarkers, initReplayMarkers,
+  periodBreakSpans,
+} from "./replay-markers.js";
+import { replayStartClipsDue, crossedBreak, replayEndPosition } from "./replay-sponsor-rules.js";
 
 // Callbacks injected by the orchestrator
 let onClosePlayer = null; // called when player is closed (returns to list)
@@ -256,35 +260,55 @@ function startNative() {
 
 // --- VOD HLS ---
 
-function tryConnectVod() {
+/**
+ * Bumped on every load of the replay and when sponsor clips take over the
+ * <video>, so a listener from an earlier load (Safari's own HLS) does nothing.
+ */
+let vodLoad = 0;
+
+/**
+ * Load the replay into the player. `startAt` is where it starts, in seconds;
+ * `play` false leaves it paused there. After sponsor clips it comes back
+ * where it was, as it was (#168).
+ */
+function tryConnectVod({ startAt = 0, play = true } = {}) {
   if (!state.currentStreamUrl) return;
+  const load = ++vodLoad;
+  if (vodSponsors) vodSponsors.lastTime = null;
 
   if (Hls.isSupported()) {
-    startHlsVod();
+    startHlsVod({ startAt, play });
   } else if (dom.video.canPlayType("application/vnd.apple.mpegurl")) {
     dom.video.src = state.currentStreamUrl;
-    fetchReplayFragments(state.currentStreamUrl);
+    if (!replayFragmentsFetched) {
+      replayFragmentsFetched = true;
+      fetchReplayFragments(state.currentStreamUrl);
+    }
     dom.video.addEventListener(
       "loadedmetadata",
       () => {
+        if (load !== vodLoad) return;
+        if (startAt > 0) dom.video.currentTime = startAt;
         buildNativeQualityMenu();
-        playWithSound();
+        if (play) playWithSound();
       },
       { once: true }
     );
-    dom.video.addEventListener(
-      "error",
-      () => {
-        showOverlay("Kunde inte spela upp reprisen", false);
-      },
-      { once: true }
-    );
+    const onError = () => {
+      dom.video.removeEventListener("error", onError);
+      if (load !== vodLoad) return;
+      showOverlay("Kunde inte spela upp reprisen", false);
+    };
+    dom.video.addEventListener("error", onError);
   } else {
     showOverlay("Din webbl\u00e4sare st\u00f6der inte HLS-uppspelning", false);
   }
 }
 
-function startHlsVod() {
+/** Safari's own HLS: the markers read the playlist once per opened replay. */
+let replayFragmentsFetched = false;
+
+function startHlsVod({ startAt = 0, play = true } = {}) {
   destroyHls();
 
   state.hls = new Hls({
@@ -299,6 +323,8 @@ function startHlsVod() {
     levelLoadingMaxRetry: 3,
     fragLoadingTimeOut: 15000,
     fragLoadingMaxRetry: 3,
+    // Back where it was after sponsor clips (#168); -1 is hls.js's own default
+    startPosition: startAt > 0 ? startAt : -1,
     // Recordings sit behind the viewer PIN now: the playlist and every segment
     // request goes to the backend, which authorises before redirecting.
     xhrSetup: (xhr) => {
@@ -314,7 +340,7 @@ function startHlsVod() {
 
   state.hls.on(Hls.Events.MANIFEST_PARSED, () => {
     buildQualityMenu();
-    playWithSound();
+    if (play) playWithSound();
   });
 
   state.hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -1295,6 +1321,7 @@ export function openPlayer(hlsUrl, name, streamId, dvrUrl) {
   unlockVideoSound();
 
   state.isVodMode = false;
+  vodSponsors = null;
   clearReplayMarkers();
   // A new match: its sponsors are asked for again (#146)
   forgetSponsorSurfaces();
@@ -1401,7 +1428,7 @@ function playStartClips() {
 async function playSurface(surface, streamId, { fromStart = false } = {}) {
   reelPending = true;
   resumedDuringReelAt = 0;
-  const reel = await fetchSponsorReel(surface, streamId);
+  const reel = await fetchSponsorReel(surface, { stream: streamId });
   if (state.currentStreamId !== streamId) {
     reelPending = false;
     return;
@@ -1462,7 +1489,7 @@ async function endStream(stream) {
     stopHighlightCarousel();
     destroyHls();
     reelPending = true;
-    const reel = await fetchSponsorReel("end", id);
+    const reel = await fetchSponsorReel("end", { stream: id });
     if (reel && state.currentStreamId === id) {
       hideOverlay();
       await playSponsorReel(reel.clips, reel.teamName, { surface: "end", streamId: id });
@@ -1476,14 +1503,122 @@ async function endStream(stream) {
   }, 2500);
 }
 
+// ============================
+// Sponsor clips in a replay (#167–#170)
+// ============================
+//
+// The same surfaces as live, with today's clips: start when the replay is
+// played from its beginning, p1–p3 and ot when playback reaches a period
+// break, end when it ends. Each at most once per opened replay. The clips
+// borrow the <video>, and the replay comes back where it was. The recording
+// itself is never changed.
+
+/**
+ * The open replay's sponsor state: what has been played, where playback
+ * was at the last timeupdate (null after a seek or a load), and how many
+ * seeks there have been. A new object per opened replay, so a reel that
+ * ends after the player closed or moved on does nothing.
+ */
+let vodSponsors = null;
+
+function isCurrentVod(s) {
+  return s !== null && vodSponsors === s && state.isVodMode;
+}
+
+/** Start clips, then the replay from 0 (#168). */
+async function playVodStartClips(s, startAt) {
+  s.played.add("start");
+  reelPending = true;
+  const reel = await fetchSponsorReel("start", { vod: s.vodId });
+  if (!isCurrentVod(s)) return;
+  if (reel) {
+    hideOverlay();
+    await playSponsorReel(reel.clips, reel.teamName, { surface: "start", vodId: s.vodId, skippable: true });
+    if (!isCurrentVod(s)) return;
+  }
+  reelPending = false;
+  tryConnectVod({ startAt, play: true });
+}
+
+/**
+ * Clips in the middle of the replay: a period break or its end. The replay
+ * keeps playing while they are fetched; with none, it is never interrupted.
+ * Then the clips take over the <video>, and the replay is loaded again at
+ * `resumeAt`, playing or paused as `play` says, or as it was when the clips
+ * took over. The sound choice is the viewer's for the whole visit
+ * (sound.js), so it carries over by itself.
+ */
+async function playVodReel(s, surface, key, { resumeAt, play }) {
+  s.played.add(key);
+  reelPending = true;
+  const seeks = s.seeks;
+  const reel = await fetchSponsorReel(surface, { vod: s.vodId });
+  if (!isCurrentVod(s)) return;
+  if (!reel || s.seeks !== seeks) {
+    // Nothing to show, or the viewer went elsewhere meanwhile: not reached
+    // after all, so a break can still play when playback reaches it later
+    if (reel) s.played.delete(key);
+    reelPending = false;
+    return;
+  }
+  const playing = play ?? !dom.video.paused;
+  vodLoad++;
+  destroyHls();
+  hideTapForSound();
+  await playSponsorReel(reel.clips, reel.teamName, { surface, vodId: s.vodId, skippable: true });
+  if (!isCurrentVod(s)) return;
+  reelPending = false;
+  tryConnectVod({ startAt: resumeAt, play: playing });
+}
+
+/** Playback reached a period break: its clips, then the match after the pause (#169). */
+function onVodTimeUpdate() {
+  const s = vodSponsors;
+  // During the clips the time is the clip's, not the replay's
+  if (!isCurrentVod(s) || isSponsorReelPlaying()) return;
+  const video = dom.video;
+  const to = video.currentTime;
+  const from = s.lastTime;
+  s.lastTime = video.seeking ? null : to;
+  if (from === null || reelPending) return;
+  const brk = crossedBreak(periodBreakSpans(), from, to, { seeking: video.seeking, played: s.played });
+  // After the clips, the match from where play starts again after the pause
+  if (brk) playVodReel(s, brk.surface, brk.key, { resumeAt: brk.end });
+}
+
+/** A seek is not playback: it never reaches a break (#169). */
+function onVodSeeking() {
+  const s = vodSponsors;
+  if (!isCurrentVod(s) || isSponsorReelPlaying()) return;
+  s.lastTime = null;
+  s.seeks++;
+}
+
+/** The replay ended: its end clips, then the player stands at the end (#170). */
+function onVodEnded() {
+  const s = vodSponsors;
+  if (!isCurrentVod(s) || reelPending || isSponsorReelPlaying()) return;
+  if (s.played.has("end")) return;
+  playVodReel(s, "end", "end", { resumeAt: replayEndPosition(dom.video.duration), play: false });
+}
+
 /**
  * Open the VOD player.
- * Called from the VOD module when a VOD card is clicked.
+ * Called from the VOD module when a VOD card is clicked. `startAt` opens
+ * the replay that many seconds in; anywhere but the beginning gives no
+ * start clips (#168).
  */
-export function openVodPlayer(hlsUrl, title, vodId) {
+export function openVodPlayer(hlsUrl, title, vodId, { startAt = 0 } = {}) {
+  // Usually a click: the chance for sound on iOS, also when start clips
+  // play first and the replay itself starts later (#104, #168)
+  unlockVideoSound();
   stopViewerHeartbeat();
   leaveViewerCount();
   forgetSponsorSurfaces();
+  cancelSponsorReel();
+  reelPending = false;
+  replayFragmentsFetched = false;
+  vodSponsors = { vodId, played: new Set(), lastTime: null, seeks: 0 };
   state.isVodMode = true;
   state.currentStreamUrl = mediaUrl(hlsUrl);
   state.currentStreamId = vodId;
@@ -1507,8 +1642,9 @@ export function openVodPlayer(hlsUrl, title, vodId) {
   setupProgressForVod();
   hideOverlay();
   loadReplayMarkers(vodId);
-  tryConnectVod();
   showCornerLogo({ vod: vodId });
+  if (replayStartClipsDue(startAt)) playVodStartClips(vodSponsors, startAt);
+  else tryConnectVod({ startAt, play: true });
 }
 
 /**
@@ -1516,6 +1652,8 @@ export function openVodPlayer(hlsUrl, title, vodId) {
  * Delegates tab-restoration to the orchestrator callback.
  */
 export function closePlayer() {
+  vodSponsors = null;
+  vodLoad++;
   cancelSponsorReel();
   forgetSponsorSurfaces();
   hideCornerLogo();
@@ -1598,6 +1736,10 @@ function bindPlayerEvents() {
   dom.video.addEventListener("seeking", onVideoSeeking);
   dom.video.addEventListener("seeked", onVideoSeeked);
   dom.video.addEventListener("loadedmetadata", updateProgress);
+  // Sponsor clips in a replay (#169, #170)
+  dom.video.addEventListener("timeupdate", onVodTimeUpdate);
+  dom.video.addEventListener("seeking", onVodSeeking);
+  dom.video.addEventListener("ended", onVodEnded);
   // Seeking happens on mousedown/mouseup (onSeekStart/onSeekEnd). Clicks anywhere in the
   // control bar must not reach the wrapper's togglePlay — a click just beside the thin
   // progress bar, or a drag released outside it, would otherwise pause playback.
@@ -1632,6 +1774,8 @@ function bindPlayerEvents() {
     if (dom.playerView.classList.contains("hidden")) return;
     // Sponsor clips: sound, fullscreen and leaving work; pausing and seeking do not (#106)
     if (isSponsorReelPlaying() && !["m", "f", "Escape"].includes(e.key)) {
+      // Space and Enter on "Hoppa över" are the button's own (#167)
+      if (e.target.closest?.(".sponsor-skip")) return;
       if (e.key === " " || e.key.startsWith("Arrow")) e.preventDefault();
       return;
     }

@@ -3,13 +3,15 @@
 //   - fetchSponsorSurfaces(): who is shown on each surface of the match in
 //     the player, fetched once per opened player (#146).
 //
-// The club's sponsor films, played live in the viewer's own player: when the
+// The club's sponsor films, played in the viewer's own player: when the
 // match starts, in the period breaks, in overtime and when it ends. They are
-// never in the broadcast itself, so replays have none.
+// never in the broadcast itself, so the recording has none: a replay plays
+// today's clips at the same moments (#167–#170).
 //
 //   - playSponsorReel(): the clips one after another in the same <video> as
 //     the match, under the banner "<team> är sponsrat av:", with no way to
-//     seek or skip. Sound follows the viewer's choice (sound.js). (#106)
+//     seek. Live has no way to skip; a replay shows "Hoppa över" 3 s into
+//     each clip (#167). Sound follows the viewer's choice (sound.js). (#106)
 //   - which surface a change of status shows, and that each one is shown at
 //     most once per viewer, a reload included. (#107)
 //   - what the viewer saw, for the sponsor's report: a clip started, was
@@ -25,11 +27,14 @@ import { authHeaders } from "./auth.js";
 import { mediaUrl } from "./utils.js";
 import { playWithSound } from "./sound.js";
 import { getViewerId } from "./viewer-id.js";
+import { skipShown } from "./replay-sponsor-rules.js";
 
 /** A clip that has not started this long after loading is skipped. */
 const LOAD_TIMEOUT_MS = 15_000;
 /** A clip whose picture stands still this long while not paused is skipped. */
 const STALL_TIMEOUT_MS = 15_000;
+/** Clips not fetched in this time are none: the match must not wait for them. */
+const FETCH_TIMEOUT_MS = 8_000;
 
 // ============================
 // The match's surfaces (#146)
@@ -84,18 +89,26 @@ export function forgetSponsorSurfaces() {
 // ============================
 
 /**
- * Fetch the clips of one surface: start, p1, p2, p3, ot or end. Null when
- * there is nothing to show or they could not be fetched, which is the same
- * thing to the viewer.
+ * Fetch the clips of one surface: start, p1, p2, p3, ot or end, for a live
+ * stream ({ stream }) or a replay ({ vod }, with today's settings, #168).
+ * Null when there is nothing to show or they could not be fetched, which is
+ * the same thing to the viewer.
  */
-export async function fetchSponsorReel(surface, streamId) {
+export async function fetchSponsorReel(surface, { stream, vod } = {}) {
   try {
     const q = new URLSearchParams({ surface });
-    if (streamId) q.set("stream", streamId);
-    const res = await fetch(`${CONFIG.API_URL}/api/sponsors/play?${q}`, { headers: authHeaders() });
-    if (!res.ok) return null;
-    const body = await res.json();
-    return Array.isArray(body.clips) && body.clips.length > 0 ? body : null;
+    if (stream) q.set("stream", stream);
+    if (vod) q.set("vod", vod);
+    const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = setTimeout(() => ctrl?.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${CONFIG.API_URL}/api/sponsors/play?${q}`, { headers: authHeaders(), signal: ctrl?.signal });
+      if (!res.ok) return null;
+      const body = await res.json();
+      return Array.isArray(body.clips) && body.clips.length > 0 ? body : null;
+    } finally {
+      clearTimeout(timer);
+    }
   } catch {
     return null;
   }
@@ -181,21 +194,23 @@ export function sawStreamStart(streamId) {
 /**
  * Tell the server one thing that happened to a clip. The viewer's id goes in
  * the body, never in the address. Fire and forget: a lost event costs a
- * count, never the match. Live only for now: replays have no clips yet.
+ * count, never the match. A replay's clips count as "replay" (#168).
  */
 function sendSponsorEvent(kind, clip, context) {
-  if (!clip?.sponsorId || !context?.surface || !context?.streamId) return;
+  if (!clip?.sponsorId || !context?.surface) return;
+  const where = context.vodId ? { vod: context.vodId } : context.streamId ? { stream: context.streamId } : null;
+  if (!where) return;
   try {
     fetch(`${CONFIG.API_URL}/api/sponsors/events`, {
       method: "POST",
       headers: { ...authHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
         viewerId: getViewerId(),
-        stream: context.streamId,
+        ...where,
         sponsorId: clip.sponsorId,
         surface: context.surface,
         kind,
-        mode: "live",
+        mode: context.vodId ? "replay" : "live",
       }),
       // An end clip's "complete" may go out as the page closes.
       keepalive: true,
@@ -220,7 +235,9 @@ export function isSponsorReelPlaying() {
  * Play the clips in order in the player's <video>, with the banner on top.
  * Resolves when the last clip has ended, been skipped or failed. Never
  * rejects. The caller has stopped the match's own HLS first. `context` is
- * { surface, streamId }: where the events say the clips were seen (#140).
+ * { surface, streamId } live or { surface, vodId } in a replay: where the
+ * events say the clips were seen (#140). `skippable` shows "Hoppa över"
+ * (#167); only replays ask for it, live stays as it was.
  */
 export function playSponsorReel(clips, teamName, context = {}) {
   if (active) return active.done;
@@ -234,6 +251,9 @@ export function playSponsorReel(clips, teamName, context = {}) {
   };
   const banner = buildBanner(teamName);
   dom.wrapper.append(banner.el);
+  // Not in iPhone's own fullscreen, which shows only the video: a known limit.
+  const skip = context.skippable ? buildSkipButton(() => next()) : null;
+  if (skip) dom.wrapper.append(skip);
   dom.wrapper.classList.add("sponsor-reel");
   dom.overlay.classList.add("hidden");
   dom.liveBadge.textContent = "SPONSOR";
@@ -285,6 +305,7 @@ export function playSponsorReel(clips, teamName, context = {}) {
       lastTime = video.currentTime;
       lastProgressAt = Date.now();
     }
+    if (skip?.hidden && skipShown({ skippable: true, started: sent.start, currentTime: video.currentTime })) skip.hidden = false;
     banner.setRemaining(remaining());
   };
   const onEnded = () => {
@@ -323,6 +344,7 @@ export function playSponsorReel(clips, teamName, context = {}) {
     lastTime = -1;
     lastProgressAt = 0;
     sent = { start: false, sound: false };
+    if (skip) skip.hidden = true;
     banner.setSponsor(clip.name);
     banner.setRemaining(remaining());
 
@@ -371,6 +393,7 @@ export function playSponsorReel(clips, teamName, context = {}) {
     video.removeAttribute("src");
     video.load();
     banner.el.remove();
+    skip?.remove();
     dom.wrapper.classList.remove("sponsor-reel");
     dom.liveBadge.textContent = saved.badgeText;
     dom.liveBadge.className = saved.badgeClass;
@@ -386,6 +409,21 @@ export function playSponsorReel(clips, teamName, context = {}) {
 /** Stop a running reel at once, as when the viewer closes the player. */
 export function cancelSponsorReel() {
   active?.finish();
+}
+
+/** "Hoppa över": to the next clip, or out of the reel after the last (#167). */
+function buildSkipButton(onSkip) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "sponsor-skip";
+  btn.textContent = "Hoppa över";
+  btn.hidden = true;
+  btn.addEventListener("click", (e) => {
+    // Not a tap on the player behind it
+    e.stopPropagation();
+    onSkip();
+  });
+  return btn;
 }
 
 function buildBanner(teamName) {
