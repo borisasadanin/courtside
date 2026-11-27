@@ -1401,7 +1401,7 @@ function playStartClips() {
 async function playSurface(surface, streamId, { fromStart = false } = {}) {
   reelPending = true;
   resumedDuringReelAt = 0;
-  const reel = await fetchSponsorReel(surface, streamId);
+  const reel = await fetchSponsorReel(surface, { stream: streamId });
   if (state.currentStreamId !== streamId) {
     reelPending = false;
     return;
@@ -1462,7 +1462,7 @@ async function endStream(stream) {
     stopHighlightCarousel();
     destroyHls();
     reelPending = true;
-    const reel = await fetchSponsorReel("end", id);
+    const reel = await fetchSponsorReel("end", { stream: id });
     if (reel && state.currentStreamId === id) {
       hideOverlay();
       await playSponsorReel(reel.clips, reel.teamName, { surface: "end", streamId: id });
@@ -1632,6 +1632,8 @@ function bindPlayerEvents() {
     if (dom.playerView.classList.contains("hidden")) return;
     // Sponsor clips: sound, fullscreen and leaving work; pausing and seeking do not (#106)
     if (isSponsorReelPlaying() && !["m", "f", "Escape"].includes(e.key)) {
+      // Space and Enter on "Hoppa över" are the button's own (#167)
+      if (e.target.closest?.(".sponsor-skip")) return;
       if (e.key === " " || e.key.startsWith("Arrow")) e.preventDefault();
       return;
     }
