@@ -11,7 +11,8 @@
  *   PUT    /api/admin/sponsorship/sponsors/:id/logo  a logo as a data URL (#128)
  *   DELETE /api/admin/sponsorship/sponsors/:id/logo
  *   PATCH  /api/admin/sponsorship/surfaces           switch surfaces on or off for the installation
- *   PATCH  /api/admin/sponsorship/season             where the season's report starts
+ *   PATCH  /api/admin/sponsorship/season             where the season's report starts (#141)
+ *   GET    /api/admin/sponsorship/report?sponsor=&season=  what viewers saw of one sponsor (#141)
  *
  * The clips, as in v0.8:
  *
@@ -44,7 +45,8 @@ import { defaultHomeTeam } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { ownTeamOf, sponsorsForContext, type SponsorContext } from "../own-team.js";
 import { SURFACES, sponsorsFor, surfaceDef, type SponsorPick } from "../sponsor-surfaces.js";
-import { STAT_KINDS, STAT_MODES, type MatchInfo, type StatKind, type StatMode } from "../sponsor-stats.js";
+import { STAT_KINDS, STAT_MODES, isSeason, seasonOf, type MatchInfo, type StatKind, type StatMode } from "../sponsor-stats.js";
+import { buildReport, readSeasonFiles, seasonsWithData } from "../sponsor-report.js";
 import { isValidViewerId } from "../viewer-tracking.js";
 import { clubDate } from "../matches.js";
 import {
@@ -322,6 +324,27 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
     } catch (err) {
       return fail(reply, err);
     }
+  });
+
+  // #141: one sponsor's season, match by match. Counts only, never ids.
+  // `season` is the year it starts; without it, the season of today.
+  app.get<{ Querystring: { sponsor?: string; season?: string } }>("/api/admin/sponsorship/report", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    const { sponsor: sponsorId, season: asked } = request.query;
+    if (typeof sponsorId !== "string" || !ID.test(sponsorId)) return reply.code(400).send({ error: "Välj en sponsor." });
+    if (asked !== undefined && asked !== "" && !isSeason(asked)) return reply.code(400).send({ error: "Ogiltig säsong." });
+
+    const settings = await sponsors.readAll();
+    const seasonStart = settings.seasonStart ?? null;
+    const season = asked || seasonOf(clubDate(), seasonStart);
+    // What was counted since the last save is in the report too.
+    await sponsorStats.flush().catch((err) => request.log.warn(err, "Could not save the sponsor counts"));
+    const [files, withData] = await Promise.all([readSeasonFiles(minio, season), seasonsWithData(minio)]);
+    // A sponsor removed since keeps its counts, without its name.
+    const name = settings.sponsors.find((x) => x.id === sponsorId)?.name ?? "Borttagen sponsor";
+    const report = buildReport(files, { id: sponsorId, name }, season, seasonStart);
+    const seasons = [...new Set([seasonOf(clubDate(), seasonStart), season, ...withData])].sort().reverse();
+    return reply.header("Cache-Control", "no-cache").send({ ...report, seasonStart, seasons });
   });
 
   // --- Admin: clips ---

@@ -150,7 +150,10 @@ export interface SponsorSettings {
   packages: SponsorPackage[];
   /** Which surfaces are switched on for the installation. */
   surfaces: Record<SurfaceId, boolean>;
-  /** YYYY-MM-DD: where the season's report starts counting (#138). Absent until the admin sets it. */
+  /**
+   * YYYY-MM-DD: where the season's report starts counting (#141). Its month
+   * and day start every season; absent until the admin sets it, and then 1 August.
+   */
   seasonStart?: string;
 }
 
@@ -622,7 +625,7 @@ export class SponsorRegistry {
     });
   }
 
-  /** Where the season's report starts (#138): YYYY-MM-DD, or null for none. */
+  /** Where the season's report starts (#141): YYYY-MM-DD, or null for 1 August. */
   async setSeasonStart(date: unknown): Promise<string | null> {
     if (date !== null && (typeof date !== "string" || !DATE.test(date) || Number.isNaN(Date.parse(date)))) {
       throw new SponsorError("Datumet ska skrivas ÅÅÅÅ-MM-DD.", 400);
