@@ -8,10 +8,11 @@
  * name, in the club's colour, and the time for a match still to be played.
  * Nothing from a recording, so nothing behind the PIN shows here.
  *
- * Drawn with the ffmpeg the API already ships for clips, so there is no new
- * dependency: the background and the badges are painted here into raw pixels,
- * ffmpeg lays the logos on top and writes the text with the bundled font
- * (assets/fonts, SIL Open Font License).
+ * The background, the badges and the text are painted here into raw pixels;
+ * the text from the bundled font's outlines (assets/fonts, SIL Open Font
+ * License), read with opentype.js. The ffmpeg the API already ships for clips
+ * then only lays the logos on top and writes the PNG: the ffmpeg-static build
+ * on the host has no drawtext filter (#195).
  *
  * With the sponsor surface "share-image" on, the main sponsor's logo sits in
  * the lower right corner (#153). Off, the picture is exactly as before.
@@ -45,7 +46,7 @@ export const SHARE_WIDTH = 1200;
 export const SHARE_HEIGHT = 630;
 
 /** Bump when the layout changes, so every chat app fetches the new picture. */
-const LAYOUT_VERSION = 2;
+const LAYOUT_VERSION = 3;
 
 /** How many matches' pictures are kept in memory. */
 const MAX_CACHED = 50;
@@ -150,10 +151,6 @@ function inkOn(color: Rgb): Rgb {
   return contrast(WHITE, color) >= 3 ? WHITE : INK;
 }
 
-function ffmpegColor(rgb: Rgb): string {
-  return "0x" + rgb.map((v) => v.toString(16).padStart(2, "0")).join("");
-}
-
 // ============================
 // Pixels
 // ============================
@@ -217,6 +214,11 @@ class Canvas {
     });
   }
 
+  /** Fill a shape given as closed polygons, by the non-zero rule, antialiased (see fillPolygons). */
+  fillPolygons(polygons: number[][], c: Rgb): void {
+    fillPolygons(polygons, this.width, this.height, (x, y, a) => this.blend(x, y, c, a));
+  }
+
   private forEachNear(cx: number, cy: number, r: number, fn: (x: number, y: number, d: number) => void): void {
     for (let y = Math.max(0, Math.floor(cy - r)); y < Math.min(this.height, Math.ceil(cy + r)); y++) {
       for (let x = Math.max(0, Math.floor(cx - r)); x < Math.min(this.width, Math.ceil(cx + r)); x++) {
@@ -227,87 +229,179 @@ class Canvas {
 }
 
 // ============================
-// Font metrics
+// Text
 // ============================
 
-/** What layout needs from the font: advance widths, to shrink a long name until it fits. */
-interface FontMetrics {
-  unitsPerEm: number;
-  capHeight: number;
-  advance(codePoint: number): number;
-}
+/** Sub-scanlines per pixel row. Across a row, coverage is exact. */
+const SUBSAMPLES = 16;
 
-/** Read widths from a TrueType font: head, hhea, OS/2, hmtx and a format 4 cmap. */
-function readFontMetrics(font: Buffer): FontMetrics {
-  const tables = new Map<string, number>();
-  for (let i = 0, n = font.readUInt16BE(4); i < n; i++) {
-    const rec = 12 + i * 16;
-    tables.set(font.toString("latin1", rec, rec + 4), font.readUInt32BE(rec + 8));
-  }
-  const table = (tag: string): number => {
-    const at = tables.get(tag);
-    if (at === undefined) throw new Error(`Font has no ${tag} table`);
-    return at;
-  };
-
-  const unitsPerEm = font.readUInt16BE(table("head") + 18);
-  const numHMetrics = font.readUInt16BE(table("hhea") + 34);
-  const hmtx = table("hmtx");
-  const os2 = tables.get("OS/2");
-  const capHeight = os2 !== undefined && font.readUInt16BE(os2) >= 2 ? font.readInt16BE(os2 + 88) : unitsPerEm * 0.7;
-
-  // The Unicode BMP subtable: Windows (3, 1), or Unicode (0, 3).
-  const cmap = table("cmap");
-  let sub = -1;
-  for (let i = 0, n = font.readUInt16BE(cmap + 2); i < n; i++) {
-    const rec = cmap + 4 + i * 8;
-    const platform = font.readUInt16BE(rec);
-    const encoding = font.readUInt16BE(rec + 2);
-    const at = cmap + font.readUInt32BE(rec + 4);
-    if (((platform === 3 && encoding === 1) || (platform === 0 && encoding === 3)) && font.readUInt16BE(at) === 4) sub = at;
-  }
-  if (sub < 0) throw new Error("Font has no format 4 cmap");
-  const segments = font.readUInt16BE(sub + 6) / 2;
-  const ends = sub + 14;
-  const starts = ends + segments * 2 + 2;
-  const deltas = starts + segments * 2;
-  const rangeOffsets = deltas + segments * 2;
-
-  const glyph = (c: number): number => {
-    for (let i = 0; i < segments; i++) {
-      if (c > font.readUInt16BE(ends + i * 2)) continue;
-      const start = font.readUInt16BE(starts + i * 2);
-      if (c < start) return 0;
-      const delta = font.readInt16BE(deltas + i * 2);
-      const rangeOffset = font.readUInt16BE(rangeOffsets + i * 2);
-      if (rangeOffset === 0) return (c + delta) & 0xffff;
-      const g = font.readUInt16BE(rangeOffsets + i * 2 + rangeOffset + (c - start) * 2);
-      return g === 0 ? 0 : (g + delta) & 0xffff;
+/**
+ * Fill polygons by the non-zero winding rule, with antialiasing: each pixel
+ * row is sampled at SUBSAMPLES heights, and each sample adds the exact part
+ * of every pixel its spans cover. `plot` gets each touched pixel's coverage.
+ */
+export function fillPolygons(
+  polygons: number[][],
+  width: number,
+  height: number,
+  plot: (x: number, y: number, coverage: number) => void,
+): void {
+  // Edges as x0, y0, x1, y1, direction; horizontal ones never cross a scanline.
+  const edges: number[][] = [];
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const pts of polygons) {
+    for (let i = 0; i + 1 < pts.length; i += 2) {
+      const j = (i + 2) % pts.length;
+      const [x0, y0, x1, y1] = [pts[i], pts[i + 1], pts[j], pts[j + 1]];
+      minX = Math.min(minX, x0); maxX = Math.max(maxX, x0);
+      minY = Math.min(minY, y0); maxY = Math.max(maxY, y0);
+      if (y0 !== y1) edges.push(y0 < y1 ? [x0, y0, x1, y1, 1] : [x1, y1, x0, y0, -1]);
     }
-    return 0;
+  }
+  if (!edges.length) return;
+  const left = Math.max(0, Math.floor(minX));
+  const right = Math.min(width, Math.ceil(maxX) + 1);
+  if (right <= left) return;
+  const row = new Float32Array(right - left + 1);
+  const crossings: number[][] = [];
+
+  /** Add `weight` × the part of each pixel in [a, b). */
+  const span = (a: number, b: number, weight: number) => {
+    a = Math.max(a, left);
+    b = Math.min(b, right);
+    if (b <= a) return;
+    const ia = Math.floor(a);
+    const ib = Math.floor(b);
+    if (ia === ib) {
+      row[ia - left] += (b - a) * weight;
+      return;
+    }
+    row[ia - left] += (ia + 1 - a) * weight;
+    for (let x = ia + 1; x < ib; x++) row[x - left] += weight;
+    if (ib < right) row[ib - left] += (b - ib) * weight;
   };
 
-  return {
-    unitsPerEm,
-    capHeight,
-    advance(c: number): number {
-      const g = c > 0xffff ? 0 : glyph(c);
-      return font.readUInt16BE(hmtx + Math.min(g, numHMetrics - 1) * 4);
-    },
+  for (let py = Math.max(0, Math.floor(minY)); py < Math.min(height, Math.ceil(maxY)); py++) {
+    row.fill(0);
+    const active = edges.filter((e) => e[1] < py + 1 && e[3] > py);
+    for (let s = 0; s < SUBSAMPLES; s++) {
+      const y = py + (s + 0.5) / SUBSAMPLES;
+      crossings.length = 0;
+      for (const [x0, y0, x1, y1, dir] of active) {
+        if (y >= y0 && y < y1) crossings.push([x0 + ((y - y0) / (y1 - y0)) * (x1 - x0), dir]);
+      }
+      crossings.sort((a, b) => a[0] - b[0]);
+      let winding = 0;
+      for (let k = 0; k < crossings.length; k++) {
+        const before = winding;
+        winding += crossings[k][1];
+        if (before === 0 && winding !== 0) {
+          // Inside from here to where the winding is zero again.
+          let m = k + 1;
+          for (; m < crossings.length; m++) {
+            winding += crossings[m][1];
+            if (winding === 0) break;
+          }
+          span(crossings[k][0], m < crossings.length ? crossings[m][0] : right, 1 / SUBSAMPLES);
+          k = m;
+        }
+      }
+    }
+    for (let x = left; x < right; x++) {
+      const a = row[x - left];
+      if (a > 0) plot(x, py, Math.min(1, a));
+    }
+  }
+}
+
+/** A glyph outline as polygons: curves cut into short straight pieces. */
+function outlinePolygons(commands: { type: string; x?: number; y?: number; x1?: number; y1?: number; x2?: number; y2?: number }[]): number[][] {
+  const polygons: number[][] = [];
+  let pts: number[] = [];
+  let [cx, cy] = [0, 0];
+  const close = () => {
+    if (pts.length >= 6) polygons.push(pts);
+    pts = [];
   };
+  /** Pieces for a curve: about one per two pixels of its control polygon, at least 2. */
+  const pieces = (...xy: number[]) => {
+    let len = 0;
+    for (let i = 2; i < xy.length; i += 2) len += Math.hypot(xy[i] - xy[i - 2], xy[i + 1] - xy[i - 1]);
+    return Math.max(2, Math.min(64, Math.ceil(len / 2)));
+  };
+  for (const c of commands) {
+    if (c.type === "M") {
+      close();
+      [cx, cy] = [c.x!, c.y!];
+      pts.push(cx, cy);
+    } else if (c.type === "L") {
+      [cx, cy] = [c.x!, c.y!];
+      pts.push(cx, cy);
+    } else if (c.type === "Q") {
+      const n = pieces(cx, cy, c.x1!, c.y1!, c.x!, c.y!);
+      for (let i = 1; i <= n; i++) {
+        const t = i / n, u = 1 - t;
+        pts.push(u * u * cx + 2 * u * t * c.x1! + t * t * c.x!, u * u * cy + 2 * u * t * c.y1! + t * t * c.y!);
+      }
+      [cx, cy] = [c.x!, c.y!];
+    } else if (c.type === "C") {
+      const n = pieces(cx, cy, c.x1!, c.y1!, c.x2!, c.y2!, c.x!, c.y!);
+      for (let i = 1; i <= n; i++) {
+        const t = i / n, u = 1 - t;
+        pts.push(
+          u * u * u * cx + 3 * u * u * t * c.x1! + 3 * u * t * t * c.x2! + t * t * t * c.x!,
+          u * u * u * cy + 3 * u * u * t * c.y1! + 3 * u * t * t * c.y2! + t * t * t * c.y!,
+        );
+      }
+      [cx, cy] = [c.x!, c.y!];
+    } else if (c.type === "Z") {
+      close();
+    }
+  }
+  close();
+  return polygons;
 }
 
-let metrics: FontMetrics | null = null;
-function fontMetrics(): FontMetrics {
-  metrics ??= readFontMetrics(readFileSync(SHARE_FONT_PATH));
-  return metrics;
+/**
+ * Write a line of text into the pixels: glyph by glyph along the advances
+ * textWidth() measures, so centring and fitting agree with what is drawn.
+ */
+function drawText(canvas: Canvas, t: TextItem): void {
+  const f = shareFont();
+  const width = textWidth(t.text, t.size);
+  let x = t.align === "center" ? Math.round(t.x) - width / 2 : t.align === "right" ? Math.round(t.x) - width : Math.round(t.x);
+  const polygons: number[][] = [];
+  for (const ch of t.text) {
+    const glyph = f.charToGlyph(ch);
+    polygons.push(...outlinePolygons(glyph.getPath(x, t.baseline, t.size).commands as never));
+    x += ((glyph.advanceWidth ?? 0) * t.size) / f.unitsPerEm;
+  }
+  canvas.fillPolygons(polygons, t.color);
 }
 
-/** Width of a line of text in pixels at a font size. No kerning, as ffmpeg draws it. */
+// ============================
+// Font
+// ============================
+
+type OpenType = typeof import("opentype.js");
+type Font = ReturnType<OpenType["parse"]>;
+
+let font: Font | null = null;
+/** The bundled font, read with opentype.js: pure JavaScript, so ffmpeg needs no freetype. */
+function shareFont(): Font {
+  if (!font) {
+    const opentype: OpenType = require("opentype.js");
+    const bytes = readFileSync(SHARE_FONT_PATH);
+    font = opentype.parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+  }
+  return font;
+}
+
+/** Width of a line of text in pixels at a font size: the glyphs' advances, no kerning or ligatures. */
 function textWidth(text: string, size: number): number {
-  const f = fontMetrics();
+  const f = shareFont();
   let units = 0;
-  for (const ch of text) units += f.advance(ch.codePointAt(0)!);
+  for (const ch of text) units += f.charToGlyph(ch).advanceWidth ?? 0;
   return (units * size) / f.unitsPerEm;
 }
 
@@ -324,8 +418,9 @@ export function fitText(text: string, maxWidth: number, size: number, min: numbe
 
 /** Pixels from the baseline to the top of a capital at a font size. */
 function capHeight(size: number): number {
-  const f = fontMetrics();
-  return (f.capHeight * size) / f.unitsPerEm;
+  const f = shareFont();
+  const cap: number = f.tables.os2?.sCapHeight || f.unitsPerEm * 0.7;
+  return (cap * size) / f.unitsPerEm;
 }
 
 // ============================
@@ -333,11 +428,6 @@ function capHeight(size: number): number {
 // ============================
 
 const LOGO_EXTENSIONS: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
-
-/** A value inside a filtergraph: escaped for the option parser, then for the graph. */
-function filterValue(value: string): string {
-  return value.replace(/[\\':]/g, "\\$&").replace(/[\\'[\],;]/g, "\\$&");
-}
 
 interface TextItem {
   text: string;
@@ -349,8 +439,11 @@ interface TextItem {
   baseline: number;
 }
 
-/** Render the picture as a PNG, 1200 × 630. */
-export async function renderShareImage(d: ShareDrawing): Promise<Buffer> {
+/**
+ * Paint everything but the logos into raw pixels: the background, the
+ * badges and all the text. The logos, and where they go, are left for ffmpeg.
+ */
+export function paintShareImage(d: ShareDrawing): { pixels: { width: number; height: number; data: Buffer }; logos: PlacedLogo[] } {
   const W = SHARE_WIDTH;
   const H = SHARE_HEIGHT;
   const accent = parseColor(d.accentColor, [200, 164, 63]);
@@ -413,11 +506,23 @@ export async function renderShareImage(d: ShareDrawing): Promise<Buffer> {
   const venueWidth = d.sponsorLogo ? 2 * (plate.x - 24 - W / 2) : 900;
   if (d.venue) texts.push({ ...fitText(d.venue.toUpperCase(), venueWidth, 32, 24), color: MUTED, x: W / 2, align: "center", baseline: 574 });
 
-  return ffmpegCompose(canvas, logos, texts);
+  for (const t of texts) drawText(canvas, t);
+  return { pixels: canvas, logos };
+}
+
+/**
+ * Render the picture as a PNG, 1200 × 630. ffmpeg only lays the logos on the
+ * painted pixels and writes the PNG: rawvideo, scale, overlay and format,
+ * which every build has. `ffmpeg` is for tests.
+ */
+export async function renderShareImage(d: ShareDrawing, options: { ffmpeg?: string } = {}): Promise<Buffer> {
+  void checkShareFilters();
+  const { pixels, logos } = paintShareImage(d);
+  return ffmpegCompose(pixels, logos, options.ffmpeg ?? ffmpegPath);
 }
 
 /** A logo where it goes: centred on (cx, cy), scaled to fit w × h. */
-interface PlacedLogo {
+export interface PlacedLogo {
   logo: Logo;
   cx: number;
   cy: number;
@@ -425,11 +530,15 @@ interface PlacedLogo {
   h: number;
 }
 
-async function ffmpegCompose(canvas: Canvas, logos: PlacedLogo[], texts: TextItem[]): Promise<Buffer> {
+async function ffmpegCompose(
+  pixels: { width: number; height: number; data: Buffer },
+  logos: PlacedLogo[],
+  ffmpeg: string,
+): Promise<Buffer> {
   const dir = await mkdtemp(path.join(tmpdir(), "courtside-share-"));
   try {
-    await writeFile(path.join(dir, "base.rgba"), canvas.data);
-    const inputs = ["-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${canvas.width}x${canvas.height}`, "-i", "base.rgba"];
+    await writeFile(path.join(dir, "base.rgba"), pixels.data);
+    const inputs = ["-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${pixels.width}x${pixels.height}`, "-i", "base.rgba"];
     const graph: string[] = [];
     let current = "0:v";
     for (const [i, { logo, cx, cy, w, h }] of logos.entries()) {
@@ -443,23 +552,10 @@ async function ffmpegCompose(canvas: Canvas, logos: PlacedLogo[], texts: TextIte
       );
       current = `b${n}`;
     }
-
-    // Text goes through files, so a team name needs no escaping.
-    const font = filterValue(SHARE_FONT_PATH);
-    const draws: string[] = [];
-    for (const [i, t] of texts.entries()) {
-      await writeFile(path.join(dir, `text${i}.txt`), t.text);
-      const x = t.align === "center" ? `${Math.round(t.x)}-text_w/2` : t.align === "right" ? `${Math.round(t.x)}-text_w` : `${Math.round(t.x)}`;
-      // y is the top of the tallest glyph; ascent is its height above the baseline.
-      draws.push(
-        `drawtext=fontfile=${font}:textfile=text${i}.txt:expansion=none:fontsize=${t.size}` +
-          `:fontcolor=${ffmpegColor(t.color)}:x=${x}:y=${t.baseline}-ascent`,
-      );
-    }
-    graph.push(`[${current}]${[...draws, "format=rgb24"].join(",")}[out]`);
+    graph.push(`[${current}]format=rgb24[out]`);
 
     const { stdout } = await execFileAsync(
-      ffmpegPath,
+      ffmpeg,
       [
         "-hide_banner", "-loglevel", "error",
         ...inputs,
@@ -472,6 +568,36 @@ async function ffmpegCompose(canvas: Canvas, logos: PlacedLogo[], texts: TextIte
     return stdout;
   } finally {
     await rm(dir, { recursive: true, force: true });
+  }
+}
+
+/** The filters the picture needs from ffmpeg. */
+export const SHARE_FILTERS = ["scale", "format", "overlay"];
+
+let filterCheck: Promise<string[]> | null = null;
+
+/**
+ * The filters in SHARE_FILTERS this ffmpeg lacks, asked once with
+ * `ffmpeg -filters` and remembered. A missing one is logged as a warning,
+ * since every share picture would then fail. Never throws.
+ */
+export function checkShareFilters(ffmpeg = ffmpegPath, log: (msg: string) => void = console.warn): Promise<string[]> {
+  if (ffmpeg !== ffmpegPath) return listMissingFilters(ffmpeg, log);
+  filterCheck ??= listMissingFilters(ffmpeg, log);
+  return filterCheck;
+}
+
+async function listMissingFilters(ffmpeg: string, log: (msg: string) => void): Promise<string[]> {
+  try {
+    const { stdout } = await execFileAsync(ffmpeg, ["-hide_banner", "-filters"], { maxBuffer: 4 * 1024 * 1024, timeout: 15000 });
+    // " TSC overlay  VV->V  Overlay a video ..."
+    const have = new Set(stdout.split("\n").map((line) => line.trim().split(/\s+/)[1]).filter(Boolean));
+    const missing = SHARE_FILTERS.filter((f) => !have.has(f));
+    if (missing.length) log(`[share-image] ffmpeg (${ffmpeg}) lacks the filter(s) ${missing.join(", ")}: match share pictures will fail`);
+    return missing;
+  } catch (err) {
+    log(`[share-image] Could not list ffmpeg's filters (${ffmpeg}): ${err instanceof Error ? err.message : err}`);
+    return [];
   }
 }
 
