@@ -3558,6 +3558,27 @@ footer a:hover { color: var(--accent-ink); }
   color: var(--text-muted);
 }
 
+/* "Med stöd av" and the team's sponsor (#151) */
+.mc-sponsor,
+.empty-state .mc-head .mc-sponsor {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+.sponsor-mark.mc-sponsor-mark {
+  height: 28px;
+  max-width: 96px;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.sponsor-mark.mc-sponsor-mark.is-name { font-size: 0.8rem; }
+
 /* Played: a hand-written title above the teams, the share button beside them */
 .match-group-header {
   display: flex;

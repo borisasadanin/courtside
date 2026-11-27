@@ -8,7 +8,7 @@ import { authHeaders, showPinScreen } from "./auth.js";
 import { openPlayer, pauseLabel } from "./player.js";
 import { setSoundChoice, unlockVideoSound } from "./sound.js";
 import { noteStreamList } from "./sponsors.js";
-import { showWaitingSponsors } from "./sponsor-logos.js";
+import { showWaitingSponsors, loadCardSponsors, cardSponsorsKey } from "./sponsor-logos.js";
 import { unlockResumeSignal } from "./resume-signal.js";
 import { showImage } from "./images.js";
 import { club } from "./club.js";
@@ -185,7 +185,7 @@ function renderSchedule(status, announced, liveIds = []) {
   const headline = status === "idle" ? list[0] : null;
   const later = (headline ? list.slice(1) : list).slice(0, headline ? 3 : 4);
 
-  const shown = JSON.stringify([status, filter.keys, filter.chosen, headline, later, liveIds]);
+  const shown = JSON.stringify([status, filter.keys, filter.chosen, headline, later, liveIds, cardSponsorsKey()]);
   if (shown === scheduleShown) return;
   scheduleShown = shown;
   const focusedFilter = focusedTeamFilter();
@@ -428,6 +428,8 @@ async function pollStreamList() {
     fetchBroadcastState(),
     loadMatches(),
     loadTeams(),
+    // Who is on the match cards, at most once a minute (#151)
+    loadCardSponsors(),
   ]);
   if (streams !== null) {
     renderStreamList(streams, broadcastState);

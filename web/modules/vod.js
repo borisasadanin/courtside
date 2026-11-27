@@ -13,6 +13,7 @@ import { copyClipLink, copyMatchLink, setClipHash } from "./deeplink.js";
 import { showImage } from "./images.js";
 import { loadMatches, findMatch } from "./matches.js";
 import { loadTeams, teamBadge } from "./teams.js";
+import { loadCardSponsors } from "./sponsor-logos.js";
 import { matchTeams, matchHead, spokenTeams, playedOn, teamFilter, focusedTeamFilter, focusTeamFilter, TEAM_FILTER_EVENT } from "./match-card.js";
 
 // ============================
@@ -637,7 +638,7 @@ function formatClipTime(isoString) {
 async function pollVodList() {
   // The schedule and the teams only name the matches: without them the list
   // still groups by match id, with the names the recordings carry.
-  const [vods, clips] = await Promise.all([fetchVod(), fetchAllClips(), loadMatches(), loadTeams()]);
+  const [vods, clips] = await Promise.all([fetchVod(), fetchAllClips(), loadMatches(), loadTeams(), loadCardSponsors()]);
   if (vods !== null) {
     renderVodList(vods, clips ?? []);
   }

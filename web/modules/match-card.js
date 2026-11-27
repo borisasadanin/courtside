@@ -13,8 +13,12 @@
 //
 // The filter per team ("Alla · P12 · F14") goes above the replays and the
 // coming matches when more than one of the club's teams is in the list.
+//
+// With the surface "match-card" on, a card also says "Med stöd av" and shows
+// the own team's sponsor, or the club's (#151).
 
 import { teamFor, teamBadge, teamKey } from "./teams.js";
+import { cardSponsorLine } from "./sponsor-logos.js";
 import { formatMatchWhen, localToday } from "./matches.js";
 
 /**
@@ -81,6 +85,8 @@ export function matchHead(teams, { tag = "h3", pill, parts = [], spoken }) {
   }
 
   head.append(title, status);
+  const sponsor = cardSponsorLine(teams.own, { inline });
+  if (sponsor) head.append(sponsor);
   return head;
 }
 
