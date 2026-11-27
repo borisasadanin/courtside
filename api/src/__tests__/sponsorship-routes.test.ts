@@ -332,7 +332,7 @@ describe("sponsorship routes", () => {
       const original = JSON.parse(V081_FILE).clips as { id: string; name: string; status: string; slots: string[]; durationSeconds?: number }[];
       for (const surface of ["start", "p1", "p2", "p3", "ot", "end"]) {
         const v081 = original.filter((c) => c.status === "ready" && c.slots.includes(surface))
-          .map((c) => ({ id: c.id, name: c.name, durationSec: c.durationSeconds, hlsUrl: `/api/sponsors/${c.id}/index.m3u8` }));
+          .map((c) => ({ id: c.id, sponsorId: c.id, name: c.name, durationSec: c.durationSeconds, hlsUrl: `/api/sponsors/${c.id}/index.m3u8` }));
         const res = (await app.inject({ url: `/api/sponsors/play?surface=${surface}`, headers: viewer() })).json();
         expect(res).toEqual({ surface, teamName: defaultHomeTeam, clips: v081 });
       }

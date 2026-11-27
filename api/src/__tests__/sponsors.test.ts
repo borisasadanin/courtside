@@ -583,7 +583,7 @@ describe("sponsor routes (#89, #90, #93, #94, #96)", () => {
 
     // B was never confirmed, so it is not ready and not shown.
     const play = (q: string) => app.inject({ url: `/api/sponsors/play?${q}`, headers: viewer });
-    const clipA = { id: a, name: "A", durationSec: 12, hlsUrl: `/api/sponsors/${a}/index.m3u8` };
+    const clipA = { id: a, sponsorId: a, name: "A", durationSec: 12, hlsUrl: `/api/sponsors/${a}/index.m3u8` };
     expect((await play("surface=start")).json()).toEqual({ surface: "start", teamName: defaultHomeTeam, clips: [clipA] });
     expect((await play("surface=end")).json()).toMatchObject({ clips: [clipA] });
     expect((await play("surface=p2")).json()).toMatchObject({ surface: "p2", clips: [] });

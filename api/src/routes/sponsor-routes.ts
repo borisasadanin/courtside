@@ -457,6 +457,8 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
     const [teamId, settings, teamName] = await Promise.all([ownTeamOf(ctx), sponsors.readAll(), teamNameOf(ctx)]);
     const clips = sponsorsFor(settings, teamId, surface!).flatMap(({ sponsor, clips: own }) => own.map((c) => ({
       id: c.id,
+      // The player names the sponsor in its events (#140).
+      sponsorId: sponsor.id,
       name: sponsor.name,
       durationSec: c.durationSeconds,
       hlsUrl: `/api/sponsors/${c.id}/index.m3u8`,

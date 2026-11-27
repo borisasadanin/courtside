@@ -202,6 +202,24 @@ describe("POST /api/sponsors/events (#138)", () => {
     expect(logLines.join("")).not.toContain("viewer-secret-1234");
   });
 
+  it("takes what the player sends for the clips it got, and saves it (#140)", async () => {
+    // As sponsors.js does: the clips of a surface, then an event per clip with its sponsor's id.
+    const play = (await app.inject({ url: "/api/sponsors/play?surface=start&stream=s1", headers: viewer() })).json();
+    expect(play.clips.map((c: { sponsorId: string }) => c.sponsorId)).toEqual([ICA, "0f9e8d7c6b5a"]);
+    for (const clip of play.clips) {
+      for (const kind of ["start", "sound", "complete"]) {
+        expect((await send(event({ sponsorId: clip.sponsorId, kind }))).statusCode).toBe(204);
+      }
+    }
+    await sponsorStats.flush();
+    const file = JSON.parse(storage.files.get("stats/sponsors/2026/s1.json")!.body.toString());
+    expect(file.match).toEqual({ key: "s1", date: "2026-11-20", homeTeam: "Älta P12", awayTeam: "AIK" });
+    for (const clip of play.clips) {
+      expect(file.sponsors[clip.sponsorId].surfaces.start.live).toEqual({ viewers: 1, starts: 1, completes: 1, sounds: 1, seen: 0 });
+    }
+    expect(storage.files.get("stats/sponsors/2026/s1.json")!.body.toString()).not.toContain("viewer-secret-1234");
+  });
+
   it("is rate-limited per viewer, not per address", async () => {
     let limited = 0;
     for (let i = 0; i < 125; i++) if ((await send(event())).statusCode === 429) limited++;
