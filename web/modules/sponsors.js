@@ -88,18 +88,30 @@ export function transitionClaimed(key) {
  */
 let runningAtLoad = null;
 const seenWaiting = new Set();
+/**
+ * Streams seen live or paused. A stream is "waiting" again for a moment when
+ * the camera comes back from a pause, and that must not count as the match
+ * starting: start clips would then play in the second period.
+ */
+const seenGoing = new Set();
 
-/** Call with every stream list. Only the first one counts. */
-export function noteStreamList(streams) {
-  if (runningAtLoad || !Array.isArray(streams)) return;
-  runningAtLoad = new Set(
-    streams.filter((s) => s.status === "live" || s.status === "paused").map((s) => s.id),
-  );
+function going(s) {
+  return s && (s.status === "live" || s.status === "paused");
 }
 
-/** The player saw this stream waiting for its camera, before it was live. */
-export function noteStreamWaiting(streamId) {
-  if (streamId) seenWaiting.add(streamId);
+/** Call with every stream list. Only the first one says what was going at load. */
+export function noteStreamList(streams) {
+  if (!Array.isArray(streams)) return;
+  for (const s of streams) if (going(s)) seenGoing.add(s.id);
+  if (runningAtLoad) return;
+  runningAtLoad = new Set(streams.filter(going).map((s) => s.id));
+}
+
+/** Call with every stream the player fetches: waiting before it ever went live counts as seeing it start. */
+export function noteStreamStatus(stream) {
+  if (!stream?.id) return;
+  if (going(stream)) seenGoing.add(stream.id);
+  else if (stream.status === "waiting" && !seenGoing.has(stream.id)) seenWaiting.add(stream.id);
 }
 
 /** Whether the viewer was here before this stream went live. */

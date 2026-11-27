@@ -14,7 +14,7 @@ import { unlockResumeSignal, playResumeSignal } from "./resume-signal.js";
 import { playWithSound, unlockVideoSound, onMuteChangedByViewer, hideTapForSound, bindTapForSound } from "./sound.js";
 import {
   fetchSponsorReel, playSponsorReel, cancelSponsorReel, isSponsorReelPlaying,
-  claimTransition, transitionClaimed, sawStreamStart, noteStreamWaiting,
+  claimTransition, transitionClaimed, sawStreamStart, noteStreamStatus,
 } from "./sponsors.js";
 import { loadReplayMarkers, setReplayFragments, fetchReplayFragments, clearReplayMarkers, initReplayMarkers } from "./replay-markers.js";
 
@@ -432,7 +432,7 @@ async function checkIfStreamStopped() {
       destroyHls();
     } else if (stream.status === "waiting") {
       // Stream is resuming — wait for it to go live (polling will pick it up)
-      noteStreamWaiting(stream.id);
+      noteStreamStatus(stream);
       setStatus("connecting");
       showOverlay("V\u00e4ntar p\u00e5 s\u00e4ndningen\u2026", true);
     } else {
@@ -1154,7 +1154,7 @@ async function pollCurrentStream() {
 
     const stream = await res.json();
     latestStream = stream;
-    if (stream.status === "waiting") noteStreamWaiting(stream.id);
+    noteStreamStatus(stream);
     // While sponsor clips play, only note what happens; when they are over,
     // afterReel() acts on the stream as it is then (#109)
     if (reelPending || isSponsorReelPlaying()) {
@@ -1359,7 +1359,7 @@ async function startWatching(streamId) {
   }
   if (state.currentStreamId !== streamId) return;
   if (stream) latestStream = stream;
-  if (stream?.status === "waiting") noteStreamWaiting(streamId);
+  noteStreamStatus(stream);
   if (stream?.status === "live") useStreamUrl(stream);
   if (stream?.status === "live" && startClipsDue()) return playStartClips();
   if (stream?.status === "paused") {
