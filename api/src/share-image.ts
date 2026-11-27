@@ -13,9 +13,12 @@
  * ffmpeg lays the logos on top and writes the text with the bundled font
  * (assets/fonts, SIL Open Font License).
  *
+ * With the sponsor surface "share-image" on, the main sponsor's logo sits in
+ * the lower right corner (#153). Off, the picture is exactly as before.
+ *
  * Rendered when first asked for and kept in memory. The version, a hash of
  * everything drawn, goes into the og:image URL, so a chat app fetches the
- * picture again when the result or a logo changes.
+ * picture again when the result or a logo changes, the sponsor's included.
  */
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
@@ -79,6 +82,8 @@ export interface ShareDrawing {
   opponent: ShareTeam;
   /** Own team first. */
   result?: { home: number; away: number };
+  /** The main sponsor's logo, in the lower right corner (#153). */
+  sponsorLogo?: Logo;
 }
 
 const WEEKDAYS = ["söndag", "måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag"];
@@ -176,6 +181,27 @@ class Canvas {
   fillRect(x: number, y: number, w: number, h: number, c: Rgb): void {
     for (let yy = Math.max(0, y); yy < Math.min(this.height, y + h); yy++) {
       for (let xx = Math.max(0, x); xx < Math.min(this.width, x + w); xx++) this.blend(xx, yy, c, 1);
+    }
+  }
+
+  /** A filled rectangle with round corners of radius r, at whole pixels. */
+  fillRoundRect(x: number, y: number, w: number, h: number, r: number, c: Rgb): void {
+    this.fillRect(x + r, y, w - 2 * r, h, c);
+    this.fillRect(x, y + r, r, h - 2 * r, c);
+    this.fillRect(x + w - r, y + r, r, h - 2 * r, c);
+    // Each corner: its centre, and the top left of the r × r square it fills.
+    const corners = [
+      [x + r, y + r, x, y],
+      [x + w - r, y + r, x + w - r, y],
+      [x + r, y + h - r, x, y + h - r],
+      [x + w - r, y + h - r, x + w - r, y + h - r],
+    ];
+    for (const [cx, cy, qx, qy] of corners) {
+      for (let py = Math.max(0, qy); py < Math.min(this.height, qy + r); py++) {
+        for (let px = Math.max(0, qx); px < Math.min(this.width, qx + r); px++) {
+          this.blend(px, py, c, Math.max(0, Math.min(1, r + 0.5 - Math.hypot(px + 0.5 - cx, py + 0.5 - cy))));
+        }
+      }
     }
   }
 
@@ -330,7 +356,7 @@ export async function renderShareImage(d: ShareDrawing): Promise<Buffer> {
   const accent = parseColor(d.accentColor, [200, 164, 63]);
   const canvas = new Canvas(W, H, BACKGROUND);
   const texts: TextItem[] = [];
-  const logos: { logo: Logo; cx: number; cy: number; size: number }[] = [];
+  const logos: PlacedLogo[] = [];
 
   // The club's colour from the top, each team's behind its badge.
   const R = 120;
@@ -354,7 +380,8 @@ export async function renderShareImage(d: ShareDrawing): Promise<Buffer> {
     canvas.fillCircle(cx, badgeY, R + 6, WHITE, 0.14);
     if (team.logo) {
       canvas.fillCircle(cx, badgeY, R, WHITE);
-      logos.push({ logo: team.logo, cx, cy: badgeY, size: Math.round(R * 2 * 0.7) });
+      const size = Math.round(R * 2 * 0.7);
+      logos.push({ logo: team.logo, cx, cy: badgeY, w: size, h: size });
     } else {
       const color = parseColor(team.color, MUTED);
       canvas.fillCircle(cx, badgeY, R, color);
@@ -374,30 +401,44 @@ export async function renderShareImage(d: ShareDrawing): Promise<Buffer> {
     texts.push({ text: "–", size: 150, color: MUTED, x: W / 2, align: "center", baseline: Math.round(badgeY + capHeight(150) / 2) });
   }
 
-  // Under the names: where it is played.
-  if (d.venue) texts.push({ ...fitText(d.venue.toUpperCase(), 900, 32, 24), color: MUTED, x: W / 2, align: "center", baseline: 574 });
+  // The main sponsor in the lower right corner (#153), on a white plate:
+  // most logos are drawn for white. The venue keeps clear of it.
+  const plate = { w: 168, h: 76, x: W - 48 - 168, y: H - 14 - 18 - 76 };
+  if (d.sponsorLogo) {
+    canvas.fillRoundRect(plate.x, plate.y, plate.w, plate.h, 12, WHITE);
+    logos.push({ logo: d.sponsorLogo, cx: plate.x + plate.w / 2, cy: plate.y + plate.h / 2, w: plate.w - 28, h: plate.h - 20 });
+  }
+
+  // Under the names: where it is played, centred and clear of the sponsor.
+  const venueWidth = d.sponsorLogo ? 2 * (plate.x - 24 - W / 2) : 900;
+  if (d.venue) texts.push({ ...fitText(d.venue.toUpperCase(), venueWidth, 32, 24), color: MUTED, x: W / 2, align: "center", baseline: 574 });
 
   return ffmpegCompose(canvas, logos, texts);
 }
 
-async function ffmpegCompose(
-  canvas: Canvas,
-  logos: { logo: Logo; cx: number; cy: number; size: number }[],
-  texts: TextItem[],
-): Promise<Buffer> {
+/** A logo where it goes: centred on (cx, cy), scaled to fit w × h. */
+interface PlacedLogo {
+  logo: Logo;
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+}
+
+async function ffmpegCompose(canvas: Canvas, logos: PlacedLogo[], texts: TextItem[]): Promise<Buffer> {
   const dir = await mkdtemp(path.join(tmpdir(), "courtside-share-"));
   try {
     await writeFile(path.join(dir, "base.rgba"), canvas.data);
     const inputs = ["-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${canvas.width}x${canvas.height}`, "-i", "base.rgba"];
     const graph: string[] = [];
     let current = "0:v";
-    for (const [i, { logo, cx, cy, size }] of logos.entries()) {
+    for (const [i, { logo, cx, cy, w, h }] of logos.entries()) {
       const file = `logo${i}.${LOGO_EXTENSIONS[logo.type] ?? "png"}`;
       await writeFile(path.join(dir, file), logo.bytes);
       inputs.push("-i", file);
       const n = i + 1;
       graph.push(
-        `[${n}:v]scale=${size}:${size}:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba[l${n}]`,
+        `[${n}:v]scale=${w}:${h}:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba[l${n}]`,
         `[${current}][l${n}]overlay=x=${cx}-overlay_w/2:y=${cy}-overlay_h/2[b${n}]`,
       );
       current = `b${n}`;
@@ -445,6 +486,14 @@ interface ShareSources {
   /** Changes whenever the uploaded club logo does; null when there is none. */
   clubLogoVersion(): string | null;
   club(): { name: string; accentColor: string };
+  /**
+   * The main sponsor's logo for the match (#153): who has the surface
+   * "share-image" for its own team, or the club's. Synchronous, from the
+   * sponsors' snapshot, since version() cannot wait. `version` changes when
+   * the logo does. Null, or left out, when the surface is off or there is
+   * no one with a logo: the picture is then the same as without sponsors.
+   */
+  sponsorLogo?(match: Match): { version: string; load(): Promise<Logo | null> } | null;
 }
 
 /**
@@ -468,7 +517,8 @@ export class ShareImages {
     const club = this.sources.club();
     const team = (t: MatchTeam) => [t.name, t.shortName, t.color, t.logoUrl ?? ""];
     const clubLogo = match.ownTeam.logoUrl ? "" : this.sources.clubLogoVersion() ?? "";
-    const drawn = [
+    const sponsor = this.sponsorOf(match);
+    const drawn: unknown[] = [
       LAYOUT_VERSION,
       club.name,
       club.accentColor,
@@ -480,6 +530,8 @@ export class ShareImages {
       team(match.opponent),
       match.result ? [match.result.home, match.result.away] : null,
     ];
+    // Added only when there is one, so without it the version is as before.
+    if (sponsor) drawn.push(["sponsor", sponsor.version]);
     return crypto.createHash("sha256").update(JSON.stringify(drawn)).digest("hex").slice(0, 12);
   }
 
@@ -505,9 +557,11 @@ export class ShareImages {
 
   private async draw(match: Match): Promise<Buffer> {
     const club = this.sources.club();
-    const [ownLogo, opponentLogo] = await Promise.all([
+    const sponsor = this.sponsorOf(match);
+    const [ownLogo, opponentLogo, sponsorLogo] = await Promise.all([
       this.logoOf(match.ownTeam).then((logo) => logo ?? this.sources.clubLogo().catch(() => null)),
       this.logoOf(match.opponent),
+      sponsor ? sponsor.load().catch(() => null) : null,
     ]);
     const drawing: ShareDrawing = {
       club: club.name,
@@ -518,13 +572,24 @@ export class ShareImages {
       own: teamDrawing(match.ownTeam, ownLogo),
       opponent: teamDrawing(match.opponent, opponentLogo),
       ...(match.result && { result: match.result }),
+      ...(sponsorLogo && { sponsorLogo }),
     };
     try {
       return await this.render(drawing);
     } catch (err) {
-      if (!drawing.own.logo && !drawing.opponent.logo) throw err;
+      if (!drawing.own.logo && !drawing.opponent.logo && !drawing.sponsorLogo) throw err;
       // A logo ffmpeg cannot read must not cost the match its picture.
-      return this.render({ ...drawing, own: { ...drawing.own, logo: undefined }, opponent: { ...drawing.opponent, logo: undefined } });
+      const { sponsorLogo: _gone, ...plain } = drawing;
+      return this.render({ ...plain, own: { ...drawing.own, logo: undefined }, opponent: { ...drawing.opponent, logo: undefined } });
+    }
+  }
+
+  /** The sponsor on the picture, or null. A sponsor lookup that fails is no sponsor. */
+  private sponsorOf(match: Match): { version: string; load(): Promise<Logo | null> } | null {
+    try {
+      return this.sources.sponsorLogo?.(match) ?? null;
+    } catch {
+      return null;
     }
   }
 

@@ -11,7 +11,8 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { initServices, matches, teams, streamMeta } from "../state.js";
+import { initServices, matches, sponsors, teams, streamMeta } from "../state.js";
+import { sponsorLogoKey } from "../sponsors.js";
 import shareRoutes from "../routes/share-routes.js";
 import { ShareImages, fitText, formatShareDate, shareTitle, type ShareDrawing } from "../share-image.js";
 import type { Match } from "../matches.js";
@@ -245,6 +246,28 @@ describe("GET /api/matches/:id/share.png", () => {
     expect(stale.headers["cache-control"]).toBe("public, max-age=300");
   });
 
+  it("puts the main sponsor's logo in the corner once switched on, with a new URL for a new logo (#153)", async () => {
+    const match = await newMatch();
+    const before = await imageUrl(match.id);
+    const ica = await sponsors.createSponsor({ name: "ICA", packageId: "platinum" });
+    await sponsors.setLogo(ica.id, LOGO);
+    // Off: the same picture as without sponsors.
+    expect(await imageUrl(match.id)).toBe(before);
+
+    await sponsors.setSurfaces({ "share-image": true });
+    const withSponsor = await imageUrl(match.id);
+    expect(withSponsor).not.toBe(before);
+    const res = await app.inject({ url: `/api/matches/${match.id}/share.png` });
+    expect(pngSize(res.rawPayload)).toEqual({ width: 1200, height: 630 });
+    expect(storage.downloadBuffer).toHaveBeenCalledWith(sponsorLogoKey(ica.id));
+
+    // A new logo is a new picture; switched off again, the old one.
+    await sponsors.setLogo(ica.id, LOGO);
+    expect(await imageUrl(match.id)).not.toBe(withSponsor);
+    await sponsors.setSurfaces({ "share-image": false });
+    expect(await imageUrl(match.id)).toBe(before);
+  });
+
   it("404s an unknown match", async () => {
     const res = await app.inject({ url: "/api/matches/nosuchid/share.png" });
     expect(res.statusCode).toBe(404);
@@ -308,6 +331,51 @@ describe("ShareImages", () => {
     expect(render.mock.calls[1][0].venue).toBe("Sporthallen");
     // A moved match is a new picture.
     expect(images.version({ ...planned, venue: "Hallen" })).not.toBe(images.version(planned));
+  });
+
+  const sponsorAt = (version: string, bytes = "ica") => () => ({
+    version,
+    load: vi.fn(async () => ({ bytes: Buffer.from(bytes), type: "image/png" })),
+  });
+
+  it("draws the sponsor's logo, and changes version when the logo is replaced (#153)", async () => {
+    const render = vi.fn(async (_d: ShareDrawing) => Buffer.from("png"));
+    const images = new ShareImages({ ...sources(), sponsorLogo: sponsorAt("ica:2026-11-01") }, render);
+    await images.image(match);
+    expect(render.mock.calls[0][0].sponsorLogo?.bytes.toString()).toBe("ica");
+
+    const replaced = new ShareImages({ ...sources(), sponsorLogo: sponsorAt("ica:2026-11-02") }, render);
+    expect(replaced.version(match)).not.toBe(images.version(match));
+    const other = new ShareImages({ ...sources(), sponsorLogo: sponsorAt("coop:2026-11-01") }, render);
+    expect(other.version(match)).not.toBe(images.version(match));
+  });
+
+  it("gives the same picture as today with the surface off (#153)", async () => {
+    const render = vi.fn(async (_d: ShareDrawing) => Buffer.from("png"));
+    const today = new ShareImages(sources(), render);
+    const off = new ShareImages({ ...sources(), sponsorLogo: () => null }, render);
+    const failing = new ShareImages({ ...sources(), sponsorLogo: () => { throw new Error("no snapshot"); } }, render);
+    expect(off.version(match)).toBe(today.version(match));
+    expect(failing.version(match)).toBe(today.version(match));
+    await today.image(match);
+    await off.image(match);
+    expect(render.mock.calls[1][0]).toEqual(render.mock.calls[0][0]);
+    expect(render.mock.calls[1][0]).not.toHaveProperty("sponsorLogo");
+  });
+
+  it("draws without the sponsor when its logo cannot be read or drawn (#153)", async () => {
+    const missing = vi.fn(async (_d: ShareDrawing) => Buffer.from("png"));
+    const gone = { version: "ica:1", load: async () => { throw new Error("NoSuchKey"); } };
+    await new ShareImages({ ...sources(), sponsorLogo: () => gone }, missing).image(match);
+    expect(missing.mock.calls[0][0].sponsorLogo).toBeUndefined();
+
+    const render = vi.fn(async (d: ShareDrawing) => {
+      if (d.sponsorLogo) throw new Error("ffmpeg could not read the logo");
+      return Buffer.from("png");
+    });
+    const images = new ShareImages({ ...sources(), sponsorLogo: sponsorAt("ica:1") }, render);
+    expect((await images.image(match)).png.toString()).toBe("png");
+    expect(render).toHaveBeenCalledTimes(2);
   });
 
   it("draws without logos when one cannot be read", async () => {
