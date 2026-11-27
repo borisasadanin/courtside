@@ -29,6 +29,8 @@
  *   GET    /api/sponsors?match=|stream=|vod=  who is shown on each surface of one match (#130)
  *   GET    /api/sponsors/play?surface=…     the ready clips of one surface, in play order,
  *                                           and the team to name in the banner
+ *   GET    /api/sponsors/teams?surface=…    one exclusive surface's sponsor for each of the
+ *                                           club's teams, for a whole list of matches (#150)
  *   GET    /api/sponsors/:id/:file          a clip's playlist, segments and thumbnail
  *   POST   /api/sponsors/events             a clip started, ended or played with sound (#138)
  *
@@ -40,7 +42,7 @@
 import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isValidAdminToken, requireAdminAuth, requireViewerAuth } from "../auth.js";
-import { matches, minio, sponsors, sponsorQueue, sponsorStats, streamMeta } from "../state.js";
+import { matches, minio, sponsors, sponsorQueue, sponsorStats, streamMeta, teams } from "../state.js";
 import { defaultHomeTeam } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { ownTeamOf, sponsorsForContext, type SponsorContext } from "../own-team.js";
@@ -482,6 +484,27 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
       if (picks.length > 0) surfaces[def.id] = picks.map((p) => publicSponsor(p, def.kind));
     }
     return reply.header("Cache-Control", "no-cache").send({ teamName, surfaces });
+  });
+
+  // #150: who has one exclusive surface for each of the club's own teams, so
+  // a list of matches needs one request, not one per match. A team without a
+  // sponsor of its own gets the club's; a team with neither is left out.
+  app.get<{ Querystring: { surface?: string } }>("/api/sponsors/teams", async (request, reply) => {
+    if (!requireViewerAuth(request, reply)) return;
+    const def = typeof request.query.surface === "string" ? surfaceDef(request.query.surface) : undefined;
+    if (!def || !def.exclusive || def.kind !== "logo") return reply.code(400).send({ error: "invalid_surface" });
+    const [settings, all] = await Promise.all([sponsors.readAll(), teams.list()]);
+    const pick = (teamId: string | null) => {
+      const first = sponsorsFor(settings, teamId, def.id)[0];
+      return first ? publicSponsor(first, "logo") : null;
+    };
+    const byTeam: Record<string, ReturnType<typeof publicSponsor>> = {};
+    for (const team of all) {
+      if (!team.own) continue;
+      const sponsor = pick(team.id);
+      if (sponsor) byTeam[team.id] = sponsor;
+    }
+    return reply.header("Cache-Control", "no-cache").send({ surface: def.id, club: pick(null), byTeam });
   });
 
   // `surface` is start, p1, p2, p3, ot or end. `stream`, `match` or `vod`

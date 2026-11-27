@@ -359,6 +359,38 @@ describe("sponsorship routes", () => {
       expect(names(f.waiting)).toEqual(["Banken"]);
     });
 
+    it("gives one request a whole list's sponsors, a team without its own getting the club's (#150)", async () => {
+      const url = "/api/sponsors/teams?surface=match-card";
+      expect((await app.inject({ url })).statusCode).toBe(401);
+      // Off: nobody.
+      expect((await app.inject({ url, headers: viewer() })).json()).toEqual({ surface: "match-card", club: null, byTeam: {} });
+
+      const club = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Banken", packageId: "platinum", url: "https://banken.se" })).json().sponsor;
+      const own = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "ICA", packageId: "platinum", teamIds: [p12] })).json().sponsor;
+      await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Guldet", packageId: "gold", teamIds: [f14] });
+      const opponent = await teams.create({ name: "AIK" });
+      await inject("PATCH", "/api/admin/sponsorship/surfaces", { "match-card": true });
+
+      const res = await app.inject({ url, headers: viewer() });
+      expect(res.json()).toEqual({
+        surface: "match-card",
+        club: { id: club.id, name: "Banken", url: "https://banken.se/" },
+        byTeam: {
+          [p12]: { id: own.id, name: "ICA" },
+          // F14's own sponsor is in Guld, which has no match card: the club's.
+          [f14]: { id: club.id, name: "Banken", url: "https://banken.se/" },
+        },
+      });
+      expect(res.json().byTeam[opponent.id]).toBeUndefined();
+      expect(res.body).not.toContain("Guldet");
+
+      // Only exclusive logo surfaces: one sponsor per team.
+      for (const surface of ["waiting", "club-footer", "start", "nope", ""]) {
+        expect((await app.inject({ url: `/api/sponsors/teams?surface=${surface}`, headers: viewer() })).statusCode).toBe(400);
+      }
+      expect((await app.inject({ url: "/api/sponsors/teams?surface=corner", headers: viewer() })).json().club).toBeNull(); // off
+    });
+
     it("leaves out surfaces switched off", async () => {
       await readyClip("K", undefined, ["start", "end"]);
       await inject("PATCH", "/api/admin/sponsorship/surfaces", { start: false });
