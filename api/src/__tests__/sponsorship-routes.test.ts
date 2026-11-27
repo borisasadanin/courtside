@@ -391,6 +391,34 @@ describe("sponsorship routes", () => {
       streamMeta.delete("s2");
     });
 
+    it("gives a replay today's clips of each break and the end, for its own team (#168–#170)", async () => {
+      const club = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Klubbens" })).json().sponsor;
+      const own = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "F14:s", teamIds: [f14] })).json().sponsor;
+      const other = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "P12:s", teamIds: [p12] })).json().sponsor;
+      await readyClip("K", club.id, ["p1", "ot", "end"]);
+      await readyClip("F", own.id, ["p2", "ot"]);
+      await readyClip("P", other.id, ["p1", "p2", "ot", "end"]);
+
+      const match = await matches.create({ date: "2026-12-01", ownTeamId: f14, opponentName: "AIK" });
+      storage.vods.push({ id: "v14", matchId: match.id, homeTeam: "Älta F14" });
+      const play = async (surface: string) =>
+        (await app.inject({ url: `/api/sponsors/play?surface=${surface}&vod=v14`, headers: viewer() })).json();
+      const names = (body: { clips: { name: string }[] }) => body.clips.map((c) => c.name);
+
+      expect((await play("p1")).teamName).toBe("Älta F14");
+      expect(names(await play("p1"))).toEqual(["Klubbens"]);
+      expect(names(await play("p2"))).toEqual(["F14:s"]);
+      expect(names(await play("p3"))).toEqual([]);
+      expect(names(await play("ot"))).toEqual(["F14:s", "Klubbens"]);
+      expect(names(await play("end"))).toEqual(["Klubbens"]);
+
+      // Today's settings, not what played live: a clip moved off p1 is gone from the replay too.
+      const moved = await readyClip("K2", club.id, ["p1"]);
+      expect(names(await play("p1"))).toEqual(["Klubbens", "Klubbens"]);
+      await inject("PATCH", `/api/admin/sponsors/${moved.id}`, { slots: ["end"] });
+      expect(names(await play("p1"))).toEqual(["Klubbens"]);
+    });
+
     it("gives the logo surfaces of phase 1 only once they are switched on (#147, #149)", async () => {
       const club = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Banken", packageId: "platinum" })).json().sponsor;
       const own = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "ICA", packageId: "platinum", teamIds: [p12] })).json().sponsor;

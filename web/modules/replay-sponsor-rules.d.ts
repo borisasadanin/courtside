@@ -3,3 +3,4 @@
 export const SKIP_AFTER_S: number;
 
 export function skipShown(at: { skippable?: boolean; started?: boolean; currentTime: number }): boolean;
+export function replayStartClipsDue(startAt?: number | null): boolean;

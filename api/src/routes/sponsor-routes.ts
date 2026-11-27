@@ -557,9 +557,10 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
     if (!SPONSOR_SLOTS.includes(surface as (typeof SPONSOR_SLOTS)[number])) {
       return reply.code(400).send({ error: "invalid_surface" });
     }
+    // A replay (vod=) plays today's clips for its own team, like live (#168).
     const ctx = contextOf(request.query);
-    const [teamId, settings, teamName] = await Promise.all([ownTeamOf(ctx), sponsors.readAll(), teamNameOf(ctx)]);
-    const clips = sponsorsFor(settings, teamId, surface!).flatMap(({ sponsor, clips: own }) => own.map((c) => ({
+    const [picks, teamName] = await Promise.all([sponsorsForContext(ctx, surface!), teamNameOf(ctx)]);
+    const clips = picks.flatMap(({ sponsor, clips: own }) => own.map((c) => ({
       id: c.id,
       // The player names the sponsor in its events (#140).
       sponsorId: sponsor.id,
