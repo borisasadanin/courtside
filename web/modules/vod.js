@@ -13,7 +13,7 @@ import { copyClipLink, copyMatchLink, setClipHash } from "./deeplink.js";
 import { showImage } from "./images.js";
 import { loadMatches, findMatch } from "./matches.js";
 import { loadTeams, teamBadge } from "./teams.js";
-import { loadCardSponsors } from "./sponsor-logos.js";
+import { loadCardSponsors, sponsorMark } from "./sponsor-logos.js";
 import { matchTeams, matchHead, spokenTeams, playedOn, teamFilter, focusedTeamFilter, focusTeamFilter, TEAM_FILTER_EVENT } from "./match-card.js";
 
 // ============================
@@ -328,6 +328,11 @@ function createMatchGroup(group) {
     el.appendChild(recSection);
   }
 
+  // ── The match's MVP (#164), next to the highlights ─────
+  if (group.match?.mvp) {
+    el.appendChild(createMvpLine(group));
+  }
+
   // ── Highlights ──────────────────────────────────────────
   if (group.clips.length > 0) {
     el.appendChild(createHighlightsSection(group));
@@ -463,6 +468,41 @@ function createHighlightsSection(group) {
   });
 
   return hlSection;
+}
+
+/**
+ * "Matchens MVP: #12, presenteras av [logo]". The number plays the MVP's
+ * clip when the list has it. Without a sponsor, or with the surface off,
+ * just "Matchens MVP: #12". Never a name.
+ */
+function createMvpLine(group) {
+  const { jersey, clipId, sponsor } = group.match.mvp;
+  const line = document.createElement("p");
+  line.className = "match-mvp-line";
+  // No-break spaces: a flex line drops plain spaces at the ends of its text.
+  line.append("Matchens MVP:\u00a0");
+  const clip = group.clips.find((c) => c.id === clipId);
+  if (clip) {
+    const play = document.createElement("button");
+    play.type = "button";
+    play.className = "match-mvp-play";
+    play.innerHTML = `${PLAY_SVG} #${escapeHtml(jersey)}`;
+    play.setAttribute("aria-label", `Spela klippet med matchens MVP, nummer ${jersey}`);
+    play.addEventListener("click", () => {
+      setClipHash(clip.id);
+      playClip(clip.hlsUrl);
+    });
+    line.append(play);
+  } else {
+    const num = document.createElement("strong");
+    num.textContent = `#${jersey}`;
+    line.append(num);
+  }
+  if (sponsor) {
+    line.append(",\u00a0presenteras av\u00a0");
+    line.append(sponsorMark(sponsor, { className: "sponsor-mark mc-sponsor-mark" }));
+  }
+  return line;
 }
 
 /** "72 – 65", own team first. */

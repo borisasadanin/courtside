@@ -38,8 +38,16 @@ export interface MatchRecord {
   opponent: TeamRef;
   /** "admin" when entered in Hantera, "camera" when made for a recording that came without one. */
   source: "admin" | "camera";
+  /** The match's MVP (#162): one of its clips and a jersey number, never a name. */
+  mvp?: MatchMvp;
   createdAt: string;
   updatedAt: string;
+}
+
+/** The MVP as stored: the clip and the jersey, "0"–"99" or "00". */
+export interface MatchMvp {
+  clipId: string;
+  jersey: string;
 }
 
 export type MatchStatus = "planned" | "live" | "ended";
@@ -60,13 +68,15 @@ export interface Match {
   recordingIds: string[];
   /** From the newest recording that has one; own team first. */
   result?: { home: number; away: number };
+  /** The MVP the admin chose (#162). */
+  mvp?: MatchMvp;
   source: MatchRecord["source"];
   createdAt: string;
   updatedAt: string;
 }
 
 /** A match without what its recordings tell: enough to start a stream for it. */
-export type MatchSummary = Omit<Match, "status" | "recordingIds" | "result">;
+export type MatchSummary = Omit<Match, "status" | "recordingIds" | "result" | "mvp">;
 
 export interface MatchInput {
   date?: unknown;
@@ -94,6 +104,8 @@ interface MatchStorage {
   uploadBuffer(key: string, body: Buffer | string, contentType: string): Promise<void>;
   readVodIndex(): Promise<VodEntry[]>;
   updateVodEntry(id: string, update: Partial<VodEntry>): Promise<boolean>;
+  /** The club's highlight clips, to check that an MVP's clip is the match's own (#162). */
+  readClipsIndex?(): Promise<{ id: string; streamId: string }[]>;
 }
 
 type Teams = Pick<TeamRegistry, "get" | "findByName" | "ensure">;
@@ -108,6 +120,13 @@ export class MatchError extends Error {
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const MAX_VENUE = 80;
+/** A jersey number: 0–99 without a leading zero, or 00. Digits only, never a name. */
+const JERSEY = /^(?:00|0|[1-9]\d?)$/;
+
+/** A jersey number as the MVP takes it: "0"–"99" or "00". A number is taken as its digits. */
+export function isJersey(value: unknown): value is string {
+  return typeof value === "string" && JERSEY.test(value);
+}
 
 /**
  * The club's time zone, for what "today" is. Matches are entered as local
@@ -264,6 +283,42 @@ export class MatchSchedule {
     const vods = await this.storage.readVodIndex();
     await this.updateRecordings(await this.summarize(record), vods);
     return this.present(record, vods);
+  }
+
+  /**
+   * Choose the match's MVP (#162): one of its own clips and a jersey number.
+   * The number is 0–99 or 00, digits only: never a name or free text.
+   */
+  async setMvp(id: string, input: { clipId?: unknown; jersey?: unknown }): Promise<Match> {
+    const jersey = typeof input.jersey === "number" && Number.isInteger(input.jersey) ? String(input.jersey) : input.jersey;
+    if (!isJersey(jersey)) throw new MatchError("Tröjnumret ska vara 0–99 eller 00.", 400);
+    const clipId = input.clipId;
+    if (typeof clipId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(clipId)) throw new MatchError("Välj ett klipp.", 400);
+
+    const vods = await this.storage.readVodIndex();
+    const clips = (await this.storage.readClipsIndex?.()) ?? [];
+    const clip = clips.find((c) => c.id === clipId);
+    const record = await this.exclusive(async (records) => {
+      const current = records.find((m) => m.id === id);
+      if (!current) throw new MatchError("Matchen finns inte.", 404);
+      const own = new Set(this.recordingsOf(id, vods).map((r) => r.id));
+      if (!clip || !own.has(clip.streamId)) throw new MatchError("Klippet hör inte till matchen.", 400);
+      const next: MatchRecord = { ...current, mvp: { clipId, jersey }, updatedAt: new Date().toISOString() };
+      return { records: records.map((m) => (m.id === id ? next : m)), result: next };
+    });
+    return this.present(record, vods);
+  }
+
+  /** Take the MVP away. A match without one is left as it is. */
+  async clearMvp(id: string): Promise<Match> {
+    const record = await this.exclusive(async (records) => {
+      const current = records.find((m) => m.id === id);
+      if (!current) throw new MatchError("Matchen finns inte.", 404);
+      if (!current.mvp) return { records, result: current };
+      const { mvp: _gone, ...next } = { ...current, updatedAt: new Date().toISOString() };
+      return { records: records.map((m) => (m.id === id ? next : m)), result: next };
+    });
+    return this.present(record, await this.storage.readVodIndex());
   }
 
   /** Remove a match that has no recordings. One that has must keep them: they are removed under Inspelningar. */
@@ -439,6 +494,7 @@ export class MatchSchedule {
       status,
       recordingIds: recordings.map((rec) => rec.id),
       ...(result && { result: { home: result.home, away: result.away } }),
+      ...(r.mvp && { mvp: { clipId: r.mvp.clipId, jersey: r.mvp.jersey } }),
       source,
       createdAt,
       updatedAt,

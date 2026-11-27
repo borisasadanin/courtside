@@ -3755,6 +3755,72 @@ footer a:hover { color: var(--accent-ink); }
 .guest-admin-video { width: 100%; margin-top: 8px; border-radius: 10px; background: #000; }
 .match-guest-link { align-self: flex-start; padding: 0; margin-top: 2px; }
 
+/* #164: "Matchens MVP: #12, presenteras av …" next to a match's highlights. */
+.match-mvp-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  margin-top: 14px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.match-mvp-line strong { color: var(--text); }
+.match-mvp-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 10px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.match-mvp-play:hover { background: var(--surface-hover); }
+.match-mvp-play:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.match-mvp-line + .match-highlights { margin-top: 10px; }
+
+/* #163: the match's MVP, chosen by a clip's thumbnail and a jersey number. */
+.match-mvp-clips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 10px;
+}
+.match-mvp-clip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  cursor: pointer;
+  min-width: 0;
+}
+.match-mvp-clip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.match-mvp-clip:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.match-mvp-clip:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
+.match-mvp-thumb {
+  display: block;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface) var(--court-lines) center / cover no-repeat;
+}
+.match-mvp-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.match-mvp-name { font-size: 0.8rem; color: var(--text); overflow-wrap: anywhere; }
+.match-mvp .branding-field input { max-width: 8rem; }
+.match-mvp button:disabled { opacity: 0.5; cursor: default; }
+
 /* === Camera guide (onboarding) === */
 
 .guide {
