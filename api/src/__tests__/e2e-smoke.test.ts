@@ -35,7 +35,7 @@ vi.mock("../pause-segments.js", () => ({
 }));
 
 // Now import app modules
-import { streamMeta, initServices } from "../state.js";
+import { streamMeta, initServices, sponsors, teams } from "../state.js";
 import { config } from "../config.js";
 import { mutableConfig } from "../config.js";
 import { stitchPlaylist, buildPartList } from "../playlist-stitcher.js";
@@ -43,6 +43,10 @@ import { uploadPauseSegments } from "../pause-segments.js";
 import { viewers, getViewerCount } from "../viewer-tracking.js";
 import streamRoutes from "../routes/streams.js";
 import vodRoutes from "../routes/vod.js";
+import sponsorRoutes from "../routes/sponsor-routes.js";
+import { createAdminToken } from "../auth.js";
+import { SPONSORS_KEY } from "../sponsors.js";
+import { V081_FILE, memoryStorage } from "./sponsor-fakes.js";
 
 // ---------------------------------------------------------------------------
 // Helpers: mock factories
@@ -865,5 +869,80 @@ describe("E2E Smoke Tests: Recording → VOD flow", () => {
       await view(id, viewer1);
       expect(getViewerCount(id)).toBe(0);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sponsors after an update from v0.8.1 (#135)
+// ---------------------------------------------------------------------------
+
+describe("E2E Smoke Tests: sponsors after an update from v0.8.1", () => {
+  let app: FastifyInstance;
+  let storage: ReturnType<typeof memoryStorage>;
+  const admin = { "x-admin-token": createAdminToken() };
+
+  beforeEach(async () => {
+    streamMeta.clear();
+    (mutableConfig as { VIEWER_PIN: string }).VIEWER_PIN = "";
+    // The club's storage as v0.8.1 left it.
+    storage = memoryStorage();
+    storage.files.set(SPONSORS_KEY, { body: V081_FILE, type: "application/json" });
+    const vodStore = {
+      ...storage,
+      hlsUrl: (id: string) => `https://minio.example.com/recordings/${id}/index.m3u8`,
+      addVodEntry: vi.fn(async (entry: Record<string, unknown>) => { storage.vods.push(entry); }),
+    };
+    initServices(createMockRestreamer() as any, vodStore as any, createMockOscManager() as any);
+    // As index.ts starts.
+    await sponsors.ready();
+    app = Fastify({ logger: false });
+    await app.register(streamRoutes);
+    await app.register(sponsorRoutes);
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it("keeps the clips, takes a new sponsor and a moved clip, and shows them per team", async () => {
+    // Started: the old clips are sponsors, nothing written yet.
+    expect(storage.uploadBuffer).not.toHaveBeenCalledWith(SPONSORS_KEY, expect.anything(), expect.anything());
+    const start = (await app.inject({ url: "/api/sponsors/play?surface=start" })).json();
+    expect(start.clips.map((c: { name: string }) => c.name)).toEqual(["ICA Maxi", "Bilfirman"]);
+
+    // A sponsor for P12, and ICA Maxi's clip moved to it.
+    const p12 = await teams.create({ name: "Älta P12", own: true });
+    const created = await app.inject({
+      method: "POST", url: "/api/admin/sponsorship/sponsors", headers: admin,
+      payload: { name: "Hornets Bygg", packageId: "platinum", teamIds: [p12.id] },
+    });
+    expect(created.statusCode).toBe(201);
+    const sponsor = created.json().sponsor;
+    const icaClip = JSON.parse(V081_FILE).clips[0].id;
+    const moved = await app.inject({ method: "PATCH", url: `/api/admin/sponsors/${icaClip}`, headers: admin, payload: { sponsorId: sponsor.id } });
+    expect(moved.json().clip.sponsorId).toBe(sponsor.id);
+
+    // A P12 match on camera.
+    const stream = await createStream(app, { name: "Kamera 1", opponent: "AIK", team: "Älta P12" });
+    expect(stream.statusCode).toBe(201);
+    const streamId = stream.json().id;
+
+    const forMatch = (await app.inject({ url: `/api/sponsors?stream=${streamId}` })).json();
+    expect(forMatch.teamName).toBe("Älta P12");
+    expect(forMatch.surfaces.start.map((x: { name: string }) => x.name)).toEqual(["Hornets Bygg", "Bilfirman"]);
+    expect(forMatch.surfaces.start[0].clips[0].id).toBe(icaClip);
+
+    const play = (await app.inject({ url: `/api/sponsors/play?surface=start&stream=${streamId}` })).json();
+    expect(play).toMatchObject({ teamName: "Älta P12", clips: [{ id: icaClip, name: "Hornets Bygg" }, { name: "Bilfirman" }] });
+
+    // Without the team, the moved clip is not shown: it is P12's now.
+    const club = (await app.inject({ url: "/api/sponsors/play?surface=start" })).json();
+    expect(club.clips.map((c: { name: string }) => c.name)).toEqual(["Bilfirman"]);
+
+    // The file still reads as v0.8.1 reads it: every clip is there.
+    const written = JSON.parse(storage.files.get(SPONSORS_KEY)!.body.toString());
+    expect(written.clips.map((c: { id: string }) => c.id).sort()).toEqual(JSON.parse(V081_FILE).clips.map((c: { id: string }) => c.id).sort());
+    expect(written.breakSeconds).toEqual(JSON.parse(V081_FILE).breakSeconds);
   });
 });
