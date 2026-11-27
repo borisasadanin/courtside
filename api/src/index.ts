@@ -5,7 +5,7 @@ import rateLimit from "@fastify/rate-limit";
 
 import { config, validateConfig } from "./config.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "./club-config.js";
-import { initServices, streamMeta, collectors, teams, guestSpaces, sponsorQueue } from "./state.js";
+import { initServices, streamMeta, collectors, teams, guestSpaces, sponsors, sponsorQueue } from "./state.js";
 import { startGuestCleanup } from "./guest-cleanup.js";
 import { restoreStreamMeta } from "./stream-meta-store.js";
 import { SegmentCollector } from "./segment-collector.js";
@@ -192,6 +192,15 @@ startGuestCleanup(guestSpaces, minio, {
   info: (msg) => app.log.info(msg),
   error: (obj, msg) => app.log.error(obj, msg),
 });
+
+// The sponsors are read before the first request, so code that cannot wait,
+// like the share image, has them at once (#123). Without them no sponsor is
+// shown, which is a fine way to fail.
+try {
+  await sponsors.ready();
+} catch (err) {
+  console.error("Could not read the sponsors:", err);
+}
 
 // A sponsor clip cut off by the last restart is marked failed; queued ones are
 // transcoded now (#92). In the background, like the rest of start-up's chores.

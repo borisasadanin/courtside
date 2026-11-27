@@ -57,6 +57,11 @@ function memoryStorage() {
       for (const key of [...files.keys()]) if (key.startsWith(prefix) && files.delete(key)) n++;
       return n;
     }),
+    downloadBuffer: vi.fn(async (key: string) => {
+      const f = files.get(key);
+      if (!f) throw new Error(`NoSuchKey ${key}`);
+      return Buffer.from(f.body);
+    }),
     presignGet: vi.fn(async (key: string) => `https://storage.example.com/${key}?sig=get`),
     downloadToFile: vi.fn(async (key: string, path: string) => {
       const f = files.get(key);
