@@ -11,6 +11,7 @@ import { stopListPolling } from "./streams.js";
 import { stopVodPolling } from "./vod.js";
 import { fetchClipsForStream } from "./highlights.js";
 import { unlockResumeSignal, playResumeSignal } from "./resume-signal.js";
+import { getViewerId } from "./viewer-id.js";
 import { playWithSound, unlockVideoSound, onMuteChangedByViewer, hideTapForSound, bindTapForSound } from "./sound.js";
 import {
   fetchSponsorReel, playSponsorReel, cancelSponsorReel, isSponsorReelPlaying,
@@ -1221,32 +1222,9 @@ async function pollCurrentStream() {
 // Viewer heartbeat
 // ============================
 
-// The server counts viewers by this id, not by IP address: behind the
-// platform's proxies every request looks like it comes from a proxy. One id
-// per tab, kept over a reload so the same person is not counted twice.
-const VIEWER_ID_KEY = "courtside-viewer-id";
-let viewerId = null;
+// The server counts viewers by an id per tab (viewer-id.js), not by IP address.
 /** The live stream this tab is counted as watching, so it can leave it. */
 let countedStreamId = null;
-
-function getViewerId() {
-  if (viewerId) return viewerId;
-  try {
-    viewerId = sessionStorage.getItem(VIEWER_ID_KEY);
-  } catch {
-    // Storage blocked: an id for this page load only
-  }
-  if (!viewerId || !/^[A-Za-z0-9_-]{8,64}$/.test(viewerId)) {
-    const bytes = crypto.getRandomValues(new Uint8Array(16));
-    viewerId = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-    try {
-      sessionStorage.setItem(VIEWER_ID_KEY, viewerId);
-    } catch {
-      // Fine: counted as a new viewer after a reload, gone from the old count within a minute
-    }
-  }
-  return viewerId;
-}
 
 function viewUrl(streamId, action = "") {
   return `${CONFIG.API_URL}/api/streams/${encodeURIComponent(streamId)}/view${action}?v=${getViewerId()}`;
@@ -1426,7 +1404,7 @@ async function playSurface(surface, streamId, { fromStart = false } = {}) {
   if (reel) {
     stopHighlightCarousel();
     hideOverlay();
-    await playSponsorReel(reel.clips, reel.teamName);
+    await playSponsorReel(reel.clips, reel.teamName, { surface, streamId });
   }
   reelPending = false;
   if (state.currentStreamId !== streamId) return;
@@ -1482,7 +1460,7 @@ async function endStream(stream) {
     const reel = await fetchSponsorReel("end", id);
     if (reel && state.currentStreamId === id) {
       hideOverlay();
-      await playSponsorReel(reel.clips, reel.teamName);
+      await playSponsorReel(reel.clips, reel.teamName, { surface: "end", streamId: id });
     }
     reelPending = false;
     if (state.currentStreamId !== id) return;

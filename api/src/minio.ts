@@ -489,6 +489,20 @@ export class MinioClient {
     return this.deletePrefix(`${streamId}/`);
   }
 
+  /** Every key that starts with prefix. */
+  async listKeys(prefix: string): Promise<string[]> {
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+    do {
+      const listRes = await this.s3.send(
+        new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, ContinuationToken: continuationToken })
+      );
+      for (const o of listRes.Contents || []) if (o.Key) keys.push(o.Key);
+      continuationToken = listRes.NextContinuationToken;
+    } while (continuationToken);
+    return keys;
+  }
+
   /** Delete every object whose key starts with prefix. Returns how many. */
   async deletePrefix(prefix: string): Promise<number> {
     let deleted = 0;

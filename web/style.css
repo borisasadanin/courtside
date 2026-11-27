@@ -4163,3 +4163,71 @@ footer a:hover { color: var(--accent-ink); }
   .sponsor-card-actions { width: 100%; justify-content: flex-end; }
   .sponsor-card-actions .device-revoke { flex: 1; }
 }
+
+/* === Rapport till sponsorer (#142) ===
+   The sheet looks like paper on screen too: what you see is what prints. */
+.sponsor-report-controls {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 0 0 16px;
+}
+.sponsor-report-field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 160px; min-width: 0; font-size: 0.85rem; color: var(--text-muted); }
+.sponsor-report-controls .admin-pair-btn { flex: 1 1 100%; }
+@media (min-width: 640px) {
+  .sponsor-report-controls .admin-pair-btn { flex: 0 0 auto; }
+}
+
+.sponsor-report-sheet {
+  background: #fff; color: #1a1a1a; border-radius: 16px; padding: 20px;
+  font-size: 0.9rem; line-height: 1.45;
+}
+.sponsor-report-head { border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; margin-bottom: 14px; }
+.sponsor-report-eyebrow { margin: 0; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: #555; }
+.sponsor-report-title { margin: 2px 0 2px; font-family: var(--font-display); font-size: 1.8rem; line-height: 1.1; overflow-wrap: anywhere; }
+.sponsor-report-period { margin: 0; color: #444; }
+.sponsor-report-empty { margin: 8px 0 16px; }
+.sponsor-report-keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+@media (min-width: 640px) {
+  .sponsor-report-keys { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.sponsor-report-key { border: 1px solid #d5d5d5; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; }
+.sponsor-report-key-value { font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+.sponsor-report-key-label { font-size: 0.8rem; color: #555; }
+.sponsor-report-h { margin: 16px 0 6px; font-size: 1rem; }
+.sponsor-report-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.sponsor-report-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.sponsor-report-table th, .sponsor-report-table td { padding: 6px 8px; border-bottom: 1px solid #e2e2e2; text-align: left; vertical-align: top; }
+.sponsor-report-table th { font-weight: 600; color: #444; border-bottom-color: #1a1a1a; white-space: nowrap; }
+.sponsor-report-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sponsor-report-table .nowrap { white-space: nowrap; }
+.sponsor-report-small { margin: 0; font-size: 0.85rem; color: #555; }
+.sponsor-report-note { margin-top: 16px; padding: 10px 12px; background: #f3f3f3; border-radius: 10px; font-size: 0.85rem; }
+.sponsor-report-note p { margin: 0 0 6px; }
+.sponsor-report-note p:last-child { margin: 0; }
+.sponsor-report-foot { margin: 12px 0 0; font-size: 0.75rem; color: #666; }
+.sponsor-report-season { margin-top: 16px; }
+.sponsor-report-season-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.sponsor-report-season-row input { flex: 1 1 180px; }
+.sponsor-report-season .sponsor-report-small { color: var(--text-muted); }
+
+/* Only the sheet is printed, from a copy at the top of <body> (sponsor-report.js). */
+.sponsor-report-print { display: none; }
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html.print-sponsor-report, html.print-sponsor-report body { background: #fff !important; color: #000 !important; }
+  html.print-sponsor-report body > *:not(.sponsor-report-print) { display: none !important; }
+  html.print-sponsor-report .sponsor-report-print { display: block; }
+  .sponsor-report-print .sponsor-report-sheet {
+    border-radius: 0; padding: 0; font-size: 9.5pt; line-height: 1.35;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .sponsor-report-print .sponsor-report-title { font-size: 20pt; }
+  .sponsor-report-print .sponsor-report-keys { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+  .sponsor-report-print .sponsor-report-key { padding: 6px 8px; }
+  .sponsor-report-print .sponsor-report-key-value { font-size: 14pt; }
+  .sponsor-report-print .sponsor-report-key-label { font-size: 8pt; }
+  .sponsor-report-print .sponsor-report-h { margin: 10px 0 4px; font-size: 10.5pt; }
+  .sponsor-report-print .sponsor-report-scroll { overflow: visible; }
+  .sponsor-report-print .sponsor-report-table { font-size: 8.5pt; }
+  .sponsor-report-print .sponsor-report-table th, .sponsor-report-print .sponsor-report-table td { padding: 3px 5px; }
+  .sponsor-report-print tr, .sponsor-report-print .sponsor-report-key, .sponsor-report-print .sponsor-report-note { break-inside: avoid; }
+  .sponsor-report-print .sponsor-report-note { font-size: 8.5pt; padding: 6px 8px; }
+}

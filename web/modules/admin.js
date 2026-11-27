@@ -15,6 +15,7 @@ import { renderUpdate } from "./update.js";
 import { showImage } from "./images.js";
 import { renderTeamsAdmin } from "./team-admin.js";
 import { renderSponsorsAdmin } from "./sponsor-admin.js";
+import { renderSponsorReport } from "./sponsor-report.js";
 import { renderMatchesAdmin } from "./match-admin.js";
 import { renderGuestSpacesAdmin } from "./guest-admin.js";
 
@@ -65,6 +66,8 @@ export function showAdminPage(name) {
   dom.adminView.querySelector(".admin-header").classList.toggle("hidden", name !== "overview");
   // A camera may have paired through an invite since the view was loaded.
   if (name === "cameras") loadDevices();
+  // Fresh numbers each time: a match may have been played since (#142).
+  if (name === "sponsor-report") renderSponsorReport();
   window.scrollTo(0, 0);
 }
 

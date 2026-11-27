@@ -11,7 +11,8 @@
  *   PUT    /api/admin/sponsorship/sponsors/:id/logo  a logo as a data URL (#128)
  *   DELETE /api/admin/sponsorship/sponsors/:id/logo
  *   PATCH  /api/admin/sponsorship/surfaces           switch surfaces on or off for the installation
- *   PATCH  /api/admin/sponsorship/season             where the season's report starts
+ *   PATCH  /api/admin/sponsorship/season             where the season's report starts (#141)
+ *   GET    /api/admin/sponsorship/report?sponsor=&season=  what viewers saw of one sponsor (#141)
  *
  * The clips, as in v0.8:
  *
@@ -29,19 +30,25 @@
  *   GET    /api/sponsors/play?surface=…     the ready clips of one surface, in play order,
  *                                           and the team to name in the banner
  *   GET    /api/sponsors/:id/:file          a clip's playlist, segments and thumbnail
+ *   POST   /api/sponsors/events             a clip started, ended or played with sound (#138)
  *
  * Public, like the teams' logos: GET /api/sponsor-logos/:id?v=…
  *
  * The file itself never passes through the API: the proxy in front of it
  * refuses bodies over 64 MiB, so the browser uploads straight to storage.
  */
+import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isValidAdminToken, requireAdminAuth, requireViewerAuth } from "../auth.js";
-import { matches, minio, sponsors, sponsorQueue, streamMeta } from "../state.js";
+import { matches, minio, sponsors, sponsorQueue, sponsorStats, streamMeta } from "../state.js";
 import { defaultHomeTeam } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
-import { ownTeamOf, type SponsorContext } from "../own-team.js";
-import { SURFACES, sponsorsFor, type SponsorPick } from "../sponsor-surfaces.js";
+import { ownTeamOf, sponsorsForContext, type SponsorContext } from "../own-team.js";
+import { SURFACES, sponsorsFor, surfaceDef, type SponsorPick } from "../sponsor-surfaces.js";
+import { STAT_KINDS, STAT_MODES, isSeason, seasonOf, type MatchInfo, type StatKind, type StatMode } from "../sponsor-stats.js";
+import { buildReport, readSeasonFiles, seasonsWithData } from "../sponsor-report.js";
+import { isValidViewerId } from "../viewer-tracking.js";
+import { clubDate } from "../matches.js";
 import {
   MAX_UPLOAD_BYTES,
   SPONSOR_SLOTS,
@@ -142,6 +149,62 @@ async function teamNameOf(ctx: SponsorContext): Promise<string> {
     if (name) return name;
   }
   return defaultHomeTeam;
+}
+
+/** A match key as it is stored: a match's or a stream's id. */
+const MATCH_KEY = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * The match an event is about (#138): its key is the match's id, or the
+ * stream's when it has no match, so two cameras on one match count together.
+ * Null for a match, stream or replay that does not exist: counting those
+ * would let anyone fill memory with made-up ids.
+ */
+async function statsMatchOf(ctx: SponsorContext): Promise<MatchInfo | null> {
+  let matchId: string | undefined;
+  let key: string | undefined;
+  let createdAt: string | undefined;
+  let homeTeam: string | undefined;
+  let awayTeam: string | undefined;
+
+  if (ctx.streamId) {
+    const meta = streamMeta.get(ctx.streamId);
+    if (!meta) return null;
+    ({ matchId, createdAt, homeTeam, awayTeam } = meta);
+    key = meta.matchId ?? ctx.streamId;
+  } else if (ctx.vodId) {
+    const vod = (await minio.readVodIndex().catch(() => [])).find((v) => v.id === ctx.vodId);
+    if (!vod) return null;
+    ({ matchId, createdAt, homeTeam, awayTeam } = vod);
+    key = vod.matchId ?? vod.id;
+  } else if (ctx.matchId) {
+    matchId = key = ctx.matchId;
+  }
+  if (!key || !MATCH_KEY.test(key)) return null;
+
+  const summary = matchId ? await matches.summary(matchId).catch(() => null) : null;
+  if (ctx.matchId && !ctx.streamId && !ctx.vodId && !summary) return null;
+  const date = summary?.date ?? (createdAt ? clubDate(new Date(createdAt)) : clubDate());
+  homeTeam ||= summary?.ownTeam.name;
+  awayTeam ||= summary?.opponent.name;
+  return {
+    key,
+    ...(matchId && { matchId }),
+    date,
+    ...(homeTeam && { homeTeam }),
+    ...(awayTeam && { awayTeam }),
+  };
+}
+
+/**
+ * Rate-limit the events per viewer, not per address: behind the platform's
+ * proxies a whole crowd shares a few addresses. The id is hashed first, so
+ * not even the limiter's memory holds it as it came.
+ */
+function eventsKey(request: FastifyRequest): string {
+  const id = (request.body as { viewerId?: unknown } | undefined)?.viewerId;
+  if (!isValidViewerId(id)) return `ip:${request.ip}`;
+  return `v:${crypto.createHash("sha256").update(id).digest("hex").slice(0, 16)}`;
 }
 
 /** Send a SponsorError as the admin's message; anything else is a 500 for Fastify to log. */
@@ -261,6 +324,27 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
     } catch (err) {
       return fail(reply, err);
     }
+  });
+
+  // #141: one sponsor's season, match by match. Counts only, never ids.
+  // `season` is the year it starts; without it, the season of today.
+  app.get<{ Querystring: { sponsor?: string; season?: string } }>("/api/admin/sponsorship/report", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    const { sponsor: sponsorId, season: asked } = request.query;
+    if (typeof sponsorId !== "string" || !ID.test(sponsorId)) return reply.code(400).send({ error: "Välj en sponsor." });
+    if (asked !== undefined && asked !== "" && !isSeason(asked)) return reply.code(400).send({ error: "Ogiltig säsong." });
+
+    const settings = await sponsors.readAll();
+    const seasonStart = settings.seasonStart ?? null;
+    const season = asked || seasonOf(clubDate(), seasonStart);
+    // What was counted since the last save is in the report too.
+    await sponsorStats.flush().catch((err) => request.log.warn(err, "Could not save the sponsor counts"));
+    const [files, withData] = await Promise.all([readSeasonFiles(minio, season), seasonsWithData(minio)]);
+    // A sponsor removed since keeps its counts, without its name.
+    const name = settings.sponsors.find((x) => x.id === sponsorId)?.name ?? "Borttagen sponsor";
+    const report = buildReport(files, { id: sponsorId, name }, season, seasonStart);
+    const seasons = [...new Set([seasonOf(clubDate(), seasonStart), season, ...withData])].sort().reverse();
+    return reply.header("Cache-Control", "no-cache").send({ ...report, seasonStart, seasons });
   });
 
   // --- Admin: clips ---
@@ -396,12 +480,49 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
     const [teamId, settings, teamName] = await Promise.all([ownTeamOf(ctx), sponsors.readAll(), teamNameOf(ctx)]);
     const clips = sponsorsFor(settings, teamId, surface!).flatMap(({ sponsor, clips: own }) => own.map((c) => ({
       id: c.id,
+      // The player names the sponsor in its events (#140).
+      sponsorId: sponsor.id,
       name: sponsor.name,
       durationSec: c.durationSeconds,
       hlsUrl: `/api/sponsors/${c.id}/index.m3u8`,
     })));
     return reply.header("Cache-Control", "no-cache").send({ surface, teamName, clips });
   });
+
+  // #138: what a viewer's player saw of a sponsor. The viewer's id comes in
+  // the body, never in the address, and is never logged or answered with.
+  // Counted only when the sponsor is on that surface for that match.
+  app.post<{ Body: Record<string, unknown> | undefined }>(
+    "/api/sponsors/events",
+    {
+      bodyLimit: 2048,
+      // preHandler, so the limiter can read the viewer's id from the body.
+      config: { rateLimit: { max: 120, timeWindow: "1 minute", hook: "preHandler", keyGenerator: eventsKey } },
+    },
+    async (request, reply) => {
+      if (!requireViewerAuth(request, reply)) return;
+      const body = request.body ?? {};
+      const { viewerId, sponsorId, surface, kind, mode } = body;
+      if (!isValidViewerId(viewerId)) return reply.code(400).send({ error: "invalid_viewer" });
+      if (!STAT_KINDS.includes(kind as StatKind)) return reply.code(400).send({ error: "invalid_kind" });
+      if (!STAT_MODES.includes(mode as StatMode)) return reply.code(400).send({ error: "invalid_mode" });
+      if (typeof sponsorId !== "string" || !ID.test(sponsorId)) return reply.code(400).send({ error: "invalid_sponsor" });
+      const def = typeof surface === "string" ? surfaceDef(surface) : undefined;
+      if (!def) return reply.code(400).send({ error: "invalid_surface" });
+      // A clip starts, ends and plays with sound; a logo is seen.
+      if ((def.kind === "logo") !== (kind === "seen")) return reply.code(400).send({ error: "invalid_kind" });
+
+      const ctx = contextOf(body as { match?: string; stream?: string; vod?: string });
+      const info = await statsMatchOf(ctx);
+      if (!info) return reply.code(404).send({ error: "unknown_match" });
+      const picks = await sponsorsForContext(ctx, def.id);
+      if (!picks.some((p) => p.sponsor.id === sponsorId)) return reply.code(404).send({ error: "unknown_sponsor" });
+
+      sponsorStats.record(info, { viewerId, sponsorId, surface: def.id, kind: kind as StatKind, mode: mode as StatMode });
+      // The same answer whether it was counted or a cap was reached: nothing to learn from it.
+      return reply.code(204).send();
+    },
+  );
 
   // #128: public like the teams' logos, so a shared image can show it to anyone.
   // The URL carries a version, so it can be cached hard.

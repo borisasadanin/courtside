@@ -9,6 +9,8 @@
 //     seek or skip. Sound follows the viewer's choice (sound.js). (#106)
 //   - which surface a change of status shows, and that each one is shown at
 //     most once per viewer, a reload included. (#107)
+//   - what the viewer saw, for the sponsor's report: a clip started, was
+//     watched to the end, played with sound. Only from a clip that plays. (#140)
 //
 // The clips must never stand in the way of the match: a clip that will not
 // load or play is skipped, and when none play the reel is simply over.
@@ -19,6 +21,7 @@ import { dom } from "./state.js";
 import { authHeaders } from "./auth.js";
 import { mediaUrl } from "./utils.js";
 import { playWithSound } from "./sound.js";
+import { getViewerId } from "./viewer-id.js";
 
 /** A clip that has not started this long after loading is skipped. */
 const LOAD_TIMEOUT_MS = 15_000;
@@ -121,6 +124,37 @@ export function sawStreamStart(streamId) {
 }
 
 // ============================
+// What the viewer saw (#140)
+// ============================
+
+/**
+ * Tell the server one thing that happened to a clip. The viewer's id goes in
+ * the body, never in the address. Fire and forget: a lost event costs a
+ * count, never the match. Live only for now: replays have no clips yet.
+ */
+function sendSponsorEvent(kind, clip, context) {
+  if (!clip?.sponsorId || !context?.surface || !context?.streamId) return;
+  try {
+    fetch(`${CONFIG.API_URL}/api/sponsors/events`, {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        viewerId: getViewerId(),
+        stream: context.streamId,
+        sponsorId: clip.sponsorId,
+        surface: context.surface,
+        kind,
+        mode: "live",
+      }),
+      // An end clip's "complete" may go out as the page closes.
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Nothing to do: the count is lost, the match plays on
+  }
+}
+
+// ============================
 // The reel (#106)
 // ============================
 
@@ -134,9 +168,10 @@ export function isSponsorReelPlaying() {
 /**
  * Play the clips in order in the player's <video>, with the banner on top.
  * Resolves when the last clip has ended, been skipped or failed. Never
- * rejects. The caller has stopped the match's own HLS first.
+ * rejects. The caller has stopped the match's own HLS first. `context` is
+ * { surface, streamId }: where the events say the clips were seen (#140).
  */
-export function playSponsorReel(clips, teamName) {
+export function playSponsorReel(clips, teamName, context = {}) {
   if (active) return active.done;
   if (!Array.isArray(clips) || clips.length === 0) return Promise.resolve();
 
@@ -160,6 +195,8 @@ export function playSponsorReel(clips, teamName) {
   let lastProgressAt = 0;
   let loadTimer = null;
   let finished = false;
+  /** The current clip's events already sent: once each per clip. */
+  let sent = { start: false, sound: false };
   let resolve;
   const done = new Promise((r) => { resolve = r; });
   active = { done, finish: () => finish() };
@@ -178,7 +215,20 @@ export function playSponsorReel(clips, teamName) {
   const onRate = () => {
     if (video.playbackRate !== 1) video.playbackRate = 1;
   };
+  const hasSound = () => !video.muted && video.volume > 0;
+  // "start" once the clip really plays, not when it has loaded.
+  const onPlaying = () => {
+    const clip = clips[index];
+    if (!clip || sent.start) return;
+    sent.start = true;
+    sendSponsorEvent("start", clip, context);
+  };
   const onTime = () => {
+    // The first moment the clip plays with sound, whenever the viewer turns it on.
+    if (sent.start && !sent.sound && !video.paused && hasSound()) {
+      sent.sound = true;
+      sendSponsorEvent("sound", clips[index], context);
+    }
     if (!video.seeking) maxTime = Math.max(maxTime, video.currentTime);
     if (video.currentTime !== lastTime) {
       lastTime = video.currentTime;
@@ -186,7 +236,10 @@ export function playSponsorReel(clips, teamName) {
     }
     banner.setRemaining(remaining());
   };
-  const onEnded = () => next();
+  const onEnded = () => {
+    if (sent.start) sendSponsorEvent("complete", clips[index], context);
+    next();
+  };
   const watchdog = setInterval(() => {
     // A clip that has started but stands still is skipped. A viewer who
     // paused it is waited for: pausing skips nothing.
@@ -198,6 +251,7 @@ export function playSponsorReel(clips, teamName) {
   video.addEventListener("ratechange", onRate);
   video.addEventListener("timeupdate", onTime);
   video.addEventListener("ended", onEnded);
+  video.addEventListener("playing", onPlaying);
 
   function clearClip() {
     clearTimeout(loadTimer);
@@ -217,6 +271,7 @@ export function playSponsorReel(clips, teamName) {
     maxTime = 0;
     lastTime = -1;
     lastProgressAt = 0;
+    sent = { start: false, sound: false };
     banner.setSponsor(clip.name);
     banner.setRemaining(remaining());
 
@@ -260,6 +315,7 @@ export function playSponsorReel(clips, teamName) {
     video.removeEventListener("ratechange", onRate);
     video.removeEventListener("timeupdate", onTime);
     video.removeEventListener("ended", onEnded);
+    video.removeEventListener("playing", onPlaying);
     video.pause();
     video.removeAttribute("src");
     video.load();

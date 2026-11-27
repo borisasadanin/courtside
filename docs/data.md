@@ -33,10 +33,30 @@ Undantaget är en delad matchlänk: förhandsbilden i chatten visar utan kod lag
 Bilden ritas av Courtside och visar inga personer, och den sparas inte i lagringen. Själva matchen kräver
 fortfarande tittarkoden.
 
-Sponsorklippen under *Hantera → Sponsring* ligger i samma lagring. Listan, i den ordning de spelas, och
-pauslängderna finns i `config/sponsors.json`. Varje klipp ligger under `sponsors/<id>/`, omkodat till 1080p
-med en miniatyrbild. Filen ni laddade upp raderas när omkodningen är klar. Klippen visas bara med
-tittarkoden. Tar ni bort ett klipp följer dess filer med, och tas Courtside bort försvinner alla klipp.
+Sponsorerna under *Hantera → Sponsring* ligger i samma lagring, i `config/sponsors.json` (version 2). Där
+finns varje sponsor med namn, länk, paket, vilka lag den gäller (inga lag betyder hela klubben), ytor som
+är avstängda för just den sponsorn och om den är aktiv. Där finns också paketen (Platinum, Guld och Silver
+som förval) med vilka ytor de ger, vilka ytor som är påslagna, sponsorklippen i den ordning de spelas,
+pauslängderna och när säsongen börjar. Filen innehåller inga personuppgifter om tittarna. En fil från
+v0.8 läses som version 2 utan att skrivas om, tills ni ändrar något, så att en återgång till v0.8.1 hittar
+sina klipp.
+
+Varje sponsors logga ligger i `config/sponsor-logos/<id>`, som PNG på högst 512 px. Loggorna kan ses utan
+kod, som lagens loggor. Tar ni bort en sponsor eller dess logga raderas filen.
+
+Varje sponsorklipp ligger under `sponsors/<id>/`, omkodat till 1080p med en miniatyrbild. Filen ni laddade
+upp raderas när omkodningen är klar. Klippen visas bara med tittarkoden. Tar ni bort ett klipp följer dess
+filer med.
+
+Hur många som såg sponsorerna sparas i `stats/sponsors/<säsong>/<match>.json`, en fil per match. Säsongen
+är året den börjar: `2026` är säsongen 2026/27. Filen innehåller matchens datum och lag och, per sponsor,
+plats i matchen och live eller repris, bara antal: olika tittare, starter, sedda klart, med ljud. Den
+innehåller aldrig vem som tittade. Antalen sparas var femte minut, när sändningen slutar och, om det
+hinns med, när plattformen stängs för en omstart eller uppdatering. Startas plattformen om under en match kan en tittare räknas två gånger i den
+matchen. Filerna ligger kvar när en sponsor tas bort, så att rapporten för säsongen går att ta fram.
+Rapporten finns under *Sponsring → Rapport*.
+
+Tas Courtside bort försvinner sponsorerna, loggorna, klippen och antalen.
 
 ## Vad får videon att försvinna?
 

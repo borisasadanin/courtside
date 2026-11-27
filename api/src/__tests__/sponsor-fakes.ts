@@ -31,6 +31,7 @@ export function memoryStorage() {
       for (const key of [...files.keys()]) if (key.startsWith(prefix) && files.delete(key)) n++;
       return n;
     }),
+    listKeys: vi.fn(async (prefix: string) => [...files.keys()].filter((k) => k.startsWith(prefix)).sort()),
     // The rest is what the routes and the transcode queue use.
     readFile: vi.fn(async (key: string) => files.get(key)?.body.toString() ?? null),
     presignGet: vi.fn(async (key: string) => `https://storage.example.com/${key}?sig=get`),

@@ -11,6 +11,7 @@ import { GuestSpaces } from "./guest-spaces.js";
 import { SponsorRegistry } from "./sponsors.js";
 import { SponsorTranscodeQueue } from "./sponsor-transcode.js";
 import { scaleLogo } from "./sponsor-logo.js";
+import { SponsorStats } from "./sponsor-stats.js";
 import type { SegmentCollector } from "./segment-collector.js";
 import type { HighlightClip, RecordedPause } from "./types.js";
 
@@ -88,6 +89,8 @@ export let guestSpaces: GuestSpaces;
 export let sponsors: SponsorRegistry;
 /** Transcodes uploaded sponsor clips one at a time — see sponsor-transcode.ts. */
 export let sponsorQueue: SponsorTranscodeQueue;
+/** What viewers saw of the sponsors, counted per match — see sponsor-stats.ts. */
+export let sponsorStats: SponsorStats;
 
 export function initServices(r: RestreamerClient, m: MinioClient, o: OscInstanceManager): void {
   restreamer = r;
@@ -101,5 +104,10 @@ export function initServices(r: RestreamerClient, m: MinioClient, o: OscInstance
   sponsorQueue = new SponsorTranscodeQueue(sponsors, m, {
     info: (msg) => console.log(msg),
     warn: (obj, msg) => console.warn(msg, obj),
+  });
+  sponsorStats = new SponsorStats({
+    storage: m,
+    seasonStart: () => sponsors.snapshot().seasonStart,
+    log: { warn: (obj, msg) => console.warn(msg, obj) },
   });
 }

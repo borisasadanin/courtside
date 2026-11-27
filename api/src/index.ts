@@ -5,7 +5,7 @@ import rateLimit from "@fastify/rate-limit";
 
 import { config, validateConfig } from "./config.js";
 import { clubManifest, defaultHomeTeam, defaultAwayTeam } from "./club-config.js";
-import { initServices, streamMeta, collectors, teams, guestSpaces, sponsors, sponsorQueue } from "./state.js";
+import { initServices, streamMeta, collectors, teams, guestSpaces, sponsors, sponsorQueue, sponsorStats } from "./state.js";
 import { startGuestCleanup } from "./guest-cleanup.js";
 import { restoreStreamMeta } from "./stream-meta-store.js";
 import { SegmentCollector } from "./segment-collector.js";
@@ -202,6 +202,10 @@ try {
   console.error("Could not read the sponsors:", err);
 }
 
+// What viewers saw of the sponsors is saved every five minutes, when a stream
+// stops, and below when the platform stops this process (#139).
+sponsorStats.start();
+
 // A sponsor clip cut off by the last restart is marked failed; queued ones are
 // transcoded now (#92). In the background, like the rest of start-up's chores.
 sponsorQueue.resume().catch((err) => console.error("Could not resume sponsor clips:", err));
@@ -244,6 +248,15 @@ try {
 } catch (err) {
   app.log.error(err, "Stream recovery failed — previous recordings may need manual stitching");
 }
+
+// Stopped by the platform (a redeploy, an update): save the sponsor counts
+// first, best effort. A few seconds at most, then exit as SIGTERM would.
+process.once("SIGTERM", () => {
+  const giveUp = new Promise((resolve) => setTimeout(resolve, 5000).unref());
+  Promise.race([sponsorStats.flush(), giveUp])
+    .catch((err) => console.error("Could not save the sponsor counts:", err))
+    .finally(() => process.exit(0));
+});
 
 try {
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
