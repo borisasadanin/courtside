@@ -18,6 +18,19 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.10.0 — 2026-11-27
+
+- **Sponsorloggor på sidan.** Under Hantera → Sponsring → Ytor slår ni på var sponsorerna syns. Allt är avstängt
+  tills ni slår på det, så sidan ser ut som förut (#146–#153):
+  - **Hörnlogga:** huvudsponsorns logga uppe till höger i spelaren, live och i repris. Den döljs medan sponsorklippen
+    spelas.
+  - **Väntskärmen:** "Sändningen stöds av" under knappen "Jag är redo".
+  - **Matchkortet:** "Med stöd av" och lagets huvudsponsor.
+  - **Sidfoten:** klubbens sponsorer längst ned på sidan.
+  - **Delningsbilden:** huvudsponsorns logga i bilden som syns när en matchlänk delas.
+- **Paket.** Skapa egna paket och välj vilka ytor varje paket ger, till exempel Platinum, Guld och Silver (#154, #155).
+- **Hörnloggan räknas i rapporten** när den har synts i 10 sekunder (#148).
+
 ## v0.9.1 — 2026-11-27
 
 - **Sponsorrapport.** Under Hantera → Sponsring → Rapport väljer ni sponsor och säsong. Där ser ni hur många som sett
