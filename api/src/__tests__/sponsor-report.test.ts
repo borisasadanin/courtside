@@ -77,12 +77,12 @@ describe("the report's numbers (#141)", () => {
     ]);
 
     const [start, p2] = report.surfaces;
-    expect(start).toMatchObject({ id: "start", label: "Klipp vid start", matches: 2 });
-    expect(start.live).toEqual({ starts: 50, completes: 45, sounds: 20, seen: 0, completeRate: 0.9, soundRate: 0.4 });
-    expect(start.replay).toEqual({ starts: 4, completes: 1, sounds: 4, seen: 0, completeRate: 0.25, soundRate: 1 });
-    expect(p2).toMatchObject({ id: "p2", matches: 1 });
+    expect(start).toMatchObject({ id: "start", label: "Klipp vid start" });
+    expect(start.live).toEqual({ matches: 2, starts: 50, completes: 45, sounds: 20, seen: 0, completeRate: 0.9, soundRate: 0.4 });
+    expect(start.replay).toEqual({ matches: 1, starts: 4, completes: 1, sounds: 4, seen: 0, completeRate: 0.25, soundRate: 1 });
+    expect(p2).toMatchObject({ id: "p2", live: { matches: 1 } });
     expect(p2.live.completeRate).toBeCloseTo(0.5);
-    expect(p2.replay).toMatchObject({ starts: 0, completeRate: null, soundRate: null });
+    expect(p2.replay).toMatchObject({ matches: 0, starts: 0, completeRate: null, soundRate: null });
     // No number of different viewers for the season: they are counted per match.
     expect(start.live).not.toHaveProperty("viewers");
 

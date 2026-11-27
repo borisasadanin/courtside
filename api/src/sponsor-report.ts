@@ -51,14 +51,17 @@ export interface ReportMatch {
   surfaces: ReportSurface[];
 }
 
-/** A surface over the season: no viewers, as those are counted per match. */
+/**
+ * A surface over the season, per mode: in how many matches it was shown, and
+ * no viewers, as those are counted per match.
+ */
+export type ReportTotalRow = Omit<ReportRow, "viewers"> & { matches: number };
+
 export interface ReportTotal {
   id: string;
   label: string;
-  /** Matches where the sponsor was seen on it. */
-  matches: number;
-  live: Omit<ReportRow, "viewers">;
-  replay: Omit<ReportRow, "viewers">;
+  live: ReportTotalRow;
+  replay: ReportTotalRow;
 }
 
 export interface SponsorReport {
@@ -76,8 +79,13 @@ function row(c: Counts): ReportRow {
   };
 }
 
-function withoutViewers({ viewers: _v, ...rest }: ReportRow): Omit<ReportRow, "viewers"> {
-  return rest;
+function total({ viewers: _v, ...rest }: ReportRow, matches: number): ReportTotalRow {
+  return { ...rest, matches };
+}
+
+/** Shown at all in this mode. */
+function shown(c: Counts): boolean {
+  return c.starts > 0 || c.seen > 0;
 }
 
 /** The surfaces in the admin's order, then any no longer defined. */
@@ -107,7 +115,7 @@ export function buildReport(
   }
 
   const matches: ReportMatch[] = [];
-  const totals = new Map<string, { matches: number; live: Counts; replay: Counts }>();
+  const totals = new Map<string, { live: Counts; replay: Counts; liveMatches: number; replayMatches: number }>();
   for (const f of byKey.values()) {
     const x = f.sponsors[sponsor.id];
     if (!x) continue;
@@ -117,8 +125,13 @@ export function buildReport(
       const live = addCounts(emptyCounts(), modes.live);
       const replay = addCounts(emptyCounts(), modes.replay);
       surfaces.push({ id, label: surfaceDef(id)?.label ?? id, live: row(live), replay: row(replay) });
-      const t = totals.get(id) ?? { matches: 0, live: emptyCounts(), replay: emptyCounts() };
-      totals.set(id, { matches: t.matches + 1, live: addCounts(t.live, live), replay: addCounts(t.replay, replay) });
+      const t = totals.get(id) ?? { live: emptyCounts(), replay: emptyCounts(), liveMatches: 0, replayMatches: 0 };
+      totals.set(id, {
+        live: addCounts(t.live, live),
+        replay: addCounts(t.replay, replay),
+        liveMatches: t.liveMatches + (shown(live) ? 1 : 0),
+        replayMatches: t.replayMatches + (shown(replay) ? 1 : 0),
+      });
     }
     matches.push({
       key: f.match.key,
@@ -140,9 +153,8 @@ export function buildReport(
       return {
         id,
         label: surfaceDef(id)?.label ?? id,
-        matches: t.matches,
-        live: withoutViewers(row(t.live)),
-        replay: withoutViewers(row(t.replay)),
+        live: total(row(t.live), t.liveMatches),
+        replay: total(row(t.replay), t.replayMatches),
       };
     }),
   };
