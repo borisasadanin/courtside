@@ -1153,6 +1153,64 @@ main {
 .ready-sound-btn.hidden,
 .empty-state .ready-sound-note.hidden { display: none; }
 
+/* "Sändningen stöds av" on the waiting screen (#149) */
+.waiting-sponsors {
+  margin: 22px auto 0;
+  max-width: 420px;
+}
+
+.empty-state p.waiting-sponsors-title {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.waiting-sponsors-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+/* A sponsor's logo on a light plate, as in Sponsring: most logos are drawn for white */
+.sponsor-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  max-width: 140px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #fff;
+  color: #111;
+  text-decoration: none;
+}
+
+.sponsor-mark img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.sponsor-mark.is-name {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+a.sponsor-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* Upcoming: gold glow */
 .empty-state.upcoming {
   border: 1px solid var(--accent-dim);

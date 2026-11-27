@@ -8,6 +8,7 @@ import { authHeaders, showPinScreen } from "./auth.js";
 import { openPlayer, pauseLabel } from "./player.js";
 import { setSoundChoice, unlockVideoSound } from "./sound.js";
 import { noteStreamList } from "./sponsors.js";
+import { showWaitingSponsors } from "./sponsor-logos.js";
 import { unlockResumeSignal } from "./resume-signal.js";
 import { showImage } from "./images.js";
 import { club } from "./club.js";
@@ -93,6 +94,8 @@ function updateEmptyState(broadcastState) {
 
   renderSchedule(status, announced);
   showReadyForSound(status === "upcoming");
+  // The announced match's sponsors, or the club's for one announced by name (#149)
+  showWaitingSponsors(status === "upcoming", announced.find((u) => u.matchId)?.matchId ?? null);
 
   // Toggle background image for non-idle states
   dom.emptyBg.classList.toggle("active", showBg);

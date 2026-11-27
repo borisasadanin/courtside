@@ -333,6 +333,32 @@ describe("sponsorship routes", () => {
       streamMeta.delete("s2");
     });
 
+    it("gives the logo surfaces of phase 1 only once they are switched on (#147, #149)", async () => {
+      const club = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Banken", packageId: "platinum" })).json().sponsor;
+      const own = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "ICA", packageId: "platinum", teamIds: [p12] })).json().sponsor;
+      await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Pizzerian", packageId: "silver" });
+      const p12Match = await matches.create({ date: "2026-12-01", ownTeamId: p12, opponentName: "AIK" });
+      const f14Match = await matches.create({ date: "2026-12-02", ownTeamId: f14, opponentName: "AIK" });
+      const surfaces = async (id: string) => (await app.inject({ url: `/api/sponsors?match=${id}`, headers: viewer() })).json().surfaces;
+      const names = (list: { name: string }[] | undefined) => (list ?? []).map((x) => x.name);
+
+      // Off: as in v0.9.1, no logo surface at all.
+      expect(await surfaces(p12Match.id)).toEqual({});
+
+      await inject("PATCH", "/api/admin/sponsorship/surfaces", { corner: true, waiting: true });
+      const p = await surfaces(p12Match.id);
+      expect(Object.keys(p)).toEqual(["corner", "waiting"]);
+      // The team's main sponsor goes before the club's; the corner shows one.
+      expect(names(p.corner)).toEqual(["ICA"]);
+      expect(p.corner[0]).toEqual({ id: own.id, name: "ICA" });
+      expect(names(p.waiting)).toEqual(["ICA", "Banken"]);
+      // F14 has none of its own: the club's.
+      const f = await surfaces(f14Match.id);
+      expect(names(f.corner)).toEqual(["Banken"]);
+      expect(f.corner[0].id).toBe(club.id);
+      expect(names(f.waiting)).toEqual(["Banken"]);
+    });
+
     it("leaves out surfaces switched off", async () => {
       await readyClip("K", undefined, ["start", "end"]);
       await inject("PATCH", "/api/admin/sponsorship/surfaces", { start: false });
