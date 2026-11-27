@@ -18,6 +18,12 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.10.1 — 2026-11-27
+
+- **Förhandsbild för matchlänkar på riktigt.** Bilden som syns när en matchlänk delas i WhatsApp eller iMessage gick
+  inte att skapa på servern, så länkarna saknade bild. Nu ritas den, med huvudsponsorns logga om den ytan är påslagen
+  (#195).
+
 ## v0.10.0 — 2026-11-27
 
 - **Sponsorloggor på sidan.** Under Hantera → Sponsring → Ytor slår ni på var sponsorerna syns. Allt är avstängt
