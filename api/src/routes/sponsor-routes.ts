@@ -11,6 +11,10 @@
  *   PUT    /api/admin/sponsorship/sponsors/:id/logo  a logo as a data URL (#128)
  *   DELETE /api/admin/sponsorship/sponsors/:id/logo
  *   PATCH  /api/admin/sponsorship/surfaces           switch surfaces on or off for the installation
+ *   POST   /api/admin/sponsorship/packages           a new package (#154)
+ *   PUT    /api/admin/sponsorship/packages/order     the packages' order: who goes first
+ *   PATCH  /api/admin/sponsorship/packages/:id       name, surfaces; 409 with the conflicts
+ *   DELETE /api/admin/sponsorship/packages/:id       refused while a sponsor has it
  *   PATCH  /api/admin/sponsorship/season             where the season's report starts (#141)
  *   GET    /api/admin/sponsorship/report?sponsor=&season=  what viewers saw of one sponsor (#141)
  *
@@ -29,10 +33,13 @@
  *   GET    /api/sponsors?match=|stream=|vod=  who is shown on each surface of one match (#130)
  *   GET    /api/sponsors/play?surface=…     the ready clips of one surface, in play order,
  *                                           and the team to name in the banner
+ *   GET    /api/sponsors/teams?surface=…    one exclusive surface's sponsor for each of the
+ *                                           club's teams, for a whole list of matches (#150)
  *   GET    /api/sponsors/:id/:file          a clip's playlist, segments and thumbnail
  *   POST   /api/sponsors/events             a clip started, ended or played with sound (#138)
  *
- * Public, like the teams' logos: GET /api/sponsor-logos/:id?v=…
+ * Public, like the teams' logos: GET /api/sponsor-logos/:id?v=…, and
+ * GET /api/sponsors/club, the club's sponsors in the site's footer (#152).
  *
  * The file itself never passes through the API: the proxy in front of it
  * refuses bodies over 64 MiB, so the browser uploads straight to storage.
@@ -40,11 +47,11 @@
 import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isValidAdminToken, requireAdminAuth, requireViewerAuth } from "../auth.js";
-import { matches, minio, sponsors, sponsorQueue, sponsorStats, streamMeta } from "../state.js";
+import { matches, minio, sponsors, sponsorQueue, sponsorStats, streamMeta, teams } from "../state.js";
 import { defaultHomeTeam } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { ownTeamOf, sponsorsForContext, type SponsorContext } from "../own-team.js";
-import { SURFACES, sponsorsFor, surfaceDef, type SponsorPick } from "../sponsor-surfaces.js";
+import { SURFACES, exclusiveConflicts, sponsorsFor, surfaceDef, type SponsorPick } from "../sponsor-surfaces.js";
 import { STAT_KINDS, STAT_MODES, isSeason, seasonOf, type MatchInfo, type StatKind, type StatMode } from "../sponsor-stats.js";
 import { buildReport, readSeasonFiles, seasonsWithData } from "../sponsor-report.js";
 import { isValidViewerId } from "../viewer-tracking.js";
@@ -60,6 +67,7 @@ import {
   sponsorThumbKey,
   type Sponsor,
   type SponsorClip,
+  type PackageInput,
   type SponsorInput,
   type SponsorSettings,
 } from "../sponsors.js";
@@ -90,12 +98,29 @@ function presentSponsor(x: Sponsor, s: SponsorSettings) {
   return { ...rest, ...(url && { logoUrl: url }), clipCount: s.clips.filter((c) => c.sponsorId === x.id).length };
 }
 
+/**
+ * Exclusive surfaces two sponsors hold at once. A change can never make one
+ * (409), but a file from before a surface was released can have one: two
+ * Platinum sponsors for the whole club were fine until the corner logo came.
+ * Only the first of them is shown, and the admin is told so.
+ */
+function conflictsOf(s: SponsorSettings) {
+  return exclusiveConflicts(s, { onlyAvailable: true }).map((c) => ({
+    surface: c.surface,
+    teamId: c.teamId,
+    sponsorIds: c.sponsorIds,
+    // Who would be shown once the surface is on, whether or not it is now.
+    shownId: sponsorsFor({ ...s, surfaces: { ...s.surfaces, [c.surface]: true } }, c.teamId, c.surface)[0]?.sponsor.id ?? null,
+  }));
+}
+
 /** Everything the Sponsring tab needs, in one answer. */
 function overview(s: SponsorSettings) {
   return {
     sponsors: s.sponsors.map((x) => presentSponsor(x, s)),
     packages: s.packages,
     surfaces: SURFACES.map((d) => ({ ...d, on: s.surfaces[d.id] })),
+    conflicts: conflictsOf(s),
     clips: s.clips.map(present),
     breakSeconds: s.breakSeconds,
     seasonStart: s.seasonStart ?? null,
@@ -209,7 +234,7 @@ function eventsKey(request: FastifyRequest): string {
 
 /** Send a SponsorError as the admin's message; anything else is a 500 for Fastify to log. */
 function fail(reply: FastifyReply, err: unknown) {
-  if (err instanceof SponsorError) return reply.code(err.status).send({ error: err.message });
+  if (err instanceof SponsorError) return reply.code(err.status).send({ ...err.details, error: err.message });
   throw err;
 }
 
@@ -312,6 +337,48 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
     try {
       await sponsors.setSurfaces(request.body);
       return { surfaces: overview(await sponsors.readAll()).surfaces };
+    } catch (err) {
+      return fail(reply, err);
+    }
+  });
+
+  // --- Admin: packages (#154) ---
+
+  app.post<{ Body: PackageInput | undefined }>("/api/admin/sponsorship/packages", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    try {
+      const created = await sponsors.createPackage(request.body ?? {});
+      return reply.code(201).send({ package: created });
+    } catch (err) {
+      return fail(reply, err);
+    }
+  });
+
+  // Registered before /:id so "order" is not taken for a package id.
+  app.put<{ Body: { ids?: unknown } | undefined }>("/api/admin/sponsorship/packages/order", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    try {
+      await sponsors.reorderPackages(request.body?.ids);
+      return overview(await sponsors.readAll());
+    } catch (err) {
+      return fail(reply, err);
+    }
+  });
+
+  app.patch<{ Params: { id: string }; Body: PackageInput | undefined }>("/api/admin/sponsorship/packages/:id", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    try {
+      return { package: await sponsors.patchPackage(request.params.id, request.body ?? {}) };
+    } catch (err) {
+      return fail(reply, err);
+    }
+  });
+
+  app.delete<{ Params: { id: string } }>("/api/admin/sponsorship/packages/:id", async (request, reply) => {
+    if (!requireAdminAuth(request, reply)) return;
+    try {
+      await sponsors.removePackage(request.params.id);
+      return reply.code(204).send();
     } catch (err) {
       return fail(reply, err);
     }
@@ -467,6 +534,27 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
     return reply.header("Cache-Control", "no-cache").send({ teamName, surfaces });
   });
 
+  // #150: who has one exclusive surface for each of the club's own teams, so
+  // a list of matches needs one request, not one per match. A team without a
+  // sponsor of its own gets the club's; a team with neither is left out.
+  app.get<{ Querystring: { surface?: string } }>("/api/sponsors/teams", async (request, reply) => {
+    if (!requireViewerAuth(request, reply)) return;
+    const def = typeof request.query.surface === "string" ? surfaceDef(request.query.surface) : undefined;
+    if (!def || !def.exclusive || def.kind !== "logo") return reply.code(400).send({ error: "invalid_surface" });
+    const [settings, all] = await Promise.all([sponsors.readAll(), teams.list()]);
+    const pick = (teamId: string | null) => {
+      const first = sponsorsFor(settings, teamId, def.id)[0];
+      return first ? publicSponsor(first, "logo") : null;
+    };
+    const byTeam: Record<string, ReturnType<typeof publicSponsor>> = {};
+    for (const team of all) {
+      if (!team.own) continue;
+      const sponsor = pick(team.id);
+      if (sponsor) byTeam[team.id] = sponsor;
+    }
+    return reply.header("Cache-Control", "no-cache").send({ surface: def.id, club: pick(null), byTeam });
+  });
+
   // `surface` is start, p1, p2, p3, ot or end. `stream`, `match` or `vod`
   // says which match: its team's sponsors come first, other teams' are left
   // out, and the banner names its team. Each clip carries its sponsor's name.
@@ -523,6 +611,15 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
       return reply.code(204).send();
     },
   );
+
+  // #152: the footer is on every page, the PIN page too, so this is public.
+  // Only the surface club-footer and only sponsors of the whole club: a
+  // team's sponsor is shown with the team's matches, not on the club's page.
+  app.get("/api/sponsors/club", async (_request, reply) => {
+    const settings = await sponsors.readAll();
+    const list = sponsorsFor(settings, null, "club-footer").map((p) => publicSponsor(p, "logo"));
+    return reply.header("Cache-Control", "no-cache").send({ sponsors: list });
+  });
 
   // #128: public like the teams' logos, so a shared image can show it to anyone.
   // The URL carries a version, so it can be cached hard.

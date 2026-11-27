@@ -9,7 +9,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { matches, teams } from "../state.js";
+import { matches, sponsors, teams } from "../state.js";
+import { sponsorsFor } from "../sponsor-surfaces.js";
 import { clubManifest } from "../club-config.js";
 import type { Branding } from "../club-branding.js";
 import type { Match } from "../matches.js";
@@ -86,6 +87,14 @@ export default async function shareRoutes(
     clubLogo: () => opts.branding.logo(),
     clubLogoVersion: () => opts.branding.logoVersion(),
     club: () => ({ name: clubManifest.name, accentColor: clubManifest.accentColor }),
+    // #153: the main sponsor of the match's own team, or the club's. The
+    // logo's address changes with updatedAt, and so does the picture.
+    sponsorLogo: (match) => {
+      const pick = sponsorsFor(sponsors.snapshot(), match.ownTeam.id || null, "share-image")[0];
+      if (!pick?.sponsor.logoType) return null;
+      const { id, updatedAt } = pick.sponsor;
+      return { version: `${id}:${updatedAt}`, load: () => sponsors.logo(id) };
+    },
   });
 
   // GET /api/matches/:id/share.png — the link preview's picture. Public: it shows no people.

@@ -164,7 +164,7 @@ function sheet(r) {
     ${surfaceTable(r.surfaces, "live")}
 
     <h4 class="sponsor-report-h">Repriser</h4>
-    ${replayShown ? surfaceTable(r.surfaces, "replay") : '<p class="sponsor-report-small">Inga sponsorklipp visades i repriser den här säsongen.</p>'}
+    ${replayShown ? surfaceTable(r.surfaces, "replay") : '<p class="sponsor-report-small">Sponsorn visades inte i några repriser den här säsongen.</p>'}
 
     <h4 class="sponsor-report-h">Per match</h4>
     ${matchTable(r.matches)}
@@ -175,7 +175,8 @@ function sheet(r) {
       De räknas för varje match för sig: den som såg tre matcher räknas en gång i varje match. Tittarna från olika matcher
       kan därför inte läggas ihop till ett antal personer.</p>
       <p><em>Startade</em> är hur många gånger ett klipp började spela. <em>Sågs klart</em> och <em>med ljud</em> är hur stor
-      del av dem som sågs till slutet och som spelades med ljudet på.</p>
+      del av dem som sågs till slutet och som spelades med ljudet på. <em>Logga sedd</em> är hur många som såg loggan
+      i minst 10 sekunder i följd, räknat per match.</p>
     </div>
     <p class="sponsor-report-foot">Hämtad ${escapeHtml(day(new Date().toISOString().slice(0, 10)))}. Bara antal räknas, aldrig vem som tittade.</p>`;
   return el;
@@ -196,14 +197,19 @@ function sumLive(surfaces) {
 function surfaceTable(surfaces, mode) {
   const rows = surfaces.filter((s) => s[mode].starts > 0 || s[mode].seen > 0);
   return `<div class="sponsor-report-scroll"><table class="sponsor-report-table">
-    <thead><tr><th>Plats</th><th class="num">Matcher</th><th class="num">Startade</th><th class="num">Sågs klart</th><th class="num">Med ljud</th></tr></thead>
-    <tbody>${rows.map((s) => `<tr>
+    <thead><tr><th>Plats</th><th class="num">Matcher</th><th class="num">Startade</th><th class="num">Sågs klart</th><th class="num">Med ljud</th><th class="num">Logga sedd</th></tr></thead>
+    <tbody>${rows.map((s) => {
+      // A clip starts; a logo (#148) is seen. The other columns do not apply.
+      const logo = s[mode].starts === 0 && s[mode].seen > 0;
+      return `<tr>
       <td class="nowrap">${escapeHtml(placeName(s))}</td>
       <td class="num">${number(s[mode].matches)}</td>
-      <td class="num">${number(s[mode].starts)}</td>
+      <td class="num">${logo ? "–" : number(s[mode].starts)}</td>
       <td class="num">${percent(s[mode].completeRate)}</td>
       <td class="num">${percent(s[mode].soundRate)}</td>
-    </tr>`).join("")}</tbody>
+      <td class="num">${logo ? number(s[mode].seen) : "–"}</td>
+    </tr>`;
+    }).join("")}</tbody>
   </table></div>`;
 }
 

@@ -1,5 +1,8 @@
 // === Sponsor clips in the player (#87, phase 4) ===
 //
+//   - fetchSponsorSurfaces(): who is shown on each surface of the match in
+//     the player, fetched once per opened player (#146).
+//
 // The club's sponsor films, played live in the viewer's own player: when the
 // match starts, in the period breaks, in overtime and when it ends. They are
 // never in the broadcast itself, so replays have none.
@@ -27,6 +30,54 @@ import { getViewerId } from "./viewer-id.js";
 const LOAD_TIMEOUT_MS = 15_000;
 /** A clip whose picture stands still this long while not paused is skipped. */
 const STALL_TIMEOUT_MS = 15_000;
+
+// ============================
+// The match's surfaces (#146)
+// ============================
+
+/** What a surface list is when there is none, or it could not be fetched: nothing to show. */
+const NO_SURFACES = Object.freeze({ teamName: "", surfaces: Object.freeze({}) });
+
+/**
+ * Who is shown on each surface of one match, stream or replay, as
+ * GET /api/sponsors answers: { teamName, surfaces: { corner: [sponsor], … } }.
+ * Only surfaces that are on and have someone to show are in it. Never
+ * rejects: an error is no surfaces, and the match plays as if there were none.
+ */
+export async function fetchSurfaces({ stream, vod, match } = {}) {
+  try {
+    const q = new URLSearchParams();
+    if (stream) q.set("stream", stream);
+    if (vod) q.set("vod", vod);
+    if (match) q.set("match", match);
+    const res = await fetch(`${CONFIG.API_URL}/api/sponsors?${q}`, { headers: authHeaders() });
+    if (!res.ok) return NO_SURFACES;
+    const body = await res.json();
+    if (!body || typeof body.surfaces !== "object" || body.surfaces === null) return NO_SURFACES;
+    return { teamName: typeof body.teamName === "string" ? body.teamName : "", surfaces: body.surfaces };
+  } catch {
+    return NO_SURFACES;
+  }
+}
+
+/** The surfaces of the match in the player, by what was asked: one request per opened player. */
+let playerSurfaces = null;
+
+/**
+ * The surfaces of the stream or replay in the player (#146). Asked once each
+ * time the player opens; forgetSponsorSurfaces() when it closes.
+ */
+export function fetchSponsorSurfaces({ stream, vod } = {}) {
+  const key = stream ? `stream:${stream}` : vod ? `vod:${vod}` : "";
+  if (!key) return Promise.resolve(NO_SURFACES);
+  if (playerSurfaces?.key !== key) playerSurfaces = { key, surfaces: fetchSurfaces({ stream, vod }) };
+  return playerSurfaces.surfaces;
+}
+
+/** The player closed: the next opening asks again. */
+export function forgetSponsorSurfaces() {
+  playerSurfaces = null;
+}
 
 // ============================
 // Which clips, when (#107)

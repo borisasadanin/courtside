@@ -167,6 +167,16 @@ export const DEFAULT_PACKAGES: SponsorPackage[] = [
   { id: "silver", name: "Silver", priority: 3, surfaces: ["club-footer"] },
 ];
 
+/**
+ * The package a sponsor gets when nobody chose one: a migrated clip's, or one
+ * made for an upload from v0.8's page. Guld, or the last package once the
+ * admin has removed Guld (#154).
+ */
+export function fallbackPackageId(packages: SponsorPackage[]): string {
+  if (packages.some((p) => p.id === GOLD)) return GOLD;
+  return [...packages].sort((a, b) => a.priority - b.priority).at(-1)?.id ?? GOLD;
+}
+
 /** Every surface is off until the club switches it on, except the clips that were already playing in v0.8. */
 function defaultSurfaces(): Record<SurfaceId, boolean> {
   return Object.fromEntries(SURFACES.map((s) => [s.id, s.kind === "clip"])) as Record<SurfaceId, boolean>;
@@ -222,11 +232,26 @@ export interface SponsorInput {
   active?: unknown;
 }
 
-/** A refused change, with the message for the admin and the HTTP status to send. */
+/** A refused change, with the message for the admin, the HTTP status to send and anything more to send with it. */
 export class SponsorError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly details?: Record<string, unknown>) {
     super(message);
   }
+}
+
+/** What the admin may change about a package (#154). Fields left out stay as they are. */
+export interface PackageInput {
+  name?: unknown;
+  surfaces?: unknown;
+}
+
+/** A conflict as a 409 lists it: the surface, the team (null: the club) and the sponsors that would share it. */
+export interface ConflictDetail {
+  surface: SurfaceId;
+  label: string;
+  teamId: string | null;
+  teamName: string | null;
+  sponsors: { id: string; name: string }[];
 }
 
 /**
@@ -268,10 +293,14 @@ type RawSettings = Partial<Omit<SponsorSettings, "version" | "clips" | "surfaces
  * read gives the same sponsors.
  */
 export function migrate(raw: RawSettings): SponsorSettings {
-  const packages = (raw.packages ?? []).map((p) => ({ ...p, surfaces: [...(p.surfaces ?? [])] }));
-  for (const p of DEFAULT_PACKAGES) {
-    if (!packages.some((x) => x.id === p.id)) packages.push({ ...p, surfaces: [...p.surfaces] });
-  }
+  // A file without packages (v0.8, or written by v0.8.1) gets the three
+  // defaults. One with packages keeps them as they are: the admin may have
+  // removed one of the defaults (#154).
+  const packages = Array.isArray(raw.packages) && raw.packages.length > 0
+    ? raw.packages.map((p) => ({ ...p, surfaces: [...(p.surfaces ?? [])] }))
+    : DEFAULT_PACKAGES.map((p) => ({ ...p, surfaces: [...p.surfaces] }));
+  packages.sort((a, b) => a.priority - b.priority);
+  const fallback = fallbackPackageId(packages);
 
   const sponsors: Sponsor[] = (raw.sponsors ?? []).map((x) => ({
     ...x,
@@ -287,7 +316,7 @@ export function migrate(raw: RawSettings): SponsorSettings {
       sponsors.push({
         id: sponsorId,
         name: c.name,
-        packageId: GOLD,
+        packageId: fallback,
         teamIds: [],
         off: [],
         active: true,
@@ -349,6 +378,8 @@ interface ChangeOptions {
    * surfaces still show one sponsor, the first in order.
    */
   allowConflicts?: boolean;
+  /** Builds the 409 for a change that is not about one sponsor: a package's surfaces (#154). */
+  onConflict?: (s: SponsorSettings, conflicts: SurfaceConflict[]) => Promise<SponsorError>;
 }
 
 export class SponsorRegistry {
@@ -436,7 +467,7 @@ export class SponsorRegistry {
       let owner: string;
       if (sponsorId === undefined || sponsorId === null || sponsorId === "") {
         owner = id;
-        sponsors = [...sponsors, newSponsor(id, clipName, GOLD, now)];
+        sponsors = [...sponsors, newSponsor(id, clipName, fallbackPackageId(s.packages), now)];
       } else {
         owner = findSponsor(s, sponsorId).id;
       }
@@ -543,8 +574,9 @@ export class SponsorRegistry {
     const id = newId();
     return this.exclusive(async (s) => {
       const now = new Date().toISOString();
-      const fields = await this.checkInput(s, { packageId: GOLD, ...input, name: input.name ?? "" });
-      const sponsor: Sponsor = { ...newSponsor(id, "", GOLD, now), ...fields };
+      const fallback = fallbackPackageId(s.packages);
+      const fields = await this.checkInput(s, { packageId: fallback, ...input, name: input.name ?? "" });
+      const sponsor: Sponsor = { ...newSponsor(id, "", fallback, now), ...fields };
       if (!sponsor.url) delete sponsor.url;
       return { settings: { ...s, sponsors: [...s.sponsors, sponsor] }, result: structuredClone(sponsor) };
     }, { subject: id });
@@ -635,6 +667,97 @@ export class SponsorRegistry {
       const next: SponsorSettings = date ? { ...rest, seasonStart: date } : rest;
       return { settings: next, result: (date as string | null) ?? null };
     });
+  }
+
+  // --- Packages (#154) ---
+
+  /** A new package, last in the order. */
+  async createPackage(input: PackageInput): Promise<SponsorPackage> {
+    const id = newId();
+    return this.exclusive(async (s) => {
+      const name = checkPackageName(s, input.name, null);
+      const surfaces = input.surfaces === undefined ? [] : checkSurfaces(input.surfaces);
+      const priority = Math.max(0, ...s.packages.map((p) => p.priority)) + 1;
+      const pkg: SponsorPackage = { id, name, priority, surfaces };
+      return { settings: { ...s, packages: [...s.packages, pkg] }, result: structuredClone(pkg) };
+    });
+  }
+
+  /**
+   * Rename a package or change its surfaces. A surface added to it must not
+   * give two of its sponsors, or one of them and another sponsor, the same
+   * exclusive surface: 409, with every conflict listed.
+   */
+  async patchPackage(id: string, input: PackageInput): Promise<SponsorPackage> {
+    return this.exclusive(async (s) => {
+      const current = findPackage(s, id);
+      if (input.name === undefined && input.surfaces === undefined) throw new SponsorError("Inget att ändra.", 400);
+      const next: SponsorPackage = {
+        ...current,
+        ...(input.name !== undefined && { name: checkPackageName(s, input.name, id) }),
+        ...(input.surfaces !== undefined && { surfaces: checkSurfaces(input.surfaces) }),
+      };
+      return { settings: { ...s, packages: s.packages.map((p) => (p.id === id ? next : p)) }, result: structuredClone(next) };
+    }, { onConflict: (s, conflicts) => this.packageConflictError(s, id, conflicts) });
+  }
+
+  /** Remove a package. Refused while a sponsor has it, and for the last one. */
+  async removePackage(id: string): Promise<void> {
+    await this.exclusive(async (s) => {
+      const pkg = findPackage(s, id);
+      const holders = s.sponsors.filter((x) => x.packageId === id);
+      if (holders.length > 0) {
+        const n = holders.length;
+        throw new SponsorError(
+          `${pkg.name} har ${n === 1 ? "en sponsor" : `${n} sponsorer`}. Flytta ${n === 1 ? "den" : "dem"} till ett annat paket först.`,
+          409,
+          { sponsors: holders.map((x) => ({ id: x.id, name: x.name })) },
+        );
+      }
+      if (s.packages.length === 1) throw new SponsorError("Det måste finnas minst ett paket.", 409);
+      return { settings: { ...s, packages: s.packages.filter((p) => p.id !== id) }, result: undefined };
+    });
+  }
+
+  /** New order of the packages, first shown first. Must name every package exactly once. */
+  async reorderPackages(ids: unknown): Promise<SponsorPackage[]> {
+    return this.exclusive(async (s) => {
+      if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string")) {
+        throw new SponsorError("Ordningen ska vara en lista med paket.", 400);
+      }
+      const unique = new Set(ids as string[]);
+      const byId = new Map(s.packages.map((p) => [p.id, p]));
+      if (unique.size !== ids.length || unique.size !== byId.size || [...unique].some((id) => !byId.has(id))) {
+        throw new SponsorError("Ordningen måste innehålla varje paket en gång.", 409);
+      }
+      const packages = (ids as string[]).map((id, i) => ({ ...byId.get(id)!, priority: i + 1 }));
+      return { settings: { ...s, packages }, result: structuredClone(packages) };
+    });
+  }
+
+  /** "Guld kan inte få hörnloggan: Älta P12 skulle få två, ICA och Coop." With every conflict listed. */
+  private async packageConflictError(s: SponsorSettings, packageId: string, conflicts: SurfaceConflict[]): Promise<SponsorError> {
+    const name = (id: string) => s.sponsors.find((x) => x.id === id)?.name ?? "en sponsor";
+    const details: ConflictDetail[] = [];
+    for (const c of conflicts) {
+      const teamName = c.teamId === null ? null : ((await this.teams?.get(c.teamId))?.name ?? "Laget");
+      details.push({
+        surface: c.surface,
+        label: surfaceDef(c.surface)!.label,
+        teamId: c.teamId,
+        teamName,
+        sponsors: c.sponsorIds.map((id) => ({ id, name: name(id) })),
+      });
+    }
+    const first = details[0];
+    const pkg = s.packages.find((p) => p.id === packageId)?.name ?? "Paketet";
+    const names = first.sponsors.map((x) => x.name);
+    const list = names.length === 2 ? `${names[0]} och ${names[1]}` : `${names.slice(0, -1).join(", ")} och ${names.at(-1)}`;
+    return new SponsorError(
+      `${pkg} kan inte få ${first.label.toLowerCase()}: ${first.teamName ?? "klubben"} skulle få flera, ${list}. Bara en per lag går.`,
+      409,
+      { conflicts: details },
+    );
   }
 
   // --- Teams (#127) ---
@@ -786,8 +909,12 @@ export class SponsorRegistry {
       const { settings, result } = await change(before);
       if (settings !== before) {
         if (!options.allowConflicts) {
-          const conflict = newConflicts(before, settings)[0];
-          if (conflict) throw await this.conflictError(settings, conflict, options.subject);
+          const conflicts = newConflicts(before, settings);
+          if (conflicts.length > 0) {
+            throw options.onConflict
+              ? await options.onConflict(settings, conflicts)
+              : await this.conflictError(settings, conflicts[0], options.subject);
+          }
         }
         const next = grouped(settings);
         await this.storage.uploadBuffer(SPONSORS_KEY, JSON.stringify(next, null, 2), "application/json");
@@ -865,6 +992,29 @@ function find(s: SponsorSettings, id: string): SponsorClip {
   const clip = s.clips.find((c) => c.id === id);
   if (!clip) throw new SponsorError("Klippet finns inte.", 404);
   return clip;
+}
+
+function findPackage(s: SponsorSettings, id: unknown): SponsorPackage {
+  const pkg = s.packages.find((p) => p.id === id);
+  if (!pkg) throw new SponsorError("Paketet finns inte.", 404);
+  return pkg;
+}
+
+const MAX_PACKAGE_NAME = 40;
+
+/** 1–40 characters, and not the name of another package, whatever the case. */
+function checkPackageName(s: SponsorSettings, raw: unknown, self: string | null): string {
+  const name = String(typeof raw === "string" ? raw : "").trim().replace(/\s+/g, " ");
+  if (!name || name.length > MAX_PACKAGE_NAME) throw new SponsorError(`Namnet ska vara 1–${MAX_PACKAGE_NAME} tecken.`, 400);
+  const taken = s.packages.some((p) => p.id !== self && p.name.toLocaleLowerCase("sv") === name.toLocaleLowerCase("sv"));
+  if (taken) throw new SponsorError(`Det finns redan ett paket som heter ${name}.`, 409);
+  return name;
+}
+
+/** Known surfaces, each once, in the order of the surface list. */
+function checkSurfaces(raw: unknown): SurfaceId[] {
+  if (!Array.isArray(raw) || raw.some((x) => !isSurfaceId(x))) throw new SponsorError("Okänd sponsoryta.", 400);
+  return SURFACES.map((d) => d.id).filter((id) => (raw as string[]).includes(id));
 }
 
 function findSponsor(s: SponsorSettings, id: unknown): Sponsor {
