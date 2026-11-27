@@ -23,7 +23,7 @@ import {
   loadReplayMarkers, setReplayFragments, fetchReplayFragments, clearReplayMarkers, initReplayMarkers,
   periodBreakSpans,
 } from "./replay-markers.js";
-import { replayStartClipsDue, crossedBreak } from "./replay-sponsor-rules.js";
+import { replayStartClipsDue, crossedBreak, replayEndPosition } from "./replay-sponsor-rules.js";
 
 // Callbacks injected by the orchestrator
 let onClosePlayer = null; // called when player is closed (returns to list)
@@ -1594,6 +1594,14 @@ function onVodSeeking() {
   s.seeks++;
 }
 
+/** The replay ended: its end clips, then the player stands at the end (#170). */
+function onVodEnded() {
+  const s = vodSponsors;
+  if (!isCurrentVod(s) || reelPending || isSponsorReelPlaying()) return;
+  if (s.played.has("end")) return;
+  playVodReel(s, "end", "end", { resumeAt: replayEndPosition(dom.video.duration), play: false });
+}
+
 /**
  * Open the VOD player.
  * Called from the VOD module when a VOD card is clicked. `startAt` opens
@@ -1728,9 +1736,10 @@ function bindPlayerEvents() {
   dom.video.addEventListener("seeking", onVideoSeeking);
   dom.video.addEventListener("seeked", onVideoSeeked);
   dom.video.addEventListener("loadedmetadata", updateProgress);
-  // Sponsor clips in a replay (#169)
+  // Sponsor clips in a replay (#169, #170)
   dom.video.addEventListener("timeupdate", onVodTimeUpdate);
   dom.video.addEventListener("seeking", onVodSeeking);
+  dom.video.addEventListener("ended", onVodEnded);
   // Seeking happens on mousedown/mouseup (onSeekStart/onSeekEnd). Clicks anywhere in the
   // control bar must not reach the wrapper's togglePlay — a click just beside the thin
   // progress bar, or a drag released outside it, would otherwise pause playback.

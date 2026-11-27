@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from "vitest";
 import {
-  skipShown, replayStartClipsDue, pauseSpans, periodBreakSpans, crossedBreak, breakSurface,
+  skipShown, replayStartClipsDue, replayEndPosition, pauseSpans, periodBreakSpans, crossedBreak, breakSurface,
   type BreakSpan, type Fragment,
 } from "../../../web/modules/replay-sponsor-rules.js";
 
@@ -169,5 +169,15 @@ describe("reaching a break (#169)", () => {
   it("gives nothing when playback starts after the break, as from a period marker", () => {
     // P2's marker is the end of the first break's pause card
     expect(watch(breaks, [{ seek: 26 }, { play: [26, 44] }])).toEqual([]);
+  });
+});
+
+describe("end clips in a replay (#170)", () => {
+  it("leave the player standing at the replay's end, short of another \"ended\"", () => {
+    expect(replayEndPosition(3600)).toBeCloseTo(3599.75);
+    expect(replayEndPosition(3600)).toBeLessThan(3600);
+    expect(replayEndPosition(0.1)).toBe(0);
+    expect(replayEndPosition(NaN)).toBe(0);
+    expect(replayEndPosition(Infinity)).toBe(0);
   });
 });

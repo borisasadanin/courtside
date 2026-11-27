@@ -9,6 +9,7 @@
 //     The first gives p1, the second p2, the third p3, the rest ot. (#169)
 //   - that playback reached a break: it played across the break's start,
 //     not a seek and not a jump. Each break once per opened replay. (#169)
+//   - where the replay stands after its end clips: at its end. (#170)
 //
 // Live has its own rules in sponsors.js and player.js; these are not used there.
 
@@ -35,6 +36,14 @@ export function skipShown({ skippable, started, currentTime }) {
  */
 export function replayStartClipsDue(startAt) {
   return !(startAt > START_SLACK_S);
+}
+
+/**
+ * Where the replay stands after its end clips (#170): at its end, just short
+ * of the very last moment so that loading it there is not another "ended".
+ */
+export function replayEndPosition(duration) {
+  return Number.isFinite(duration) && duration > 0 ? Math.max(0, duration - 0.25) : 0;
 }
 
 /** The file name of a playlist URI, without its folder or query. */

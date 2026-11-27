@@ -10,6 +10,7 @@ export interface BreakSpan { n: number; start: number; end: number; surface: "p1
 
 export function skipShown(at: { skippable?: boolean; started?: boolean; currentTime: number }): boolean;
 export function replayStartClipsDue(startAt?: number | null): boolean;
+export function replayEndPosition(duration: number): number;
 export function fileName(uri: string): string;
 export function pauseSpans(frags: Fragment[], pauses: PauseInfo[] | undefined): PauseSpan[];
 export function breakSurface(index: number): BreakSpan["surface"];
