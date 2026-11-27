@@ -127,7 +127,9 @@ describe("sponsorship routes", () => {
       expect(body.sponsors[0]).toMatchObject({ packageId: "gold", teamIds: [], off: [], active: true, clipCount: 1 });
       expect(body.packages.map((p: { name: string }) => p.name)).toEqual(["Platinum", "Guld", "Silver"]);
       expect(body.surfaces.find((x: { id: string }) => x.id === "corner")).toMatchObject({ label: "Hörnlogga", available: true, on: false, exclusive: true });
-      expect(body.surfaces.find((x: { id: string }) => x.id === "mvp")).toMatchObject({ available: false, on: false });
+      expect(body.surfaces.find((x: { id: string }) => x.id === "mvp")).toMatchObject({ available: true, on: false, exclusive: true });
+      expect(body.surfaces.find((x: { id: string }) => x.id === "shared-clip")).toMatchObject({ available: true, on: false, exclusive: true });
+      expect(body.surfaces.find((x: { id: string }) => x.id === "notification")).toMatchObject({ available: false, on: false });
       expect(body.surfaces.find((x: { id: string }) => x.id === "start")).toMatchObject({ available: true, on: true });
       expect(body.clips).toHaveLength(3);
       expect(body.seasonStart).toBeNull();
@@ -174,7 +176,7 @@ describe("sponsorship routes", () => {
         type: "application/json",
       });
       const body = (await inject("GET", "/api/admin/sponsorship")).json();
-      expect(body.conflicts.map((c: { surface: string }) => c.surface)).toEqual(["corner", "match-card", "share-image"]);
+      expect(body.conflicts.map((c: { surface: string }) => c.surface)).toEqual(["corner", "match-card", "share-image", "shared-clip", "mvp"]);
       expect(body.conflicts[0]).toEqual({ surface: "corner", teamId: null, sponsorIds: ["aaaaaaaaaaa1", "aaaaaaaaaaa2"], shownId: "aaaaaaaaaaa1" });
       // An old conflict does not stop other changes.
       expect((await inject("PATCH", "/api/admin/sponsorship/sponsors/aaaaaaaaaaa2", { name: "Coop Forum" })).statusCode).toBe(200);
@@ -203,7 +205,7 @@ describe("sponsorship routes", () => {
     it("switches surfaces and sets the season start", async () => {
       const res = await inject("PATCH", "/api/admin/sponsorship/surfaces", { p1: false });
       expect(res.json().surfaces.find((x: { id: string }) => x.id === "p1").on).toBe(false);
-      expect((await inject("PATCH", "/api/admin/sponsorship/surfaces", { mvp: true })).statusCode).toBe(400);
+      expect((await inject("PATCH", "/api/admin/sponsorship/surfaces", { notification: true })).statusCode).toBe(400);
       expect((await inject("PATCH", "/api/admin/sponsorship/season", { seasonStart: "2026-08-01" })).json()).toEqual({ seasonStart: "2026-08-01" });
       expect((await inject("PATCH", "/api/admin/sponsorship/season", { seasonStart: "igår" })).statusCode).toBe(400);
     });

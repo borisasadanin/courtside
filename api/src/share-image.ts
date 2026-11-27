@@ -20,6 +20,10 @@
  * Rendered when first asked for and kept in memory. The version, a hash of
  * everything drawn, goes into the og:image URL, so a chat app fetches the
  * picture again when the result or a logo changes, the sponsor's included.
+ *
+ * A shared clip's preview (#161) is drawn here too: its thumbnail with the
+ * sponsor of "shared-clip" in the corner, the same way and with the same
+ * kind of version.
  */
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
@@ -732,4 +736,142 @@ function plannedTime(match: Match): string | undefined {
 
 function teamDrawing(team: MatchTeam, logo: Logo | null): ShareTeam {
   return { name: team.name, shortName: team.shortName, color: team.color, ...(logo && { logo }) };
+}
+
+// ============================
+// A shared clip's preview (#161)
+// ============================
+//
+// The clip's own thumbnail with the sponsor of "shared-clip" in the top right
+// corner, on a white plate as on the match's picture. Nothing else is drawn:
+// the plate is painted here into raw pixels, and ffmpeg only scales the
+// thumbnail and lays the plate and the logo on it. No drawtext (#195).
+
+/** The clip preview's width; the height follows the thumbnail. */
+export const CLIP_SHARE_WIDTH = 1200;
+
+/** Bump when the clip preview's layout changes, so every chat app fetches the new picture. */
+const CLIP_LAYOUT_VERSION = 1;
+
+/** The plate the sponsor's logo sits on, and its distance from the corner. */
+const CLIP_PLATE = { w: 200, h: 90, margin: 32, radius: 14 };
+
+/** A white plate with round corners as RGBA, see-through outside the corners. */
+export function clipSponsorPlate(): { width: number; height: number; data: Buffer } {
+  const { w, h, radius: r } = CLIP_PLATE;
+  const data = Buffer.alloc(w * h * 4, 255);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      // Distance into the nearest corner's circle; 1 everywhere off the corners.
+      const cx = x < r ? r : x >= w - r ? w - r : null;
+      const cy = y < r ? r : y >= h - r ? h - r : null;
+      const a = cx === null || cy === null ? 1 : Math.max(0, Math.min(1, r + 0.5 - Math.hypot(x + 0.5 - cx, y + 0.5 - cy)));
+      data[(y * w + x) * 4 + 3] = Math.round(a * 255);
+    }
+  }
+  return { width: w, height: h, data };
+}
+
+/**
+ * The thumbnail, 1200 wide, with the sponsor's logo in the top right corner,
+ * as a JPEG. ffmpeg uses rawvideo, scale, format and overlay only, as for the
+ * match's picture. `ffmpeg` is for tests.
+ */
+export async function renderClipShareImage(thumbnail: Buffer, logo: Logo, options: { ffmpeg?: string } = {}): Promise<Buffer> {
+  void checkShareFilters();
+  const ffmpeg = options.ffmpeg ?? ffmpegPath;
+  const plate = clipSponsorPlate();
+  const { w, h, margin } = CLIP_PLATE;
+  const dir = await mkdtemp(path.join(tmpdir(), "courtside-clipshare-"));
+  try {
+    const logoFile = `logo.${LOGO_EXTENSIONS[logo.type] ?? "png"}`;
+    await Promise.all([
+      writeFile(path.join(dir, "thumb.jpg"), thumbnail),
+      writeFile(path.join(dir, "plate.rgba"), plate.data),
+      writeFile(path.join(dir, logoFile), logo.bytes),
+    ]);
+    const graph = [
+      `[0:v]scale=${CLIP_SHARE_WIDTH}:-2:flags=lanczos,format=rgba[t]`,
+      `[t][1:v]overlay=x=main_w-overlay_w-${margin}:y=${margin}:format=rgb[p]`,
+      `[2:v]scale=${w - 32}:${h - 24}:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba[l]`,
+      `[p][l]overlay=x=main_w-${margin + w / 2}-overlay_w/2:y=${margin + h / 2}-overlay_h/2:format=rgb[b]`,
+      `[b]format=yuvj420p[out]`,
+    ];
+    const { stdout } = await execFileAsync(
+      ffmpeg,
+      [
+        "-hide_banner", "-loglevel", "error",
+        "-i", "thumb.jpg",
+        "-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${plate.width}x${plate.height}`, "-i", "plate.rgba",
+        "-i", logoFile,
+        "-filter_complex", graph.join(";"),
+        "-map", "[out]", "-frames:v", "1",
+        "-c:v", "mjpeg", "-q:v", "3", "-f", "image2pipe", "-",
+      ],
+      { cwd: dir, encoding: "buffer", maxBuffer: 16 * 1024 * 1024, timeout: 30000 },
+    );
+    return stdout;
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+/** What a clip's preview shows: its thumbnail and, when there is one, the sponsor. */
+export interface ClipShareSubject {
+  clipId: string;
+  /** Changes when the thumbnail does. */
+  thumbnailUrl: string;
+  /** The sponsor of "shared-clip" with a logo, or null: the preview is then the thumbnail as it is. */
+  sponsor: { version: string; load(): Promise<Logo | null> } | null;
+}
+
+/**
+ * Each shared clip's preview, rendered when first asked for and kept in
+ * memory while what it shows stays the same. The version goes into the
+ * og:image URL, so a new logo is a new URL.
+ */
+export class ClipShareImages {
+  private readonly cache = new Map<string, { version: string; jpg: Buffer }>();
+  private readonly pending = new Map<string, Promise<Buffer>>();
+
+  constructor(
+    private readonly thumbnail: (clipId: string) => Promise<Buffer>,
+    private readonly render: (thumbnail: Buffer, logo: Logo) => Promise<Buffer> = renderClipShareImage,
+  ) {}
+
+  /** A hash of everything the preview shows; null without a sponsor, when the thumbnail is used as it is. */
+  version(subject: ClipShareSubject): string | null {
+    if (!subject.sponsor) return null;
+    const drawn = [CLIP_LAYOUT_VERSION, subject.clipId, subject.thumbnailUrl, ["sponsor", subject.sponsor.version]];
+    return crypto.createHash("sha256").update(JSON.stringify(drawn)).digest("hex").slice(0, 12);
+  }
+
+  /**
+   * The preview as it is now. Without a sponsor, or when its logo cannot be
+   * read or drawn, the plain thumbnail: the clip never loses its preview.
+   */
+  async image(subject: ClipShareSubject): Promise<{ version: string | null; jpg: Buffer }> {
+    const version = this.version(subject);
+    if (!version || !subject.sponsor) return { version: null, jpg: await this.thumbnail(subject.clipId) };
+    const cached = this.cache.get(subject.clipId);
+    if (cached?.version === version) return cached;
+
+    const key = `${subject.clipId}:${version}`;
+    let rendering = this.pending.get(key);
+    if (!rendering) {
+      const sponsor = subject.sponsor;
+      rendering = (async () => {
+        const thumb = await this.thumbnail(subject.clipId);
+        const logo = await sponsor.load().catch(() => null);
+        if (!logo) return thumb;
+        return this.render(thumb, logo).catch(() => thumb);
+      })().finally(() => this.pending.delete(key));
+      this.pending.set(key, rendering);
+    }
+    const jpg = await rendering;
+    this.cache.delete(subject.clipId);
+    this.cache.set(subject.clipId, { version, jpg });
+    while (this.cache.size > MAX_CACHED) this.cache.delete(this.cache.keys().next().value!);
+    return { version, jpg };
+  }
 }

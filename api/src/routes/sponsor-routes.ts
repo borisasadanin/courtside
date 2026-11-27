@@ -51,7 +51,7 @@ import { matches, minio, sponsors, sponsorQueue, sponsorStats, streamMeta, teams
 import { defaultHomeTeam } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { ownTeamOf, sponsorsForContext, type SponsorContext } from "../own-team.js";
-import { SURFACES, exclusiveConflicts, sponsorsFor, surfaceDef, type SponsorPick } from "../sponsor-surfaces.js";
+import { SURFACES, exclusiveConflicts, publicSponsorOf, sponsorLogoUrl, sponsorsFor, surfaceDef, type SponsorPick } from "../sponsor-surfaces.js";
 import { STAT_KINDS, STAT_MODES, isSeason, seasonOf, type MatchInfo, type StatKind, type StatMode } from "../sponsor-stats.js";
 import { buildReport, readSeasonFiles, seasonsWithData } from "../sponsor-report.js";
 import { isValidViewerId } from "../viewer-tracking.js";
@@ -86,10 +86,7 @@ function present(clip: SponsorClip) {
   };
 }
 
-/** The logo's address. The version makes browsers fetch a replaced logo at once. */
-function logoUrl(x: Sponsor): string | undefined {
-  return x.logoType ? `/api/sponsor-logos/${x.id}?v=${encodeURIComponent(x.updatedAt)}` : undefined;
-}
+const logoUrl = sponsorLogoUrl;
 
 /** A sponsor as the admin sees it: everything, its logo's address and how many clips it has. */
 function presentSponsor(x: Sponsor, s: SponsorSettings) {
@@ -134,12 +131,8 @@ function overview(s: SponsorSettings) {
  */
 function publicSponsor(pick: SponsorPick, kind: "clip" | "logo") {
   const { sponsor, clips } = pick;
-  const url = logoUrl(sponsor);
   return {
-    id: sponsor.id,
-    name: sponsor.name,
-    ...(url && { logoUrl: url }),
-    ...(sponsor.url && { url: sponsor.url }),
+    ...publicSponsorOf(sponsor),
     ...(kind === "clip" && {
       clips: clips.map((c) => ({ id: c.id, durationSec: c.durationSeconds, hlsUrl: `/api/sponsors/${c.id}/index.m3u8` })),
     }),
@@ -185,7 +178,7 @@ const MATCH_KEY = /^[A-Za-z0-9_-]{1,64}$/;
  * Null for a match, stream or replay that does not exist: counting those
  * would let anyone fill memory with made-up ids.
  */
-async function statsMatchOf(ctx: SponsorContext): Promise<MatchInfo | null> {
+export async function statsMatchOf(ctx: SponsorContext): Promise<MatchInfo | null> {
   let matchId: string | undefined;
   let key: string | undefined;
   let createdAt: string | undefined;

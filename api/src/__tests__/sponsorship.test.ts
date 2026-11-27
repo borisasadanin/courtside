@@ -194,9 +194,9 @@ describe("sponsorsFor (#125)", () => {
 
   it("shows nothing on a surface that is not released, even when switched on", () => {
     const s = settings([{ name: "A", packageId: "platinum" }]);
-    s.surfaces.mvp = true;
-    expect(SURFACES.find((x) => x.id === "mvp")?.available).toBe(false);
-    expect(names(s, null, "mvp")).toEqual([]);
+    s.surfaces.notification = true;
+    expect(SURFACES.find((x) => x.id === "notification")?.available).toBe(false);
+    expect(names(s, null, "notification")).toEqual([]);
     expect(names(s, null, "timeout")).toEqual([]);
   });
 
@@ -257,14 +257,14 @@ describe("sponsor registry changes (#126)", () => {
   });
 
   it("counts only released exclusive surfaces as conflicts", async () => {
-    // Phase 1 released the corner, the match card and the share image; the
-    // shared clips, the MVP and the notification are still to come.
-    const released = ["corner", "match-card", "share-image"];
+    // Phase 1 released the corner, the match card and the share image, phase 2
+    // the shared clips and the MVP; the notification is still to come.
+    const released = ["corner", "match-card", "share-image", "shared-clip", "mvp"];
     await registry.createSponsor({ name: "ICA", packageId: "platinum", off: released });
     await expect(registry.createSponsor({ name: "Coop", packageId: "platinum" })).resolves.toBeTruthy();
     const s = await registry.readAll();
     expect(exclusiveConflicts(s, { onlyAvailable: true })).toEqual([]);
-    expect(exclusiveConflicts(s).map((c) => c.surface)).toEqual(["shared-clip", "mvp", "notification"]);
+    expect(exclusiveConflicts(s).map((c) => c.surface)).toEqual(["notification"]);
   });
 
   it("refuses a second sponsor on an exclusive surface with 409, and writes nothing", async () => {
@@ -350,14 +350,17 @@ describe("sponsor registry changes (#126)", () => {
   it("switches surfaces on and off, but not those of later phases", async () => {
     expect((await registry.setSurfaces({ p1: false })).p1).toBe(false);
     expect((await registry.readAll()).surfaces.start).toBe(true);
-    await expect(registry.setSurfaces({ mvp: true })).rejects.toMatchObject({ status: 400 });
-    // Phase 1's surfaces can be switched on, and start off.
-    expect((await registry.readAll()).surfaces).toMatchObject({ corner: false, waiting: false, "match-card": false, "club-footer": false, "share-image": false });
+    await expect(registry.setSurfaces({ notification: true })).rejects.toMatchObject({ status: 400 });
+    // Phase 1's and phase 2's surfaces can be switched on, and start off.
+    expect((await registry.readAll()).surfaces).toMatchObject({
+      corner: false, waiting: false, "match-card": false, "club-footer": false, "share-image": false, "shared-clip": false, mvp: false,
+    });
+    expect((await registry.setSurfaces({ "shared-clip": true, mvp: true }))).toMatchObject({ "shared-clip": true, mvp: true });
     expect((await registry.setSurfaces({ corner: true })).corner).toBe(true);
     await expect(registry.setSurfaces({ timeout: true })).rejects.toMatchObject({ status: 400, message: "Okänd sponsoryta." });
     await expect(registry.setSurfaces({ start: "on" })).rejects.toMatchObject({ status: 400 });
     // Switching one off that is off already is fine.
-    await expect(registry.setSurfaces({ mvp: false })).resolves.toMatchObject({ mvp: false });
+    await expect(registry.setSurfaces({ notification: false })).resolves.toMatchObject({ notification: false });
   });
 
   it("sets and clears the season start", async () => {

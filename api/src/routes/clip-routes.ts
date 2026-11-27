@@ -1,9 +1,23 @@
 /**
  * Highlight clip routes: create and list clips from live streams.
+ *
+ * A shared clip (/c/:id, clip.html) shows the sponsor of the surface
+ * "shared-clip" for its match's team (#158–#161): a logo in the corner and a
+ * line under the title, on the page only, never in the file, and in the link
+ * preview. Never a sponsor clip before it. Guest clips (guest-routes.ts) live
+ * apart and never get a sponsor.
  */
+import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { requireAdminAuth, requireApiKey, requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
-import { streamMeta, collectors, clipsByStream, minio, guestSpaces } from "../state.js";
+import { streamMeta, collectors, clipsByStream, minio, guestSpaces, sponsors, sponsorStats } from "../state.js";
+import { sponsorsForContext, type SponsorContext } from "../own-team.js";
+import { publicSponsorOf } from "../sponsor-surfaces.js";
+import type { Sponsor } from "../sponsors.js";
+import { isValidViewerId } from "../viewer-tracking.js";
+import { ClipShareImages } from "../share-image.js";
+import { statsMatchOf } from "./sponsor-routes.js";
+import type { HighlightClip } from "../types.js";
 import { createClip, createGuestClip } from "../clip-service.js";
 import type { GuestMatchInfo } from "../guest-spaces.js";
 import { convertSegmentsToMp4, extractThumbnail } from "../mp4-converter.js";
@@ -16,7 +30,52 @@ import { deleteClip, logDeletion } from "../erasure.js";
 const lastClipTime = new Map<string, number>();
 const MIN_CLIP_INTERVAL_MS = 5_000; // 5 seconds between clips per stream
 
-export default async function clipRoutes(app: FastifyInstance): Promise<void> {
+/** Most "seen" a shared clip's sponsor gets counted, per clip, while the process runs (#160). */
+export const MAX_SEEN_PER_CLIP = 5_000;
+
+/** The clip's stream while it is held, else its recording: a clip's stream id is its recording's id too. */
+function clipContext(clip: HighlightClip): SponsorContext {
+  return streamMeta.has(clip.streamId) ? { streamId: clip.streamId } : { vodId: clip.streamId };
+}
+
+/** Who has "shared-clip" for the clip's team, or null. A lookup that fails is no sponsor. */
+async function sharedClipSponsor(clip: HighlightClip): Promise<Sponsor | null> {
+  try {
+    return (await sponsorsForContext(clipContext(clip), "shared-clip"))[0]?.sponsor ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Rate-limit the seen reports per viewer, as /api/sponsors/events does. */
+function seenKey(request: FastifyRequest): string {
+  const id = (request.body as { viewerId?: unknown } | undefined)?.viewerId;
+  if (!isValidViewerId(id)) return `ip:${request.ip}`;
+  return `v:${crypto.createHash("sha256").update(id).digest("hex").slice(0, 16)}`;
+}
+
+export default async function clipRoutes(app: FastifyInstance, opts: { maxSeenPerClip?: number } = {}): Promise<void> {
+  /** Seen reports counted per clip (#160): a public route must not let one clip count for ever. */
+  const seenPerClip = new Map<string, number>();
+  const maxSeenPerClip = opts.maxSeenPerClip ?? MAX_SEEN_PER_CLIP;
+
+  // The link preview with the sponsor's logo (#161), cached per clip.
+  const previews = new ClipShareImages(async (clipId) => {
+    const clip = (await minio.readClipsIndex()).find((c) => c.id === clipId);
+    if (!clip) throw new Error("clip_not_found");
+    return minio.downloadBuffer(minio.clipThumbnailKey(clip.streamId, clip.id));
+  });
+  /** What the preview of a clip with a thumbnail shows now. */
+  const previewOf = async (clip: HighlightClip & { thumbnailUrl: string }) => {
+    const sponsor = await sharedClipSponsor(clip);
+    const { id, updatedAt, logoType } = sponsor ?? {};
+    return {
+      clipId: clip.id,
+      thumbnailUrl: clip.thumbnailUrl,
+      sponsor: id && logoType ? { version: `${id}:${updatedAt}`, load: () => sponsors.logo(id) } : null,
+    };
+  };
+
   // POST /api/streams/:id/clip — Create a highlight clip (admin only)
   // { team: "opponent" } puts the clip in the match's guest space (#50) instead
   // of the club's clips. Without it, as before: an older camera app never sends it.
@@ -189,13 +248,69 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
         }
         // No MP4: the shared page plays the clip, it does not hand out a download.
         const { mp4Url: _download, ...shared } = clip;
-        return reply.send(shared);
+        // The sponsor only when there is one: without, the answer is as before.
+        const sponsor = await sharedClipSponsor(clip);
+        return reply.send({ ...shared, ...(sponsor && { sponsor: publicSponsorOf(sponsor) }) });
       } catch (err) {
         request.log.error(err, "Failed to read clip");
         return reply.code(500).send({ error: "read_failed", message: "Kunde inte läsa klipp" });
       }
     },
   );
+
+  // POST /api/clips/:id/sponsor-seen — the clip page played 3 s with the
+  // sponsor's logo on it (#160). Public like the page. The surface is always
+  // "shared-clip" and the sponsor the one the clip has now, whatever the body
+  // says; the counts go on the clip's match. The viewer's id comes in the
+  // body and is never logged or answered with. Each clip has a cap.
+  app.post<{ Params: { id: string }; Body: Record<string, unknown> | undefined }>(
+    "/api/clips/:id/sponsor-seen",
+    {
+      bodyLimit: 1024,
+      config: { rateLimit: { max: 60, timeWindow: "1 minute", hook: "preHandler", keyGenerator: seenKey } },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      if (!/^[A-Za-z0-9_-]+$/.test(id)) return reply.code(400).send({ error: "invalid_id" });
+      const viewerId = request.body?.viewerId;
+      if (!isValidViewerId(viewerId)) return reply.code(400).send({ error: "invalid_viewer" });
+
+      const clip = (await minio.readClipsIndex()).find((c) => c.id === id);
+      if (!clip) return reply.code(404).send({ error: "clip_not_found" });
+      const sponsor = await sharedClipSponsor(clip);
+      if (!sponsor) return reply.code(404).send({ error: "no_sponsor" });
+      const info = await statsMatchOf(clipContext(clip));
+      if (!info) return reply.code(404).send({ error: "unknown_match" });
+
+      // The same answer whether it was counted or the cap was reached: nothing to learn from it.
+      const counted = seenPerClip.get(clip.id) ?? 0;
+      if (counted >= maxSeenPerClip) return reply.code(204).send();
+      // A shared clip is watched after the fact, so it counts as a replay.
+      const result = sponsorStats.record(info, { viewerId, sponsorId: sponsor.id, surface: "shared-clip", kind: "seen", mode: "replay" });
+      if (result === "counted") seenPerClip.set(clip.id, counted + 1);
+      return reply.code(204).send();
+    },
+  );
+
+  // GET /api/clips/:id/share.jpg — the link preview's picture (#161): the
+  // thumbnail with the sponsor's logo in the corner. Public, like the
+  // thumbnail itself. Without a sponsor, the thumbnail as it is.
+  app.get<{ Params: { id: string }; Querystring: { v?: string } }>("/api/clips/:id/share.jpg", async (request, reply) => {
+    const { id } = request.params;
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) return reply.code(400).send({ error: "invalid_id" });
+    const clip = (await minio.readClipsIndex()).find((c) => c.id === id);
+    if (!clip?.thumbnailUrl) return reply.code(404).send({ error: "clip_not_found" });
+    try {
+      const { version, jpg } = await previews.image(await previewOf({ ...clip, thumbnailUrl: clip.thumbnailUrl }));
+      return reply
+        .type("image/jpeg")
+        .header("Cache-Control", version && request.query.v === version ? "public, max-age=31536000, immutable" : "public, max-age=300")
+        .send(jpg);
+    } catch (err) {
+      request.log.error(err, "Could not make a clip's preview");
+      return reply.code(404).send({ error: "no_preview" });
+    }
+  });
 
   // GET /api/clips/:id/og — Open Graph HTML for WhatsApp/social media link previews.
   // Also at /c/:id, the link the share buttons hand out: the website is served
@@ -240,6 +355,14 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
         ? `Höjdpunkt från ${matchTitle} — ${clubName}`
         : `Höjdpunkt från matchen — ${clubName}`;
 
+      // With a sponsor on shared clips, the thumbnail with its logo (#161);
+      // the version changes with the logo. Otherwise the thumbnail as before.
+      let image = absolute(clip.thumbnailUrl) || absoluteLogoUrl() || "";
+      if (clip.thumbnailUrl) {
+        const version = previews.version(await previewOf({ ...clip, thumbnailUrl: clip.thumbnailUrl }));
+        if (version) image = absolute(`/api/clips/${encodeURIComponent(clip.id)}/share.jpg?v=${version}`);
+      }
+
       // Detect bot crawlers (WhatsApp, Facebook, Telegram, etc.)
       const ua = (request.headers["user-agent"] || "").toLowerCase();
       const isBot = /whatsapp|facebookexternalhit|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|bot|crawler|spider/i.test(ua);
@@ -258,7 +381,7 @@ export default async function clipRoutes(app: FastifyInstance): Promise<void> {
 <meta property="og:type" content="website">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${description}">
-<meta property="og:image" content="${absolute(clip.thumbnailUrl) || absoluteLogoUrl() || ""}">
+<meta property="og:image" content="${image}">
 ${redirectTag}
 <title>${title}</title>
 </head>

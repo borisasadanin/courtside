@@ -45,8 +45,8 @@ export const SURFACES = [
   { id: "match-card", kind: "logo", exclusive: true, available: true, label: "Matchkortet", holder: "sponsor på matchkortet" },
   { id: "club-footer", kind: "logo", exclusive: false, available: true, label: "Klubbsidans sidfot", holder: "sponsor i sidfoten" },
   { id: "share-image", kind: "logo", exclusive: true, available: true, label: "Delningsbilden", holder: "sponsor på delningsbilden" },
-  { id: "shared-clip", kind: "logo", exclusive: true, available: false, label: "Delade klipp", holder: "sponsor på delade klipp" },
-  { id: "mvp", kind: "logo", exclusive: true, available: false, label: "Matchens MVP", holder: "sponsor för MVP" },
+  { id: "shared-clip", kind: "logo", exclusive: true, available: true, label: "Delade klipp", holder: "sponsor på delade klipp" },
+  { id: "mvp", kind: "logo", exclusive: true, available: true, label: "Matchens MVP", holder: "sponsor för MVP" },
   { id: "notification", kind: "logo", exclusive: true, available: false, label: "Avisering om matchstart", holder: "sponsor på aviseringen" },
 ] as const satisfies readonly SurfaceDef[];
 
@@ -122,6 +122,29 @@ export function sponsorsFor(s: SponsorSettings, teamId: string | null, surface: 
   );
   const out = picks.map(({ sponsor, clips }) => ({ sponsor, clips }));
   return def.exclusive ? out.slice(0, 1) : out;
+}
+
+/** The logo's address. The version makes browsers fetch a replaced logo at once. */
+export function sponsorLogoUrl(sponsor: Sponsor): string | undefined {
+  return sponsor.logoType ? `/api/sponsor-logos/${sponsor.id}?v=${encodeURIComponent(sponsor.updatedAt)}` : undefined;
+}
+
+/** A sponsor on a logo surface as anyone may see it: name, logo and link. Never its package, teams or what is off. */
+export interface PublicSponsor {
+  id: string;
+  name: string;
+  logoUrl?: string;
+  url?: string;
+}
+
+export function publicSponsorOf(sponsor: Sponsor): PublicSponsor {
+  const logoUrl = sponsorLogoUrl(sponsor);
+  return {
+    id: sponsor.id,
+    name: sponsor.name,
+    ...(logoUrl && { logoUrl }),
+    ...(sponsor.url && { url: sponsor.url }),
+  };
 }
 
 /** Two or more active sponsors that have the same exclusive surface for the same team, or for the club. */
