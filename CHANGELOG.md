@@ -18,6 +18,17 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.9.0 — 2026-11-27
+
+- **Sponsorer i stället för lösa klipp.** Under Hantera → Sponsring finns nu ett kort per sponsor med namn,
+  logga, länk, paket (Platinum, Guld eller Silver) och vilka lag sponsorn gäller. Klippen ligger under sin
+  sponsor och kan flyttas mellan sponsorer (#123–#134).
+- **Befintliga klipp flyttas över av sig själva.** Varje klipp blir en egen sponsor med klippets namn, i
+  paketet Guld. Klippen spelas som förut, och bannern visar sponsorns namn (#123, #130).
+- **Ytor.** Klubben slår på och av var sponsorerna syns. I den här versionen finns bara sponsorklippen;
+  loggorna kommer i nästa versioner och är avstängda tills klubben slår på dem (#134).
+- Tittarna ser ingen skillnad.
+
 ## v0.8.2 — 2026-11-25
 
 - **SLUT i stället för AVBRUTEN.** En match som avslutas i kameraappen står nu som "SLUT" på Live-sidan.
