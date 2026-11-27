@@ -18,6 +18,15 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.11.0 — 2026-11-27
+
+- **Sponsor på delade klipp.** När ytan "Delade klipp" är påslagen visar ett delat klipp sponsorns logga och "Klippet
+  presenteras av …". Förhandsbilden i WhatsApp och iMessage får också loggan. Själva filmen ändras inte, och
+  motståndarlagets klipp får aldrig någon sponsor (#158–#161).
+- **Matchens MVP.** Efter matchen väljer ni ett klipp och ett tröjnummer under Hantera → Matcher. I Repriser och på
+  klippet står "Matchens MVP: #12, presenteras av …". Bara tröjnummer, aldrig namn (#162–#164).
+- Båda är avstängda tills ni slår på dem under Hantera → Sponsring → Ytor.
+
 ## v0.10.1 — 2026-11-27
 
 - **Förhandsbild för matchlänkar på riktigt.** Bilden som syns när en matchlänk delas i WhatsApp eller iMessage gick
