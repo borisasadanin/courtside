@@ -18,6 +18,16 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.9.1 — 2026-11-27
+
+- **Sponsorrapport.** Under Hantera → Sponsring → Rapport väljer ni sponsor och säsong. Där ser ni hur många som sett
+  sponsorns klipp per match, hur många som såg dem klart och hur många som hade ljud på. Rapporten kan skrivas ut eller
+  sparas som PDF och lämnas till sponsorn (#138–#142).
+- **Bara antal sparas.** Vilka tittare det var sparas aldrig, bara hur många (#139, #143).
+- **Säsongen** börjar 1 augusti och kan ändras på rapportsidan (#141).
+- **Inga startklipp efter en paus.** En tittare som kom in efter starten fick startklippen när matchen återupptogs
+  efter en periodpaus. Nu spelas de bara när matchen faktiskt startar (#189).
+
 ## v0.9.0 — 2026-11-27
 
 - **Sponsorer i stället för lösa klipp.** Under Hantera → Sponsring finns nu ett kort per sponsor med namn,
