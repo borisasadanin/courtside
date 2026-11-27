@@ -18,6 +18,17 @@ from that. Recordings and settings stay in the club's storage and are not touche
 
 From the moment the tag is pushed, new platforms get it (within five minutes).
 
+## v0.12.0 — 2026-11-27
+
+- **Sponsorklipp i repriser.** Klippen som visas live visas nu också i reprisen, på samma platser:
+  - vid start, när reprisen spelas från början,
+  - i periodpauserna, när uppspelningen når dem (inte om man spolar förbi),
+  - vid slutet.
+
+  Klippen hämtas från dagens inställningar, så ett utbytt klipp syns direkt. Timeouter visar inga klipp (#167–#170).
+- **"Hoppa över" efter 3 sekunder** i reprisen. Live går klippen fortfarande inte att hoppa över (#167).
+- Inspelningen ändras inte. Ändringen gäller #87:s tidigare regel att klippen bara visas live.
+
 ## v0.11.0 — 2026-11-27
 
 - **Sponsor på delade klipp.** När ytan "Delade klipp" är påslagen visar ett delat klipp sponsorns logga och "Klippet
