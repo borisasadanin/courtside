@@ -10,9 +10,9 @@
 import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { requireAdminAuth, requireApiKey, requireBroadcasterAuth, requireViewerAuth } from "../auth.js";
-import { streamMeta, collectors, clipsByStream, minio, guestSpaces, sponsors, sponsorStats } from "../state.js";
+import { streamMeta, collectors, clipsByStream, minio, guestSpaces, matches, sponsors, sponsorStats } from "../state.js";
 import { sponsorsForContext, type SponsorContext } from "../own-team.js";
-import { publicSponsorOf } from "../sponsor-surfaces.js";
+import { publicSponsorOf, type PublicSponsor } from "../sponsor-surfaces.js";
 import type { Sponsor } from "../sponsors.js";
 import { isValidViewerId } from "../viewer-tracking.js";
 import { ClipShareImages } from "../share-image.js";
@@ -38,10 +38,30 @@ function clipContext(clip: HighlightClip): SponsorContext {
   return streamMeta.has(clip.streamId) ? { streamId: clip.streamId } : { vodId: clip.streamId };
 }
 
+/** The match a clip was made in: from its stream while that is held, else from its recording. */
+async function clipMatchId(clip: HighlightClip): Promise<string | undefined> {
+  const live = streamMeta.get(clip.streamId)?.matchId;
+  if (live) return live;
+  return (await minio.readVodIndex().catch(() => [])).find((v) => v.id === clip.streamId)?.matchId;
+}
+
 /** Who has "shared-clip" for the clip's team, or null. A lookup that fails is no sponsor. */
 async function sharedClipSponsor(clip: HighlightClip): Promise<Sponsor | null> {
   try {
     return (await sponsorsForContext(clipContext(clip), "shared-clip"))[0]?.sponsor ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The match's MVP when this clip is it (#164): the jersey, and the sponsor of "mvp" when there is one. */
+async function clipMvp(clip: HighlightClip): Promise<{ jersey: string; sponsor?: PublicSponsor } | null> {
+  try {
+    const matchId = await clipMatchId(clip);
+    const match = matchId ? await matches.get(matchId) : null;
+    if (!match?.mvp || match.mvp.clipId !== clip.id) return null;
+    const sponsor = (await sponsorsForContext({ matchId: match.id }, "mvp"))[0]?.sponsor;
+    return { jersey: match.mvp.jersey, ...(sponsor && { sponsor: publicSponsorOf(sponsor) }) };
   } catch {
     return null;
   }
@@ -248,9 +268,13 @@ export default async function clipRoutes(app: FastifyInstance, opts: { maxSeenPe
         }
         // No MP4: the shared page plays the clip, it does not hand out a download.
         const { mp4Url: _download, ...shared } = clip;
-        // The sponsor only when there is one: without, the answer is as before.
-        const sponsor = await sharedClipSponsor(clip);
-        return reply.send({ ...shared, ...(sponsor && { sponsor: publicSponsorOf(sponsor) }) });
+        // The sponsor and the MVP only when there are any: without, the answer is as before.
+        const [sponsor, mvp] = await Promise.all([sharedClipSponsor(clip), clipMvp(clip)]);
+        return reply.send({
+          ...shared,
+          ...(sponsor && { sponsor: publicSponsorOf(sponsor) }),
+          ...(mvp && { mvp }),
+        });
       } catch (err) {
         request.log.error(err, "Failed to read clip");
         return reply.code(500).send({ error: "read_failed", message: "Kunde inte läsa klipp" });

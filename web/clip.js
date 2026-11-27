@@ -47,6 +47,8 @@ function showClip(clip) {
   // The sponsor of shared clips (#159): only when the club has one, and only
   // on the page. No sponsor clip plays before the clip.
   if (clip.sponsor) showSponsor(clip.sponsor);
+  // The match's MVP when this is its clip (#164): a number, never a name.
+  if (clip.mvp) showMvp(clip.mvp);
   document.title = `${label} — ${club.name}`;
 
   // Replace browser URL with /c/ format so copy-paste from address bar gives the OG-enabled URL
@@ -103,6 +105,18 @@ function showSponsor(sponsor) {
   corner.append(img);
   video.parentElement.style.position = "relative";
   video.after(corner);
+}
+
+/** "Matchens MVP: #12, presenteras av …", or just the number without a sponsor. */
+function showMvp(mvp) {
+  const line = document.createElement("div");
+  line.className = "clip-page-sponsor clip-page-mvp";
+  const num = document.createElement("strong");
+  num.textContent = `#${mvp.jersey}`;
+  line.append("Matchens MVP: ", num);
+  if (mvp.sponsor) line.append(", presenteras av ", sponsorName(mvp.sponsor));
+  const after = document.querySelector(".clip-page-info .clip-page-sponsor") || document.getElementById("clipLabel");
+  after.after(line);
 }
 
 /** The sponsor's name, linked to its site when it has one. */

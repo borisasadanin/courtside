@@ -158,3 +158,17 @@ describe("the MVP's sponsor (#162, #164)", () => {
   });
 });
 
+describe("the MVP on the clip's page (#164)", () => {
+  it("is there for the MVP's clip only, with the sponsor when the surface is on", async () => {
+    await put(match.id, { clipId: "clip0001", jersey: "7" });
+    expect((await app.inject({ url: "/api/clips/clip0001/public" })).json().mvp).toEqual({ jersey: "7" });
+    expect((await app.inject({ url: "/api/clips/clip0002/public" })).json()).not.toHaveProperty("mvp");
+
+    await sponsors.createSponsor({ name: "ICA", packageId: "platinum" });
+    await sponsors.setSurfaces({ mvp: true });
+    expect((await app.inject({ url: "/api/clips/clip0001/public" })).json().mvp).toMatchObject({ jersey: "7", sponsor: { name: "ICA" } });
+
+    await app.inject({ method: "DELETE", url: `/api/admin/matches/${match.id}/mvp`, headers: admin() });
+    expect((await app.inject({ url: "/api/clips/clip0001/public" })).json()).not.toHaveProperty("mvp");
+  });
+});

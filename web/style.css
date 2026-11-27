@@ -3755,6 +3755,35 @@ footer a:hover { color: var(--accent-ink); }
 .guest-admin-video { width: 100%; margin-top: 8px; border-radius: 10px; background: #000; }
 .match-guest-link { align-self: flex-start; padding: 0; margin-top: 2px; }
 
+/* #164: "Matchens MVP: #12, presenteras av …" next to a match's highlights. */
+.match-mvp-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 14px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.match-mvp-line strong { color: var(--text); }
+.match-mvp-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 10px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.match-mvp-play:hover { background: var(--surface-hover); }
+.match-mvp-play:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.match-mvp-line + .match-highlights { margin-top: 10px; }
+
 /* #163: the match's MVP, chosen by a clip's thumbnail and a jersey number. */
 .match-mvp-clips {
   display: grid;
