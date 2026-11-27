@@ -391,6 +391,28 @@ describe("sponsorship routes", () => {
       expect((await app.inject({ url: "/api/sponsors/teams?surface=corner", headers: viewer() })).json().club).toBeNull(); // off
     });
 
+    it("gives the footer the club's sponsors to anyone, never a team's (#152)", async () => {
+      const footer = async () => (await app.inject({ url: "/api/sponsors/club" })).json();
+      expect(await footer()).toEqual({ sponsors: [] });
+
+      const silver = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Pizzerian", packageId: "silver", url: "https://pizza.se" })).json().sponsor;
+      const gold = (await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Bilfirman", packageId: "gold" })).json().sponsor;
+      await inject("POST", "/api/admin/sponsorship/sponsors", { name: "P12:s", packageId: "platinum", teamIds: [p12] });
+      await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Vilande", packageId: "silver", active: false });
+      // Off until switched on.
+      expect(await footer()).toEqual({ sponsors: [] });
+
+      await inject("PATCH", "/api/admin/sponsorship/surfaces", { "club-footer": true });
+      const res = await app.inject({ url: "/api/sponsors/club" });
+      expect(res.statusCode).toBe(200);
+      // Guld before Silver, by the packages' order.
+      expect(res.json()).toEqual({
+        sponsors: [{ id: gold.id, name: "Bilfirman" }, { id: silver.id, name: "Pizzerian", url: "https://pizza.se/" }],
+      });
+      expect(res.body).not.toContain("P12:s");
+      expect(res.body).not.toContain("Vilande");
+    });
+
     it("leaves out surfaces switched off", async () => {
       await readyClip("K", undefined, ["start", "end"]);
       await inject("PATCH", "/api/admin/sponsorship/surfaces", { start: false });

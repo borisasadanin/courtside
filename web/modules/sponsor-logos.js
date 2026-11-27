@@ -2,6 +2,7 @@
 //
 //   - the waiting screen before an announced match: "Sändningen stöds av" (#149)
 //   - "Med stöd av" on the match cards, live, coming and played (#151)
+//   - the club's sponsors in the footer, before and after the PIN (#152)
 //
 // Every surface is off until the club switches it on. Off, or with no one to
 // show, nothing is added to the page at all: it looks as it did before.
@@ -177,4 +178,62 @@ export function cardSponsorLine(team, { inline = false } = {}) {
   if (mark.tagName === "A") mark.addEventListener("click", (e) => e.stopPropagation());
   line.append(lead, mark);
   return line;
+}
+
+// ============================
+// The footer (#152)
+// ============================
+
+let footerShown = "";
+let footerFetchedAt = 0;
+
+/**
+ * The club's sponsors in the footer: only the whole club's, only with the
+ * surface club-footer on. Public, so it shows on the PIN page too. Asked
+ * when the page opens and again when it is looked at after a while.
+ */
+export function initClubFooter() {
+  loadClubFooter();
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && Date.now() - footerFetchedAt > 5 * FRESH_MS) loadClubFooter();
+  });
+}
+
+async function loadClubFooter() {
+  footerFetchedAt = Date.now();
+  let list = [];
+  try {
+    const res = await fetch(`${CONFIG.API_URL}/api/sponsors/club`);
+    if (!res.ok) return;
+    const body = await res.json();
+    list = Array.isArray(body?.sponsors) ? body.sponsors : [];
+  } catch {
+    return; // Keep what is there
+  }
+  drawFooter(list);
+}
+
+function drawFooter(list) {
+  const key = sponsorsKey(list);
+  if (key === footerShown) return;
+  footerShown = key;
+  const footer = document.querySelector("body > footer");
+  footer?.querySelector(".footer-sponsors")?.remove();
+  if (!footer || list.length === 0) return;
+
+  const box = document.createElement("section");
+  box.className = "footer-sponsors";
+  box.setAttribute("aria-label", "Klubbens sponsorer");
+  const title = document.createElement("p");
+  title.className = "footer-sponsors-title";
+  title.textContent = "Klubbens sponsorer";
+  const items = document.createElement("ul");
+  items.className = "footer-sponsors-list";
+  for (const sponsor of list) {
+    const li = document.createElement("li");
+    li.append(sponsorMark(sponsor, { className: "sponsor-mark footer-sponsor-mark" }));
+    items.append(li);
+  }
+  box.append(title, items);
+  footer.prepend(box);
 }

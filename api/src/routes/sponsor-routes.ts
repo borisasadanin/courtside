@@ -34,7 +34,8 @@
  *   GET    /api/sponsors/:id/:file          a clip's playlist, segments and thumbnail
  *   POST   /api/sponsors/events             a clip started, ended or played with sound (#138)
  *
- * Public, like the teams' logos: GET /api/sponsor-logos/:id?v=…
+ * Public, like the teams' logos: GET /api/sponsor-logos/:id?v=…, and
+ * GET /api/sponsors/club, the club's sponsors in the site's footer (#152).
  *
  * The file itself never passes through the API: the proxy in front of it
  * refuses bodies over 64 MiB, so the browser uploads straight to storage.
@@ -563,6 +564,15 @@ export default async function sponsorRoutes(app: FastifyInstance): Promise<void>
       return reply.code(204).send();
     },
   );
+
+  // #152: the footer is on every page, the PIN page too, so this is public.
+  // Only the surface club-footer and only sponsors of the whole club: a
+  // team's sponsor is shown with the team's matches, not on the club's page.
+  app.get("/api/sponsors/club", async (_request, reply) => {
+    const settings = await sponsors.readAll();
+    const list = sponsorsFor(settings, null, "club-footer").map((p) => publicSponsor(p, "logo"));
+    return reply.header("Cache-Control", "no-cache").send({ sponsors: list });
+  });
 
   // #128: public like the teams' logos, so a shared image can show it to anyone.
   // The URL carries a version, so it can be cached hard.
