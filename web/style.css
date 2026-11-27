@@ -4094,3 +4094,72 @@ footer a:hover { color: var(--accent-ink); }
   margin: 0; padding: 10px 14px; border-radius: 12px;
   background: rgba(231, 76, 60, 0.12); border: 1px solid rgba(231, 76, 60, 0.4); color: var(--text); font-size: 0.9rem;
 }
+
+/* === Sponsors as cards (#121, phase 0) === */
+.sponsor-section {
+  margin: 16px 0; padding: 16px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+}
+.sponsor-section .privacy-admin-intro { margin: 6px 0 12px; }
+.sponsor-section .sponsor-scroll { border-radius: 12px; }
+.sponsor-switches { display: flex; flex-direction: column; }
+.sponsor-switch {
+  display: flex; align-items: center; gap: 12px; min-height: 48px;
+  border-top: 1px solid var(--line); cursor: pointer;
+}
+.sponsor-switch:first-child { border-top: none; }
+.sponsor-switch input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); cursor: pointer; }
+.sponsor-switch-text { flex: 1; }
+.sponsor-switch-state { font-size: 0.85rem; color: var(--text-muted); }
+.sponsor-switch input:checked ~ .sponsor-switch-state { color: var(--accent-ink); font-weight: 600; }
+
+.sponsor-cards { display: flex; flex-direction: column; gap: 12px; }
+.sponsor-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+}
+.sponsor-card.sponsor-dragging { position: relative; z-index: 2; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+.sponsor-card-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 4px; }
+.sponsor-logo {
+  flex: none; width: 48px; height: 48px; border-radius: 10px; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #fff;
+}
+.sponsor-logo img { width: 100%; height: 100%; object-fit: contain; }
+.sponsor-logo-initials { background: var(--accent-soft); color: var(--accent-ink); font-weight: 700; letter-spacing: 0.04em; }
+.sponsor-logo-lg { width: 72px; height: 72px; font-size: 1.3rem; }
+.sponsor-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sponsor-card-name { font-weight: 700; overflow-wrap: anywhere; }
+.sponsor-card-meta { font-size: 0.85rem; color: var(--text-muted); }
+.sponsor-warn-text { color: var(--accent-ink); font-weight: 600; }
+.sponsor-inactive .sponsor-card-name, .sponsor-inactive .sponsor-logo { opacity: 0.6; }
+.sponsor-card-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.sponsor-step {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 10px;
+  background: none; color: var(--text); cursor: pointer;
+}
+.sponsor-step:disabled { opacity: 0.35; cursor: default; }
+.sponsor-step:focus-visible { outline: 2px solid var(--accent); }
+.sponsor-edit { padding: 16px; border-top: 1px solid var(--line); background: var(--bg); }
+.sponsor-card-clips { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-top: 1px solid var(--line); }
+.sponsor-card-clips .sponsor-scroll { border-radius: 12px; }
+.sponsor-card-upload { align-self: flex-start; }
+.sponsor-card-empty { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
+.sponsor-fieldset { border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.sponsor-legend { padding: 0; margin-bottom: 6px; font-size: 0.85rem; color: var(--text-muted); }
+.sponsor-team-list { display: flex; flex-direction: column; gap: 10px; padding-left: 28px; }
+.sponsor-surface-boxes { display: flex; flex-direction: column; gap: 10px; }
+.sponsor-off-note { font-size: 0.8rem; color: var(--accent-ink); }
+.sponsor-select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 14px; font-family: inherit; font-size: 1rem; min-height: 46px; min-width: 0;
+}
+.sponsor-rename .sponsor-select { flex: 1; }
+.sponsor-remove { margin-top: 4px; }
+
+@media (max-width: 480px) {
+  .sponsor-card-head { flex-wrap: wrap; padding-right: 8px; }
+  .sponsor-card-text { flex-basis: calc(100% - 110px); }
+  .sponsor-card-actions { width: 100%; justify-content: flex-end; }
+  .sponsor-card-actions .device-revoke { flex: 1; }
+}

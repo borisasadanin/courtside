@@ -343,10 +343,11 @@
         <button class="back-btn" type="button" data-admin-back><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Hantera</button>
         <div class="admin-section-head">
           <h2 class="admin-page-title">Sponsring</h2>
-          <button class="admin-pair-btn" id="adminSponsorUpload" type="button">Ladda upp klipp</button>
+          <button class="admin-pair-btn" id="adminSponsorAdd" type="button">Lägg till sponsor</button>
           <input type="file" id="adminSponsorFile" class="visually-hidden-file" accept="video/*" multiple tabindex="-1" aria-hidden="true">
         </div>
-        <p class="privacy-admin-intro">Klippen visas för den som tittar live när matchen startar, i periodpauserna, vid övertid och när matchen är slut. Tittarna ser dem till slut, under texten <q>Laget som sänder är sponsrat av:</q>. Repriserna visar inga klipp. Bocka i var varje klipp ska visas och dra i raderna för att ändra ordningen. Tryck på ett klipp för att förhandsvisa det, byta namn eller ta bort det.</p>
+        <p class="privacy-admin-intro">Varje sponsor har ett paket och gäller hela klubben eller vissa lag. Klippen visas för den som tittar live vid start, i pauserna, vid övertid och vid slutet. Repriserna visar inga klipp. Bocka i var varje klipp ska visas och ändra ordningen med pilarna eller genom att dra. Tryck på ett klipp för att förhandsvisa, byta namn, flytta eller ta bort det.</p>
+        <div class="admin-pair-panel team-add-panel hidden" id="adminSponsorAddPanel"></div>
         <div class="sponsor-uploads" id="adminSponsorUploads"></div>
         <div id="adminSponsors"></div>
       </div>
