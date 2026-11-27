@@ -22,6 +22,7 @@ import { deactivateAdmin } from "./admin.js";
 import {
   addSponsorForm,
   bindSortable,
+  conflictNotice,
   isDragging,
   sponsorCard,
   surfaceSection,
@@ -342,6 +343,8 @@ function draw() {
     empty.textContent = "Inga sponsorer ännu. Lägg till en sponsor och ladda sedan upp dess klipp, till exempel en reklamfilm som MP4 eller MOV från telefonen.";
     parts.push(empty);
   } else {
+    const notice = conflictNotice(ctx);
+    if (notice) parts.push(notice);
     const list = document.createElement("div");
     list.className = "sponsor-cards";
     data.sponsors.forEach((x, i) => list.append(sponsorCard(x, i, ctx)));

@@ -194,9 +194,9 @@ describe("sponsorsFor (#125)", () => {
 
   it("shows nothing on a surface that is not released, even when switched on", () => {
     const s = settings([{ name: "A", packageId: "platinum" }]);
-    s.surfaces.corner = true;
-    expect(SURFACES.find((x) => x.id === "corner")?.available).toBe(false);
-    expect(names(s, null, "corner")).toEqual([]);
+    s.surfaces.mvp = true;
+    expect(SURFACES.find((x) => x.id === "mvp")?.available).toBe(false);
+    expect(names(s, null, "mvp")).toEqual([]);
     expect(names(s, null, "timeout")).toEqual([]);
   });
 
@@ -256,16 +256,18 @@ describe("sponsor registry changes (#126)", () => {
     expect((await registry.getSponsor(x.id))?.name).toBe("A");
   });
 
-  it("lets two Platinum sponsors share the club while no exclusive surface is released", async () => {
-    await registry.createSponsor({ name: "ICA", packageId: "platinum" });
+  it("counts only released exclusive surfaces as conflicts", async () => {
+    // Phase 1 released the corner, the match card and the share image; the
+    // shared clips, the MVP and the notification are still to come.
+    const released = ["corner", "match-card", "share-image"];
+    await registry.createSponsor({ name: "ICA", packageId: "platinum", off: released });
     await expect(registry.createSponsor({ name: "Coop", packageId: "platinum" })).resolves.toBeTruthy();
-    expect(exclusiveConflicts(await registry.readAll(), { onlyAvailable: true })).toEqual([]);
+    const s = await registry.readAll();
+    expect(exclusiveConflicts(s, { onlyAvailable: true })).toEqual([]);
+    expect(exclusiveConflicts(s).map((c) => c.surface)).toEqual(["shared-clip", "mvp", "notification"]);
   });
 
   it("refuses a second sponsor on an exclusive surface with 409, and writes nothing", async () => {
-    const corner = SURFACES.find((x) => x.id === "corner") as { available: boolean };
-    corner.available = true; // as when phase 1 releases the corner logo
-    try {
     const ica = await registry.createSponsor({ name: "ICA", packageId: "platinum", teamIds: ["p12"] });
     const writes = storage.uploadBuffer.mock.calls.length;
     await expect(registry.createSponsor({ name: "Coop", packageId: "platinum", teamIds: ["p12"] }))
@@ -283,9 +285,6 @@ describe("sponsor registry changes (#126)", () => {
     await expect(registry.patchSponsor(other.id, { active: true })).rejects.toMatchObject({ status: 409 });
     await registry.patchSponsor(ica.id, { off: ["corner", "match-card", "share-image", "shared-clip", "mvp", "notification"] });
     await expect(registry.patchSponsor(other.id, { active: true })).resolves.toMatchObject({ active: true });
-    } finally {
-      corner.available = false;
-    }
   });
 
   it("removes a sponsor only once it has no clips, and its logo with it", async () => {
@@ -351,11 +350,14 @@ describe("sponsor registry changes (#126)", () => {
   it("switches surfaces on and off, but not those of later phases", async () => {
     expect((await registry.setSurfaces({ p1: false })).p1).toBe(false);
     expect((await registry.readAll()).surfaces.start).toBe(true);
-    await expect(registry.setSurfaces({ corner: true })).rejects.toMatchObject({ status: 400 });
+    await expect(registry.setSurfaces({ mvp: true })).rejects.toMatchObject({ status: 400 });
+    // Phase 1's surfaces can be switched on, and start off.
+    expect((await registry.readAll()).surfaces).toMatchObject({ corner: false, waiting: false, "match-card": false, "club-footer": false, "share-image": false });
+    expect((await registry.setSurfaces({ corner: true })).corner).toBe(true);
     await expect(registry.setSurfaces({ timeout: true })).rejects.toMatchObject({ status: 400, message: "Okänd sponsoryta." });
     await expect(registry.setSurfaces({ start: "on" })).rejects.toMatchObject({ status: 400 });
     // Switching one off that is off already is fine.
-    await expect(registry.setSurfaces({ corner: false })).resolves.toMatchObject({ corner: false });
+    await expect(registry.setSurfaces({ mvp: false })).resolves.toMatchObject({ mvp: false });
   });
 
   it("sets and clears the season start", async () => {

@@ -173,7 +173,7 @@ describe("POST /api/sponsors/events (#138)", () => {
     expect((await send(event({ sponsorId: PIZZA }))).statusCode).toBe(404);
     expect((await send(event({ sponsorId: "ffffffffffff" }))).statusCode).toBe(404);
     expect((await send(event({ surface: "scoreboard" }))).statusCode).toBe(400);
-    expect((await send(event({ surface: "corner", kind: "seen" }))).statusCode).toBe(404); // not released
+    expect((await send(event({ surface: "corner", kind: "seen" }))).statusCode).toBe(404); // switched off
     expect((await send(event({ kind: "seen" }))).statusCode).toBe(400); // a clip is not "seen"
     expect((await send(event({ stream: "nope0000" }))).statusCode).toBe(404);
     expect((await send(event({ stream: undefined, match: "nope0000" }))).statusCode).toBe(404);

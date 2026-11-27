@@ -44,7 +44,7 @@ import { matches, minio, sponsors, sponsorQueue, sponsorStats, streamMeta } from
 import { defaultHomeTeam } from "../club-config.js";
 import { rewriteSegmentUris } from "../playlist-rewrite.js";
 import { ownTeamOf, sponsorsForContext, type SponsorContext } from "../own-team.js";
-import { SURFACES, sponsorsFor, surfaceDef, type SponsorPick } from "../sponsor-surfaces.js";
+import { SURFACES, exclusiveConflicts, sponsorsFor, surfaceDef, type SponsorPick } from "../sponsor-surfaces.js";
 import { STAT_KINDS, STAT_MODES, isSeason, seasonOf, type MatchInfo, type StatKind, type StatMode } from "../sponsor-stats.js";
 import { buildReport, readSeasonFiles, seasonsWithData } from "../sponsor-report.js";
 import { isValidViewerId } from "../viewer-tracking.js";
@@ -90,12 +90,29 @@ function presentSponsor(x: Sponsor, s: SponsorSettings) {
   return { ...rest, ...(url && { logoUrl: url }), clipCount: s.clips.filter((c) => c.sponsorId === x.id).length };
 }
 
+/**
+ * Exclusive surfaces two sponsors hold at once. A change can never make one
+ * (409), but a file from before a surface was released can have one: two
+ * Platinum sponsors for the whole club were fine until the corner logo came.
+ * Only the first of them is shown, and the admin is told so.
+ */
+function conflictsOf(s: SponsorSettings) {
+  return exclusiveConflicts(s, { onlyAvailable: true }).map((c) => ({
+    surface: c.surface,
+    teamId: c.teamId,
+    sponsorIds: c.sponsorIds,
+    // Who would be shown once the surface is on, whether or not it is now.
+    shownId: sponsorsFor({ ...s, surfaces: { ...s.surfaces, [c.surface]: true } }, c.teamId, c.surface)[0]?.sponsor.id ?? null,
+  }));
+}
+
 /** Everything the Sponsring tab needs, in one answer. */
 function overview(s: SponsorSettings) {
   return {
     sponsors: s.sponsors.map((x) => presentSponsor(x, s)),
     packages: s.packages,
     surfaces: SURFACES.map((d) => ({ ...d, on: s.surfaces[d.id] })),
+    conflicts: conflictsOf(s),
     clips: s.clips.map(present),
     breakSeconds: s.breakSeconds,
     seasonStart: s.seasonStart ?? null,

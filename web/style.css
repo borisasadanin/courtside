@@ -4156,6 +4156,14 @@ footer a:hover { color: var(--accent-ink); }
 }
 .sponsor-rename .sponsor-select { flex: 1; }
 .sponsor-remove { margin-top: 4px; }
+/* Two sponsors with one exclusive surface, from before it was released */
+.sponsor-conflicts {
+  margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; font-size: 0.9rem;
+  background: var(--accent-soft); border: 1px solid var(--accent-dim); color: var(--text);
+}
+.sponsor-conflicts p { margin: 0 0 6px; }
+.sponsor-conflicts ul { margin: 0; padding-left: 18px; }
+.sponsor-conflicts li { overflow-wrap: anywhere; }
 
 @media (max-width: 480px) {
   .sponsor-card-head { flex-wrap: wrap; padding-right: 8px; }

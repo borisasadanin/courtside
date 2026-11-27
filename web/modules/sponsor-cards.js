@@ -63,6 +63,31 @@ function packageSurfaces(data, packageId) {
   return data.surfaces.filter((s) => s.available && pkg?.surfaces.includes(s.id));
 }
 
+// --- Exclusive surfaces held twice (#121, phase 1) ---
+
+/**
+ * Two sponsors with the same exclusive surface, from before it was released.
+ * A change can no longer make one, so this only tells the admin who is shown.
+ * Null when there is none.
+ */
+export function conflictNotice(ctx) {
+  const conflicts = ctx.data.conflicts ?? [];
+  if (conflicts.length === 0) return null;
+  const nameOf = (id) => ctx.data.sponsors.find((x) => x.id === id)?.name ?? "En sponsor";
+  const box = document.createElement("div");
+  box.className = "sponsor-conflicts";
+  box.setAttribute("role", "status");
+  const items = conflicts.map((c) => {
+    const surface = ctx.data.surfaces.find((s) => s.id === c.surface)?.label ?? c.surface;
+    const scope = c.teamId ? (ctx.teams.find((t) => t.id === c.teamId)?.name ?? "Ett lag") : "Klubben";
+    const names = c.sponsorIds.map(nameOf);
+    const shown = c.shownId ? ` Bara ${escapeHtml(nameOf(c.shownId))} visas.` : "";
+    return `<li>${escapeHtml(scope)}: ${escapeHtml(names.join(" och "))} har båda ${escapeHtml(surface.toLowerCase())}.${shown}</li>`;
+  });
+  box.innerHTML = `<p>Vissa ytor får bara ha en sponsor per lag. Stäng av ytan för en av dem, eller byt paket.</p><ul>${items.join("")}</ul>`;
+  return box;
+}
+
 // --- Surfaces for the installation (#134) ---
 
 /** One switch per released surface. Surfaces of later phases are not shown at all. */
