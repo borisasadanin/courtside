@@ -16,6 +16,7 @@ import { playWithSound, unlockVideoSound, onMuteChangedByViewer, hideTapForSound
 import {
   fetchSponsorReel, playSponsorReel, cancelSponsorReel, isSponsorReelPlaying,
   claimTransition, transitionClaimed, sawStreamStart, noteStreamStatus,
+  forgetSponsorSurfaces,
 } from "./sponsors.js";
 import { loadReplayMarkers, setReplayFragments, fetchReplayFragments, clearReplayMarkers, initReplayMarkers } from "./replay-markers.js";
 
@@ -1294,6 +1295,8 @@ export function openPlayer(hlsUrl, name, streamId, dvrUrl) {
 
   state.isVodMode = false;
   clearReplayMarkers();
+  // A new match: its sponsors are asked for again (#146)
+  forgetSponsorSurfaces();
   // Use DVR playlist for catch-up capability; fall back to memfs live URL
   state.currentStreamUrl = dvrUrl ? `${CONFIG.API_URL}${dvrUrl}` : mediaUrl(hlsUrl);
   state.currentStreamId = streamId;
@@ -1478,6 +1481,7 @@ async function endStream(stream) {
 export function openVodPlayer(hlsUrl, title, vodId) {
   stopViewerHeartbeat();
   leaveViewerCount();
+  forgetSponsorSurfaces();
   state.isVodMode = true;
   state.currentStreamUrl = mediaUrl(hlsUrl);
   state.currentStreamId = vodId;
@@ -1510,6 +1514,7 @@ export function openVodPlayer(hlsUrl, title, vodId) {
  */
 export function closePlayer() {
   cancelSponsorReel();
+  forgetSponsorSurfaces();
   reelPending = false;
   connectAt = null;
   stopHighlightCarousel();
