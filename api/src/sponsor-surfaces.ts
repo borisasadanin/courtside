@@ -136,13 +136,14 @@ export interface SurfaceConflict {
  * Every conflict on an exclusive surface. A team's sponsor goes before the
  * club's, so a team sponsor and a club sponsor with the same surface are not
  * a conflict; two club sponsors, or two of the same team, are. Inactive
- * sponsors hold nothing. Surfaces of later phases count too, so the data is
- * clean when they are released.
+ * sponsors hold nothing. `onlyAvailable` leaves out surfaces of later phases:
+ * the admin cannot untick those yet, so they must not stop two sponsors from
+ * sharing a package. Their conflicts show once the surface is released.
  */
-export function exclusiveConflicts(s: SponsorSettings): SurfaceConflict[] {
+export function exclusiveConflicts(s: SponsorSettings, opts: { onlyAvailable?: boolean } = {}): SurfaceConflict[] {
   const out: SurfaceConflict[] = [];
   for (const def of SURFACES as readonly SurfaceDef[]) {
-    if (!def.exclusive) continue;
+    if (!def.exclusive || (opts.onlyAvailable && !def.available)) continue;
     const byScope = new Map<string | null, string[]>();
     for (const sponsor of s.sponsors) {
       if (!sponsor.active || sponsor.teamsGone || !claims(s, sponsor, def.id)) continue;

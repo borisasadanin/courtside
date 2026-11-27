@@ -327,8 +327,8 @@ function grouped(s: SponsorSettings): SponsorSettings {
 /** Conflicts in `after` that `before` did not have: a new one, or a sponsor added to one. */
 function newConflicts(before: SponsorSettings, after: SponsorSettings): SurfaceConflict[] {
   const key = (c: SurfaceConflict) => `${c.surface}|${c.teamId ?? ""}`;
-  const old = new Map(exclusiveConflicts(before).map((c) => [key(c), new Set(c.sponsorIds)]));
-  return exclusiveConflicts(after).filter((c) => {
+  const old = new Map(exclusiveConflicts(before, { onlyAvailable: true }).map((c) => [key(c), new Set(c.sponsorIds)]));
+  return exclusiveConflicts(after, { onlyAvailable: true }).filter((c) => {
     const had = old.get(key(c));
     return !had || c.sponsorIds.some((id) => !had.has(id));
   });

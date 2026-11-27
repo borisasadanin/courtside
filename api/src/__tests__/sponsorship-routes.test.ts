@@ -19,6 +19,7 @@ import { createAdminToken, createViewerToken } from "../auth.js";
 import { defaultHomeTeam } from "../club-config.js";
 import { SPONSORS_KEY, originalKey, sponsorLogoKey } from "../sponsors.js";
 import sponsorRoutes from "../routes/sponsor-routes.js";
+import { SURFACES } from "../sponsor-surfaces.js";
 import { V081_FILE, memoryStorage } from "./sponsor-fakes.js";
 
 vi.mock("@osaas/client-core", () => ({
@@ -147,8 +148,11 @@ describe("sponsorship routes", () => {
     });
 
     it("answers 409 to a second sponsor on an exclusive surface, and to removing a sponsor with clips", async () => {
+      const corner = SURFACES.find((x) => x.id === "corner") as { available: boolean };
+      corner.available = true; // as when phase 1 releases the corner logo
       await inject("POST", "/api/admin/sponsorship/sponsors", { name: "ICA", packageId: "platinum" });
       const second = await inject("POST", "/api/admin/sponsorship/sponsors", { name: "Coop", packageId: "platinum" });
+      corner.available = false;
       expect(second.statusCode).toBe(409);
       expect(second.json().error).toBe("Klubben har redan huvudsponsor: ICA.");
 

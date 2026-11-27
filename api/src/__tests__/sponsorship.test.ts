@@ -256,7 +256,16 @@ describe("sponsor registry changes (#126)", () => {
     expect((await registry.getSponsor(x.id))?.name).toBe("A");
   });
 
+  it("lets two Platinum sponsors share the club while no exclusive surface is released", async () => {
+    await registry.createSponsor({ name: "ICA", packageId: "platinum" });
+    await expect(registry.createSponsor({ name: "Coop", packageId: "platinum" })).resolves.toBeTruthy();
+    expect(exclusiveConflicts(await registry.readAll(), { onlyAvailable: true })).toEqual([]);
+  });
+
   it("refuses a second sponsor on an exclusive surface with 409, and writes nothing", async () => {
+    const corner = SURFACES.find((x) => x.id === "corner") as { available: boolean };
+    corner.available = true; // as when phase 1 releases the corner logo
+    try {
     const ica = await registry.createSponsor({ name: "ICA", packageId: "platinum", teamIds: ["p12"] });
     const writes = storage.uploadBuffer.mock.calls.length;
     await expect(registry.createSponsor({ name: "Coop", packageId: "platinum", teamIds: ["p12"] }))
@@ -274,6 +283,9 @@ describe("sponsor registry changes (#126)", () => {
     await expect(registry.patchSponsor(other.id, { active: true })).rejects.toMatchObject({ status: 409 });
     await registry.patchSponsor(ica.id, { off: ["corner", "match-card", "share-image", "shared-clip", "mvp", "notification"] });
     await expect(registry.patchSponsor(other.id, { active: true })).resolves.toMatchObject({ active: true });
+    } finally {
+      corner.available = false;
+    }
   });
 
   it("removes a sponsor only once it has no clips, and its logo with it", async () => {
