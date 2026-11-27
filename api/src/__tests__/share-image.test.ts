@@ -8,13 +8,16 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync, chmodSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initServices, matches, sponsors, teams, streamMeta } from "../state.js";
 import { sponsorLogoKey } from "../sponsors.js";
 import shareRoutes from "../routes/share-routes.js";
-import { ShareImages, fitText, formatShareDate, shareTitle, type ShareDrawing } from "../share-image.js";
+import {
+  ShareImages, checkShareFilters, fitText, formatShareDate, paintShareImage, renderShareImage, shareTitle, type ShareDrawing,
+} from "../share-image.js";
 import type { Match } from "../matches.js";
 import type { VodEntry } from "../types.js";
 
@@ -400,5 +403,115 @@ describe("text", () => {
     const long = fitText("Solna Vikings Basketbollklubb Ungdom Flickor 2012", 360, 54, 34);
     expect(long.size).toBe(34);
     expect(long.text.endsWith("…")).toBe(true);
+  });
+});
+
+describe("drawing without drawtext (#195)", () => {
+  const realFfmpeg: string = createRequire(import.meta.url)("ffmpeg-static");
+  const logo = { bytes: Buffer.from(LOGO.split(",")[1], "base64"), type: "image/png" };
+  const drawing: ShareDrawing = {
+    club: "Test Courtside",
+    accentColor: "#C8A43F",
+    date: "2026-11-08",
+    venue: "Sporthallen",
+    own: { name: "P12", shortName: "P12", color: "#2f6b3a" },
+    opponent: { name: "Hornets", shortName: "HOR", color: "#b45309", logo },
+    result: { home: 72, away: 65 },
+    sponsorLogo: logo,
+  };
+
+  let dir: string;
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), "courtside-fake-ffmpeg-"));
+  });
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  /** An ffmpeg as on the host: the real one, but with no drawtext and no "-filters" listing of it. */
+  function fakeFfmpeg(filters: string): { bin: string; calls: string } {
+    const bin = join(dir, `ffmpeg-${Math.random().toString(36).slice(2)}`);
+    const calls = `${bin}.calls`;
+    writeFileSync(calls, "");
+    writeFileSync(
+      bin,
+      `#!/bin/sh
+echo "$@" >> "${calls}"
+case "$*" in
+  *-filters*) printf 'Filters:\\n ... abench A->A Benchmark\\n${filters}' ; exit 0 ;;
+  *drawtext*) echo "[AVFilterGraph] No such filter: 'drawtext'" >&2 ; exit 1 ;;
+esac
+exec "${realFfmpeg}" "$@"
+`,
+    );
+    chmodSync(bin, 0o755);
+    return { bin, calls };
+  }
+
+  it("renders with an ffmpeg that has no drawtext, and never asks for it", async () => {
+    const ffmpeg = fakeFfmpeg(" ... format V->V\\n TSC overlay VV->V\\n ..C scale V->V\\n");
+    for (const d of [drawing, { ...drawing, result: undefined, time: "14:00", sponsorLogo: undefined, opponent: { ...drawing.opponent, logo: undefined } }]) {
+      const png = await renderShareImage(d, { ffmpeg: ffmpeg.bin });
+      expect(pngSize(png)).toEqual({ width: 1200, height: 630 });
+    }
+    const calls = readFileSync(ffmpeg.calls, "utf8");
+    expect(calls).toContain("-filter_complex");
+    expect(calls).toContain("overlay");
+    expect(calls).not.toContain("drawtext");
+    expect(calls).not.toMatch(/fontfile|\.ttf/);
+  });
+
+  it("warns when ffmpeg lacks a filter the picture needs", async () => {
+    const warn = vi.fn();
+    expect(await checkShareFilters(fakeFfmpeg(" ... format V->V\\n ..C scale V->V\\n").bin, warn)).toEqual(["overlay"]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("overlay"));
+
+    const quiet = vi.fn();
+    expect(await checkShareFilters(fakeFfmpeg(" ... format V->V\\n TSC overlay VV->V\\n ..C scale V->V\\n").bin, quiet)).toEqual([]);
+    expect(await checkShareFilters(realFfmpeg, quiet)).toEqual([]);
+    expect(quiet).not.toHaveBeenCalled();
+  });
+
+  /** Pixels in a box: how many are close to `rgb`, and how many lie partway between it and the background. */
+  function count(d: ShareDrawing, box: [number, number, number, number], rgb: number[]) {
+    const { pixels } = paintShareImage(d);
+    let full = 0;
+    let partial = 0;
+    const [x0, y0, x1, y1] = box;
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        const i = (y * pixels.width + x) * 4;
+        const dist = Math.max(...[0, 1, 2].map((k) => Math.abs(pixels.data[i + k] - rgb[k])));
+        if (dist <= 8) full++;
+        else if (dist < 200) partial++;
+      }
+    }
+    return { full, partial };
+  }
+
+  it("writes the text into the pixels, antialiased, where the layout puts it", () => {
+    const white = [255, 255, 255];
+    // The result between the badges: white, solid inside the strokes, soft at their edges.
+    const result = count(drawing, [420, 230, 780, 360], white);
+    expect(result.full).toBeGreaterThan(5000);
+    expect(result.partial).toBeGreaterThan(300);
+    // Nothing white there before a result; only the muted dash.
+    expect(count({ ...drawing, result: undefined }, [420, 230, 780, 360], white).full).toBe(0);
+    expect(count({ ...drawing, result: undefined }, [560, 280, 640, 330], [163, 163, 163]).full).toBeGreaterThan(300);
+
+    // The own team's short name in white on its badge, and its name under it.
+    expect(count(drawing, [150, 250, 330, 350], white).full).toBeGreaterThan(2000);
+    expect(count(drawing, [140, 450, 340, 500], white).full).toBeGreaterThan(800);
+    expect(count(drawing, [140, 500, 340, 540], white).full).toBe(0);
+
+    // The club in its colour at the top left, the date muted at the top right.
+    expect(count(drawing, [72, 60, 400, 95], [200, 164, 63]).full).toBeGreaterThan(500);
+    expect(count(drawing, [72, 10, 400, 55], [200, 164, 63]).full).toBe(0);
+    expect(count(drawing, [800, 60, 1128, 95], [163, 163, 163]).full).toBeGreaterThan(500);
+    // Right-aligned: nothing past the margin.
+    expect(count(drawing, [1129, 55, 1200, 100], [163, 163, 163]).full).toBe(0);
+
+    // The venue, muted, centred under the names.
+    expect(count(drawing, [480, 540, 720, 576], [163, 163, 163]).full).toBeGreaterThan(400);
   });
 });

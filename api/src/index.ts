@@ -30,6 +30,7 @@ import setupRoutes from "./routes/setup-routes.js";
 import teamRoutes from "./routes/team-routes.js";
 import matchRoutes from "./routes/match-routes.js";
 import shareRoutes from "./routes/share-routes.js";
+import { checkShareFilters } from "./share-image.js";
 import guestAdminRoutes from "./routes/guest-admin-routes.js";
 import guestRoutes from "./routes/guest-routes.js";
 import sponsorRoutes from "./routes/sponsor-routes.js";
@@ -118,6 +119,8 @@ await app.register(sponsorRoutes);
 
 const webRoot = webDistDir();
 await app.register(shareRoutes, { branding, webRoot });
+// Warns in the log if the bundled ffmpeg cannot draw the share picture (#195).
+void checkShareFilters();
 if (webRoot) {
   await app.register(webRoutes, { root: webRoot });
   console.log(`Serving the website from ${webRoot}`);
