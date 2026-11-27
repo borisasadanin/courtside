@@ -7,6 +7,8 @@ import { dom } from "./state.js";
 import { authHeaders } from "./auth.js";
 import { fetchClipsForStream } from "./highlights.js";
 import { escapeHtml, formatTime, mediaUrl } from "./utils.js";
+import { isSponsorReelPlaying } from "./sponsors.js";
+import { fileName, pauseSpans, periodBreakSpans as breakSpans } from "./replay-sponsor-rules.js";
 
 /** Clips made before ABL-046 start about this long before they were saved (CLIP_DURATION_SECONDS in the API). */
 const CLIP_SECONDS = 8;
@@ -29,7 +31,7 @@ let current = null;
 export function loadReplayMarkers(vodId) {
   clearReplayMarkers();
   const gen = generation;
-  current = { vodId, pauses: [], clips: [], frags: null, duration: 0 };
+  current = { vodId, pauses: [], pausesLoaded: false, clips: [], frags: null, duration: 0 };
 
   fetch(`${CONFIG.API_URL}/api/vod/${encodeURIComponent(vodId)}`, { headers: authHeaders() })
     .then((r) => (r.ok ? r.json() : null))
@@ -37,6 +39,8 @@ export function loadReplayMarkers(vodId) {
     .then((vod) => {
       if (gen !== generation) return;
       current.pauses = Array.isArray(vod?.pauses) ? vod.pauses : [];
+      // Without them, a timeout would count as a period break (#169)
+      current.pausesLoaded = Boolean(vod);
       render();
     });
 
@@ -94,6 +98,16 @@ export function clearReplayMarkers() {
   }
 }
 
+/**
+ * The open replay's period breaks, timeouts left out, for its sponsor clips
+ * (#169): [{ n, start, end, surface, key }]. Empty until the fragments and
+ * the recording's pause types are in.
+ */
+export function periodBreakSpans() {
+  if (!current?.frags || !current.pausesLoaded) return [];
+  return breakSpans(current.frags, current.pauses);
+}
+
 /** Fragments of an HLS media playlist with their start times. */
 function playlistFragments(text) {
   const frags = [];
@@ -116,10 +130,6 @@ function playlistFragments(text) {
   return frags;
 }
 
-function fileName(uri) {
-  return uri.split("?")[0].split("/").pop();
-}
-
 // ============================
 // Where things are in the replay
 // ============================
@@ -131,21 +141,11 @@ function fileName(uri) {
  */
 function layout() {
   const { frags, pauses, clips } = current;
-  const typeOf = new Map(pauses.map((p) => [p.n, p.type]));
-
-  const pauseSpans = new Map();
-  for (const f of frags) {
-    const m = /^pause(\d+)_/.exec(f.file);
-    if (!m) continue;
-    const span = pauseSpans.get(m[1]) ?? { n: Number(m[1]), start: f.start, end: f.start };
-    span.end = f.start + f.duration;
-    pauseSpans.set(m[1], span);
-  }
 
   const periods = [{ number: 1, start: 0 }];
   const timeouts = [];
-  for (const span of [...pauseSpans.values()].sort((a, b) => a.start - b.start)) {
-    if (typeOf.get(span.n) === "timeout") {
+  for (const span of pauseSpans(frags, pauses)) {
+    if (span.type === "timeout") {
       timeouts.push({ start: span.start });
     } else {
       // The period starts where play does, after the pause card
@@ -346,7 +346,8 @@ function seek(seconds) {
 
 export function initReplayMarkers() {
   dom.video.addEventListener("timeupdate", () => {
-    if (current) markCurrentPeriod();
+    // During sponsor clips the time is the clip's, not the replay's
+    if (current && !isSponsorReelPlaying()) markCurrentPeriod();
   });
 
   // Space and Enter belong to the focused button here, not to the player's

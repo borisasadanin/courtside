@@ -19,8 +19,11 @@ import {
   forgetSponsorSurfaces,
 } from "./sponsors.js";
 import { showCornerLogo, hideCornerLogo } from "./sponsor-corner.js";
-import { loadReplayMarkers, setReplayFragments, fetchReplayFragments, clearReplayMarkers, initReplayMarkers } from "./replay-markers.js";
-import { replayStartClipsDue } from "./replay-sponsor-rules.js";
+import {
+  loadReplayMarkers, setReplayFragments, fetchReplayFragments, clearReplayMarkers, initReplayMarkers,
+  periodBreakSpans,
+} from "./replay-markers.js";
+import { replayStartClipsDue, crossedBreak } from "./replay-sponsor-rules.js";
 
 // Callbacks injected by the orchestrator
 let onClosePlayer = null; // called when player is closed (returns to list)
@@ -1538,6 +1541,60 @@ async function playVodStartClips(s, startAt) {
 }
 
 /**
+ * Clips in the middle of the replay: a period break or its end. The replay
+ * keeps playing while they are fetched; with none, it is never interrupted.
+ * Then the clips take over the <video>, and the replay is loaded again at
+ * `resumeAt`, playing or paused as `play` says, or as it was when the clips
+ * took over. The sound choice is the viewer's for the whole visit
+ * (sound.js), so it carries over by itself.
+ */
+async function playVodReel(s, surface, key, { resumeAt, play }) {
+  s.played.add(key);
+  reelPending = true;
+  const seeks = s.seeks;
+  const reel = await fetchSponsorReel(surface, { vod: s.vodId });
+  if (!isCurrentVod(s)) return;
+  if (!reel || s.seeks !== seeks) {
+    // Nothing to show, or the viewer went elsewhere meanwhile: not reached
+    // after all, so a break can still play when playback reaches it later
+    if (reel) s.played.delete(key);
+    reelPending = false;
+    return;
+  }
+  const playing = play ?? !dom.video.paused;
+  vodLoad++;
+  destroyHls();
+  hideTapForSound();
+  await playSponsorReel(reel.clips, reel.teamName, { surface, vodId: s.vodId, skippable: true });
+  if (!isCurrentVod(s)) return;
+  reelPending = false;
+  tryConnectVod({ startAt: resumeAt, play: playing });
+}
+
+/** Playback reached a period break: its clips, then the match after the pause (#169). */
+function onVodTimeUpdate() {
+  const s = vodSponsors;
+  // During the clips the time is the clip's, not the replay's
+  if (!isCurrentVod(s) || isSponsorReelPlaying()) return;
+  const video = dom.video;
+  const to = video.currentTime;
+  const from = s.lastTime;
+  s.lastTime = video.seeking ? null : to;
+  if (from === null || reelPending) return;
+  const brk = crossedBreak(periodBreakSpans(), from, to, { seeking: video.seeking, played: s.played });
+  // After the clips, the match from where play starts again after the pause
+  if (brk) playVodReel(s, brk.surface, brk.key, { resumeAt: brk.end });
+}
+
+/** A seek is not playback: it never reaches a break (#169). */
+function onVodSeeking() {
+  const s = vodSponsors;
+  if (!isCurrentVod(s) || isSponsorReelPlaying()) return;
+  s.lastTime = null;
+  s.seeks++;
+}
+
+/**
  * Open the VOD player.
  * Called from the VOD module when a VOD card is clicked. `startAt` opens
  * the replay that many seconds in; anywhere but the beginning gives no
@@ -1671,6 +1728,9 @@ function bindPlayerEvents() {
   dom.video.addEventListener("seeking", onVideoSeeking);
   dom.video.addEventListener("seeked", onVideoSeeked);
   dom.video.addEventListener("loadedmetadata", updateProgress);
+  // Sponsor clips in a replay (#169)
+  dom.video.addEventListener("timeupdate", onVodTimeUpdate);
+  dom.video.addEventListener("seeking", onVodSeeking);
   // Seeking happens on mousedown/mouseup (onSeekStart/onSeekEnd). Clicks anywhere in the
   // control bar must not reach the wrapper's togglePlay — a click just beside the thin
   // progress bar, or a drag released outside it, would otherwise pause playback.
