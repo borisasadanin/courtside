@@ -110,6 +110,45 @@
     .clip-play-overlay:hover {
       background: rgba(0,0,0,0.5);
     }
+    /* The sponsor of shared clips (#159): on the page only, never in the file. */
+    .clip-page-sponsor-logo {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 22%;
+      height: 18%;
+      min-height: 32px;
+      padding: 5px 8px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+    .clip-page-sponsor-logo img {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    a.clip-page-sponsor-logo:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .clip-page-sponsor {
+      margin-top: 2px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      overflow-wrap: anywhere;
+    }
+    .clip-page-sponsor a {
+      color: var(--text);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .clip-page-sponsor a:hover { text-decoration: underline; }
+    @media (max-width: 600px) {
+      .clip-page-sponsor-logo { top: 8px; right: 8px; padding: 4px 6px; border-radius: 6px; }
+    }
     .clip-page-error {
       text-align: center;
       padding: 60px 20px;
