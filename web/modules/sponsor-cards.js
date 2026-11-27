@@ -1,5 +1,8 @@
 // === Sponsors as cards, in Hantera > Sponsring (#121, phase 0) ===
 //
+// The packages (#155) are here too: one row each, with its name, its
+// surfaces as boxes and its place in the order.
+//
 // Each sponsor is a card: logo or initials, name, package, teams, whether it
 // is active and how many clips it has. The card opens a form for the name,
 // link, package, teams, the package's surfaces and the logo (#131, #132,
@@ -119,6 +122,209 @@ export function surfaceSection(ctx) {
     list.append(label);
   }
   return box;
+}
+
+// --- Packages (#155) ---
+
+/** The package whose form is open: its id, "new", or null. */
+let openPackage = null;
+/** The package whose removal waits for "Ja, ta bort". */
+let confirmPackageDelete = null;
+
+/** The packages in their order, first shown first. */
+function packagesInOrder(data) {
+  return data.packages.slice().sort((a, b) => a.priority - b.priority);
+}
+
+/** The released surfaces, the ones a package can be given here. */
+function releasedSurfaces(data) {
+  return data.surfaces.filter((s) => s.available);
+}
+
+/** "Hörnlogga, Väntskärmen och 4 till", or "Inga ytor". */
+function surfacesText(data, pkg) {
+  const labels = releasedSurfaces(data).filter((s) => pkg.surfaces.includes(s.id)).map((s) => s.label);
+  if (labels.length === 0) return "Inga ytor";
+  if (labels.length <= 3) return labels.join(", ");
+  return `${labels.slice(0, 2).join(", ")} och ${labels.length - 2} till`;
+}
+
+/** One row per package, in order, and "Nytt paket". */
+export function packageSection(ctx) {
+  const { data } = ctx;
+  const box = document.createElement("section");
+  box.className = "sponsor-section sponsor-packages";
+  box.setAttribute("aria-labelledby", "sponsorPackagesTitle");
+  box.innerHTML = `<div class="sponsor-packages-head">
+      <h3 class="admin-section-title" id="sponsorPackagesTitle">Paket</h3>
+      <button type="button" class="admin-pair-btn admin-pair-btn-secondary" data-action="new-package"${openPackage === "new" ? " disabled" : ""}>Nytt paket</button>
+    </div>
+    <p class="privacy-admin-intro">Paketet bestämmer var en sponsor visas. Ett paket högre upp visas före ett lägre.</p>
+    <div class="package-list"></div>`;
+  const list = box.querySelector(".package-list");
+  if (openPackage === "new") list.append(packageForm(null, ctx));
+  const packages = packagesInOrder(data);
+  packages.forEach((pkg, i) => list.append(packageRow(pkg, i, packages.length, ctx)));
+  box.querySelector('[data-action="new-package"]').addEventListener("click", () => {
+    openPackage = "new";
+    confirmPackageDelete = null;
+    ctx.redraw();
+    document.querySelector('.package-form input[name="name"]')?.focus();
+  });
+  return box;
+}
+
+function packageRow(pkg, index, count, ctx) {
+  const { data } = ctx;
+  const sponsors = data.sponsors.filter((x) => x.packageId === pkg.id).length;
+  const open = openPackage === pkg.id;
+  const row = document.createElement("article");
+  row.className = "package-row";
+  row.dataset.id = pkg.id;
+  row.setAttribute("aria-label", pkg.name);
+  row.innerHTML = `<div class="package-row-head">
+      <div class="package-row-text">
+        <span class="package-row-name">${escapeHtml(pkg.name)}</span>
+        <span class="package-row-meta">${escapeHtml(surfacesText(data, pkg))} · ${sponsors === 1 ? "1 sponsor" : `${sponsors} sponsorer`}</span>
+      </div>
+      <div class="sponsor-card-actions">
+        <button type="button" class="sponsor-step" data-step="-1" aria-label="Flytta ${escapeHtml(pkg.name)} upp"${index === 0 ? " disabled" : ""}>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="sponsor-step" data-step="1" aria-label="Flytta ${escapeHtml(pkg.name)} ner"${index === count - 1 ? " disabled" : ""}>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="device-revoke" data-action="edit" aria-expanded="${open}">${open ? "Stäng" : "Ändra"}</button>
+      </div>
+    </div>`;
+  row.querySelector('[data-action="edit"]').addEventListener("click", () => {
+    openPackage = open ? null : pkg.id;
+    confirmPackageDelete = null;
+    ctx.redraw();
+  });
+  for (const btn of row.querySelectorAll(".sponsor-step")) {
+    btn.addEventListener("click", () => stepPackage(pkg.id, Number(btn.dataset.step), btn.dataset.step, ctx));
+  }
+  if (open) row.append(packageForm(pkg, ctx));
+  return row;
+}
+
+/** Move a package a step up (-1) or down (1), and give the focus back to the same button. */
+async function stepPackage(id, dir, focusStep, ctx) {
+  const ids = packagesInOrder(ctx.data).map((p) => p.id);
+  const i = ids.indexOf(id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  try {
+    const res = await ctx.send("PUT", "/api/admin/sponsorship/packages/order", { ids });
+    ctx.data.packages = res.packages;
+  } catch (err) {
+    alert(`Kunde inte spara ordningen: ${err.message}`);
+  }
+  ctx.redraw();
+  const row = document.querySelector(`.package-row[data-id="${id}"]`);
+  const again = row?.querySelector(`.sponsor-step[data-step="${focusStep}"]`);
+  (again && !again.disabled ? again : row?.querySelector('[data-action="edit"]'))?.focus();
+}
+
+/** A package's name and surfaces; `pkg` null for a new one. */
+function packageForm(pkg, ctx) {
+  const { data } = ctx;
+  const form = document.createElement("form");
+  form.className = "admin-branding package-form";
+  const surfaces = releasedSurfaces(data);
+  form.innerHTML = `
+    <label class="branding-field">Namn
+      <input type="text" name="name" maxlength="40" autocomplete="off" value="${escapeHtml(pkg?.name ?? "")}" required>
+    </label>
+    <fieldset class="sponsor-fieldset">
+      <legend class="sponsor-legend">Ytor i paketet</legend>
+      <div class="package-surface-boxes">
+        ${surfaces.map((s) => `<label class="team-own"><input type="checkbox" name="surface" value="${escapeHtml(s.id)}"${pkg?.surfaces.includes(s.id) ? " checked" : ""}>
+          <span>${escapeHtml(s.label)}${s.exclusive ? ' <span class="package-exclusive">en per lag</span>' : ""}${s.on ? "" : ' <span class="sponsor-off-note">avstängd under Ytor</span>'}</span></label>`).join("")}
+      </div>
+    </fieldset>
+    <div class="branding-save-row">
+      <button class="admin-pair-btn" type="submit">${pkg ? "Spara" : "Lägg till"}</button>
+      ${pkg ? "" : '<button class="branding-link" type="button" data-action="cancel">Avbryt</button>'}
+      <span class="branding-status" data-status="save" role="status"></span>
+    </div>
+    ${pkg ? '<div class="sponsor-remove"></div>' : ""}`;
+
+  const status = (text, isError = false) => {
+    const el = form.querySelector('[data-status="save"]');
+    el.textContent = text;
+    el.classList.toggle("error", isError);
+  };
+
+  form.querySelector('[data-action="cancel"]')?.addEventListener("click", () => {
+    openPackage = null;
+    ctx.redraw();
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const shown = surfaces.map((s) => s.id);
+    const ticked = [...form.querySelectorAll('input[name="surface"]:checked')].map((b) => b.value);
+    // Surfaces of later phases are not shown here, and stay as they were.
+    const kept = (pkg?.surfaces ?? []).filter((id) => !shown.includes(id));
+    const body = { name: form.elements.name.value, surfaces: [...kept, ...ticked] };
+    status("Sparar…");
+    try {
+      if (pkg) await ctx.send("PATCH", `/api/admin/sponsorship/packages/${encodeURIComponent(pkg.id)}`, body);
+      else await ctx.send("POST", "/api/admin/sponsorship/packages", body);
+      openPackage = null;
+      // The cards show the packages too: everything again.
+      await ctx.reload();
+    } catch (err) {
+      const more = (err.data?.conflicts?.length ?? 0) - 1;
+      status(more > 0 ? `${err.message} Det gäller ${more} yta till.` : err.message, true);
+    }
+  });
+
+  if (pkg) drawPackageRemoval(form.querySelector(".sponsor-remove"), pkg, ctx);
+  return form;
+}
+
+function drawPackageRemoval(box, pkg, ctx) {
+  if (confirmPackageDelete !== pkg.id) {
+    box.innerHTML = `<button class="device-revoke sponsor-delete" type="button">Ta bort paketet</button>`;
+    box.querySelector("button").addEventListener("click", () => {
+      confirmPackageDelete = pkg.id;
+      drawPackageRemoval(box, pkg, ctx);
+      box.querySelector('[data-act="no"]')?.focus();
+    });
+    return;
+  }
+  box.innerHTML = `<div class="sponsor-confirm" role="alertdialog" aria-labelledby="packageDel-${escapeHtml(pkg.id)}">
+      <p id="packageDel-${escapeHtml(pkg.id)}">Ta bort paketet <strong>${escapeHtml(pkg.name)}</strong>?</p>
+      <div class="sponsor-confirm-actions">
+        <button class="device-revoke sponsor-delete-yes" type="button" data-act="yes">Ja, ta bort</button>
+        <button class="admin-pair-btn" type="button" data-act="no">Avbryt</button>
+      </div>
+      <span class="branding-status" role="status"></span>
+    </div>`;
+  box.querySelector('[data-act="no"]').addEventListener("click", () => {
+    confirmPackageDelete = null;
+    drawPackageRemoval(box, pkg, ctx);
+  });
+  const yes = box.querySelector('[data-act="yes"]');
+  yes.addEventListener("click", async () => {
+    yes.disabled = true;
+    try {
+      await ctx.send("DELETE", `/api/admin/sponsorship/packages/${encodeURIComponent(pkg.id)}`);
+      openPackage = null;
+      confirmPackageDelete = null;
+      await ctx.reload();
+    } catch (err) {
+      // 409 while a sponsor has it: say so where the admin is looking.
+      yes.disabled = false;
+      const st = box.querySelector(".branding-status");
+      st.textContent = err.message;
+      st.classList.add("error");
+    }
+  });
 }
 
 // --- Adding a sponsor (#131) ---

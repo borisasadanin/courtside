@@ -4302,6 +4302,30 @@ footer a:hover { color: var(--accent-ink); }
 }
 .sponsor-rename .sponsor-select { flex: 1; }
 .sponsor-remove { margin-top: 4px; }
+/* Paket (#155): one row per package, its form under it */
+.sponsor-packages-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sponsor-packages-head .admin-section-title { margin: 0; }
+.package-list { display: flex; flex-direction: column; gap: 10px; }
+.package-row { border: 1px solid var(--line); border-radius: 12px; background: var(--bg); overflow: hidden; }
+.package-row-head { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; }
+.package-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.package-row-name { font-weight: 700; overflow-wrap: anywhere; }
+.package-row-meta { font-size: 0.85rem; color: var(--text-muted); }
+.package-form { padding: 14px; border-top: 1px solid var(--line); }
+.package-list > .package-form { border: 1px solid var(--accent-dim); border-radius: 12px; }
+.package-surface-boxes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 16px; }
+.package-surface-boxes .team-own { align-items: flex-start; }
+.package-exclusive {
+  display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 999px;
+  font-size: 0.75rem; color: var(--accent-ink); background: var(--accent-soft); white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .package-row-head { flex-wrap: wrap; padding-right: 8px; }
+  .package-row-head .sponsor-card-actions { width: 100%; justify-content: flex-end; }
+  .package-row-head .sponsor-card-actions .device-revoke { flex: 1; }
+  .package-surface-boxes { grid-template-columns: 1fr; }
+}
+
 /* Two sponsors with one exclusive surface, from before it was released */
 .sponsor-conflicts {
   margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; font-size: 0.9rem;

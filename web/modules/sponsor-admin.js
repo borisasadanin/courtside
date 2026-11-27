@@ -5,6 +5,7 @@
 // overtime and at the end. This page:
 //
 //   - switches the surfaces on and off, and orders the sponsors (#134)
+//   - the packages: their names, surfaces and order (#155)
 //   - uploads a sponsor's clips straight to storage with a signed link, with progress (#97, #133)
 //   - lists each sponsor's clips with a preview, renaming, moving and deleting (#98, #133)
 //   - a grid of checkboxes: which clip is shown where (#99)
@@ -24,6 +25,7 @@ import {
   bindSortable,
   conflictNotice,
   isDragging,
+  packageSection,
   sponsorCard,
   surfaceSection,
   teamsText,
@@ -185,7 +187,7 @@ function schedulePoll() {
   if (!busy) return;
   pollTimer = setTimeout(async () => {
     const page = document.querySelector('[data-admin-page="sponsors"]');
-    if (!page || page.classList.contains("hidden") || isDragging() || page.querySelector(".sponsor-edit")) return schedulePoll();
+    if (!page || page.classList.contains("hidden") || isDragging() || page.querySelector(".sponsor-edit, .package-form")) return schedulePoll();
     try {
       data = await send("GET", "/api/admin/sponsorship");
       draw();
@@ -350,8 +352,8 @@ function draw() {
     data.sponsors.forEach((x, i) => list.append(sponsorCard(x, i, ctx)));
     parts.push(list, pausesSection());
   }
-  // The surfaces last: set once, while the cards and pauses are daily work.
-  parts.push(surfaceSection(ctx));
+  // The packages and surfaces last: set once, while the cards and pauses are daily work.
+  parts.push(packageSection(ctx), surfaceSection(ctx));
   root.replaceChildren(...parts);
 }
 
