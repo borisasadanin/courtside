@@ -46,6 +46,9 @@ export interface ClubManifest {
   /** Logo URL, or empty to use the one shipped with the website build.
    *  Relative paths resolve against the website origin. */
   logoUrl: string;
+  /** Picture behind "startar snart" uploaded in the admin view, or empty to
+   *  use the one shipped with the website build (if any). */
+  backgroundUrl: string;
   /** Public website origin, used for share links and social previews. */
   siteUrl: string;
   /** One-line description used for social previews. */
@@ -107,6 +110,7 @@ export const clubManifest: ClubManifest = {
   venue: optional("CLUB_VENUE", ""),
   accentColor: colour("CLUB_ACCENT_COLOR", "#C8A43F"),
   logoUrl: optional("CLUB_LOGO_URL", ""),
+  backgroundUrl: "",
   siteUrl: optional("PUBLIC_SITE_URL", "").replace(/\/$/, ""),
   tagline: optional("CLUB_TAGLINE", `Följ ${NAME} live — direkt från hallen.`),
   sport: BASKETBALL,

@@ -2634,6 +2634,19 @@ footer {
   background: none; border: none; color: var(--text-muted);
   text-decoration: underline; cursor: pointer; padding: 4px 0; font-size: 0.85rem;
 }
+.branding-bg-field { gap: 8px; }
+.branding-hint { font-size: 0.8rem; }
+/* Declared here, next to --empty-bg, so a built-in picture's relative URL resolves. */
+.branding-bg {
+  position: relative; width: 100%; max-width: 320px; aspect-ratio: 16 / 9;
+  background: var(--empty-bg, none) center/cover no-repeat var(--surface-hover);
+  border-radius: var(--radius); overflow: hidden;
+}
+.branding-bg-empty {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); font-size: 0.85rem;
+}
+.branding-bg-empty[hidden] { display: none; }
 .branding-field { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-muted); }
 .branding-field input[type="text"],
 .branding-field input[type="tel"],
