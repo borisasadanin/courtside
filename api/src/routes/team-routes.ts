@@ -8,7 +8,7 @@
  */
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { isValidAdminToken, requireAdminAuth, requireViewerOrBroadcasterAuth } from "../auth.js";
-import { teams } from "../state.js";
+import { sponsors, teams } from "../state.js";
 import { TeamError, type TeamInput } from "../teams.js";
 
 /** Answer a refused change with its message; anything else is a server error. */
@@ -63,6 +63,8 @@ export default async function teamRoutes(app: FastifyInstance): Promise<void> {
     if (!requireAdminAuth(request, reply)) return;
     try {
       await teams.remove(request.params.id);
+      // Its sponsors no longer apply to it (#127).
+      await sponsors.teamRemoved(request.params.id);
       return reply.code(204).send();
     } catch (err) {
       return refuse(reply, err);
@@ -97,7 +99,11 @@ export default async function teamRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { id: string }; Body: { from?: string } }>("/api/admin/teams/:id/merge", async (request, reply) => {
     if (!requireAdminAuth(request, reply)) return;
     try {
-      return reply.send(await teams.merge(request.params.id, String(request.body?.from ?? "")));
+      const from = String(request.body?.from ?? "");
+      const kept = await teams.merge(request.params.id, from);
+      // The merged team's sponsors follow it to the team that stayed (#127).
+      await sponsors.teamMerged(from, kept.id);
+      return reply.send(kept);
     } catch (err) {
       return refuse(reply, err);
     }

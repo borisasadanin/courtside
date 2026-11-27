@@ -16,7 +16,7 @@ import {
   deriveShortName,
   deriveColor,
 } from "../teams.js";
-import { initServices, teams, streamMeta } from "../state.js";
+import { initServices, teams, streamMeta, sponsors } from "../state.js";
 import { createAdminToken, createViewerToken } from "../auth.js";
 import teamRoutes from "../routes/team-routes.js";
 import streamRoutes from "../routes/streams.js";
@@ -355,6 +355,34 @@ describe("team routes", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().aliases).toEqual(["Täby"]);
     expect(await teams.get(drop.id)).toBeNull();
+  });
+
+  it("moves the sponsors of a merged team to the team that stays (#127)", async () => {
+    const p12 = await teams.create({ name: "Älta P12", own: true });
+    const p12b = await teams.create({ name: "Älta P12B", own: true });
+    const f14 = await teams.create({ name: "Älta F14", own: true });
+    const ica = await sponsors.createSponsor({ name: "ICA", teamIds: [p12b.id] });
+    const both = await sponsors.createSponsor({ name: "Coop", teamIds: [p12.id, p12b.id, f14.id] });
+
+    const res = await app.inject({ method: "POST", url: `/api/admin/teams/${p12.id}/merge`, headers: admin, payload: { from: p12b.id } });
+    expect(res.statusCode).toBe(200);
+    expect((await sponsors.getSponsor(ica.id))?.teamIds).toEqual([p12.id]);
+    expect((await sponsors.getSponsor(both.id))?.teamIds).toEqual([p12.id, f14.id]);
+  });
+
+  it("takes a removed team out of its sponsors, without making them the club's (#127)", async () => {
+    const u16 = await teams.create({ name: "Älta U16", own: true });
+    const u18 = await teams.create({ name: "Älta U18", own: true });
+    const only = await sponsors.createSponsor({ name: "Bageriet", teamIds: [u16.id] });
+    const two = await sponsors.createSponsor({ name: "Bilfirman", teamIds: [u16.id, u18.id] });
+
+    expect((await app.inject({ method: "DELETE", url: `/api/admin/teams/${u16.id}`, headers: admin })).statusCode).toBe(204);
+    expect(await sponsors.getSponsor(only.id)).toMatchObject({ teamIds: [], teamsGone: true });
+    expect(await sponsors.getSponsor(two.id)).toMatchObject({ teamIds: [u18.id] });
+    expect((await sponsors.getSponsor(two.id))?.teamsGone).toBeUndefined();
+
+    // Choosing teams again makes it an ordinary sponsor.
+    expect(await sponsors.patchSponsor(only.id, { teamIds: [] })).not.toHaveProperty("teamsGone");
   });
 });
 
