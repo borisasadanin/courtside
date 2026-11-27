@@ -8,10 +8,14 @@
 // A match with recordings can be changed (a misspelt team is then fixed on its
 // replays too) but not removed here: its recordings are removed under
 // Inspelningar, where the deletion log applies.
+//
+// A played match can get an MVP (#163): one of its clips and a jersey number,
+// never a name. The choice shows once the club has switched on the sponsor
+// surface "mvp", or when the match already has an MVP.
 
 import { CONFIG } from "./config.js";
 import { state } from "./state.js";
-import { escapeHtml } from "./utils.js";
+import { escapeHtml, mediaUrl } from "./utils.js";
 import { deactivateAdmin } from "./admin.js";
 import { resize } from "./branding.js";
 import { club } from "./club.js";
@@ -21,6 +25,13 @@ import { guestSpaceForMatch, openGuestSpace } from "./guest-admin.js";
 
 /** The match whose form is open, kept open across a reload of the list. */
 let openId = null;
+/** The match whose MVP choice is open, likewise. */
+let mvpOpenId = null;
+/** Whether the club has switched on the surface "mvp" (#163). */
+let mvpOn = false;
+
+/** A jersey number: 0–99 or 00, as the API takes it. */
+const JERSEY = /^(?:00|0|[1-9]\d?)$/;
 
 /** Select value for a team typed into the form rather than picked. */
 const NEW_TEAM = "__new__";
@@ -55,12 +66,18 @@ export async function renderMatchesAdmin() {
 
   let matches;
   try {
-    const [matchRes, teamRes] = await Promise.all([
+    const [matchRes, teamRes, surfaces] = await Promise.all([
       fetch(`${CONFIG.API_URL}/api/matches`, { headers: adminHeaders(false) }),
       fetch(`${CONFIG.API_URL}/api/teams`, { headers: adminHeaders(false) }),
+      // Only whether the MVP is on: without it, the list is as before.
+      fetch(`${CONFIG.API_URL}/api/admin/sponsorship`, { headers: adminHeaders(false) })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((body) => body?.surfaces ?? [])
+        .catch(() => []),
     ]);
     if (!matchRes.ok) throw new Error(`HTTP ${matchRes.status}`);
     if (teamRes.ok) setTeams(await teamRes.json());
+    mvpOn = surfaces.some((x) => x.id === "mvp" && x.available && x.on);
     matches = setMatches(await matchRes.json());
   } catch (err) {
     list.innerHTML = `<p class="admin-empty">Kunde inte hämta matcherna (${escapeHtml(err.message)})</p>`;
@@ -133,6 +150,7 @@ function matchRow(match) {
   const n = match.recordingIds.length;
   if (n && match.status !== "live") meta.push(n === 1 ? "1 inspelning" : `${n} inspelningar`);
   if (match.result) meta.push(`${match.result.home}–${match.result.away}`);
+  if (match.mvp) meta.push(`MVP #${match.mvp.jersey}`);
 
   const info = document.createElement("div");
   info.className = "device-info";
@@ -169,7 +187,145 @@ function matchRow(match) {
   });
 
   wrap.append(row, form);
+
+  // The MVP of a played match (#163).
+  if (match.status === "ended" && (mvpOn || match.mvp)) {
+    const mvpBtn = document.createElement("button");
+    mvpBtn.type = "button";
+    mvpBtn.className = "branding-link match-guest-link";
+    mvpBtn.textContent = match.mvp ? `MVP #${match.mvp.jersey}` : "Välj MVP";
+    mvpBtn.setAttribute("aria-expanded", "false");
+    info.append(mvpBtn);
+    const panel = mvpPanel(match);
+    const show = (open) => {
+      mvpOpenId = open ? match.id : null;
+      panel.classList.toggle("hidden", !open);
+      mvpBtn.setAttribute("aria-expanded", String(open));
+      if (open) panel.load();
+    };
+    mvpBtn.addEventListener("click", () => show(panel.classList.contains("hidden")));
+    panel.close = () => show(false);
+    panel.classList.add("hidden");
+    wrap.append(panel);
+    if (mvpOpenId === match.id) show(true);
+  }
   return wrap;
+}
+
+/**
+ * Choose the match's MVP: one of its clips, by its thumbnail, and the jersey
+ * number. Only a number: the MVP is never named. It can be taken away again.
+ */
+function mvpPanel(match) {
+  const panel = document.createElement("div");
+  panel.className = "admin-branding match-edit match-mvp";
+  const uid = `mvp-${match.id}`;
+  panel.innerHTML = `
+    <p class="privacy-admin-intro">Välj klippet och skriv tröjnumret. Bara numret visas, aldrig namnet.</p>
+    <div class="match-mvp-clips" role="radiogroup" aria-label="Klipp"></div>
+    <label class="branding-field">Tröjnummer
+      <input type="text" name="jersey" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="t.ex. 12" value="${escapeHtml(match.mvp?.jersey ?? "")}">
+    </label>
+    <div class="branding-save-row">
+      <button class="admin-pair-btn" type="button" data-action="save">Spara</button>
+      <button class="branding-link" type="button" data-action="cancel">Avbryt</button>
+      ${match.mvp ? '<button class="device-revoke" type="button" data-action="remove">Ta bort MVP</button>' : ""}
+      <span class="branding-status" role="status"></span>
+    </div>`;
+
+  const list = panel.querySelector(".match-mvp-clips");
+  const jersey = panel.querySelector('input[name="jersey"]');
+  const save = panel.querySelector('[data-action="save"]');
+  const status = panel.querySelector(".branding-status");
+  const say = (text, isError = false) => {
+    status.textContent = text;
+    status.classList.toggle("error", isError);
+  };
+  const chosen = () => list.querySelector("input:checked")?.value ?? "";
+  const refresh = () => { save.disabled = !(chosen() && JERSEY.test(jersey.value.trim())); };
+  panel.addEventListener("input", refresh);
+  panel.addEventListener("change", refresh);
+  refresh();
+
+  let loaded = false;
+  panel.load = async () => {
+    if (loaded) return;
+    loaded = true;
+    list.innerHTML = '<div class="spinner"></div>';
+    let clips;
+    try {
+      clips = await send("GET", `/api/admin/matches/${encodeURIComponent(match.id)}/clips`);
+    } catch (err) {
+      loaded = false;
+      list.innerHTML = `<p class="admin-empty">Kunde inte hämta klippen (${escapeHtml(err.message)})</p>`;
+      return;
+    }
+    if (clips.length === 0) {
+      list.innerHTML = '<p class="admin-empty">Matchen har inga klipp.</p>';
+      return;
+    }
+    list.replaceChildren(...clips.map((clip, i) => {
+      const label = document.createElement("label");
+      label.className = "match-mvp-clip";
+      const name = clip.label || `Höjdpunkt ${i + 1}`;
+      label.innerHTML = `
+        <input type="radio" name="${uid}" value="${escapeHtml(clip.id)}">
+        <span class="match-mvp-thumb"></span>
+        <span class="match-mvp-name">${escapeHtml(name)}</span>`;
+      if (clip.thumbnailUrl) {
+        const img = document.createElement("img");
+        img.alt = "";
+        img.loading = "lazy";
+        img.addEventListener("error", () => img.remove(), { once: true });
+        img.src = mediaUrl(clip.thumbnailUrl);
+        label.querySelector(".match-mvp-thumb").append(img);
+      }
+      label.querySelector("input").checked = clip.id === match.mvp?.clipId;
+      return label;
+    }));
+    refresh();
+  };
+
+  panel.querySelector('[data-action="cancel"]').addEventListener("click", () => panel.close?.());
+
+  save.addEventListener("click", async () => {
+    if (save.disabled) return;
+    save.disabled = true;
+    say("Sparar…");
+    try {
+      await send("PUT", `/api/admin/matches/${encodeURIComponent(match.id)}/mvp`, { clipId: chosen(), jersey: jersey.value.trim() });
+    } catch (err) {
+      say(err.message, true);
+      refresh();
+      return;
+    }
+    mvpOpenId = null;
+    await renderMatchesAdmin();
+  });
+
+  // Two clicks, like removing a match.
+  const remove = panel.querySelector('[data-action="remove"]');
+  remove?.addEventListener("click", async () => {
+    if (remove.dataset.confirm !== "1") {
+      remove.dataset.confirm = "1";
+      remove.textContent = "Säker?";
+      setTimeout(() => {
+        remove.dataset.confirm = "";
+        remove.textContent = "Ta bort MVP";
+      }, 4000);
+      return;
+    }
+    say("Tar bort…");
+    try {
+      await send("DELETE", `/api/admin/matches/${encodeURIComponent(match.id)}/mvp`);
+      mvpOpenId = null;
+      await renderMatchesAdmin();
+    } catch (err) {
+      say(err.message, true);
+    }
+  });
+
+  return panel;
 }
 
 /** <option>s for every team, the side's own kind first, then "Nytt lag…". */
