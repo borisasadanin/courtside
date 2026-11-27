@@ -105,5 +105,9 @@ export function initServices(r: RestreamerClient, m: MinioClient, o: OscInstance
     info: (msg) => console.log(msg),
     warn: (obj, msg) => console.warn(msg, obj),
   });
-  sponsorStats = new SponsorStats();
+  sponsorStats = new SponsorStats({
+    storage: m,
+    seasonStart: () => sponsors.snapshot().seasonStart,
+    log: { warn: (obj, msg) => console.warn(msg, obj) },
+  });
 }

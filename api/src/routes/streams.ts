@@ -5,7 +5,7 @@
 import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import { config } from "../config.js";
 import { broadcasterOf, requireBroadcasterAuth, requireViewerAuth, requireViewerOrBroadcasterAuth } from "../auth.js";
-import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream, guestSpaces, PAUSE_TYPES } from "../state.js";
+import { streamMeta, restreamer, minio, oscManager, collectors, clipsByStream, guestSpaces, sponsorStats, PAUSE_TYPES } from "../state.js";
 import type { PauseType, StreamMeta } from "../state.js";
 import { SegmentCollector } from "../segment-collector.js";
 import { getViewerCount, isValidViewerId, registerViewer, removeViewer, viewers } from "../viewer-tracking.js";
@@ -119,6 +119,8 @@ export async function endStream(
   });
   saveStreamMetaSoon(minio, log);
   viewers.delete(id);
+  // What viewers saw of the sponsors is saved now, not in up to five minutes (#139).
+  sponsorStats.streamStopped(meta.matchId ?? id).catch((err) => log.warn(err, "Could not save the sponsor counts"));
 
   // Stop collecting segments and build the final part manifest
   const collector = collectors.get(id);
