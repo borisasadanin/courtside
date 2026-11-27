@@ -190,6 +190,21 @@ describe("POST /api/sponsors/events (#138)", () => {
     expect(sponsorStats.counts("s1")!.sponsors[ICA].surfaces.start.replay?.starts).toBe(1);
   });
 
+  it("counts the corner logo as seen, live and in a replay, once it is switched on (#148)", async () => {
+    const seen = event({ surface: "corner", kind: "seen" });
+    expect((await send(seen)).statusCode).toBe(404); // switched off
+    await sponsors.setSurfaces({ corner: true });
+    expect((await send(seen)).statusCode).toBe(404); // Guld has no corner
+    await sponsors.patchSponsor(ICA, { packageId: "platinum" });
+    expect((await send(seen)).statusCode).toBe(204);
+    expect((await send({ ...seen, kind: "start" })).statusCode).toBe(400); // a logo is only seen
+
+    storage.vods.push({ id: "v1", createdAt: "2026-11-20T17:00:00.000Z", homeTeam: "Älta P12" });
+    expect((await send(event({ surface: "corner", kind: "seen", stream: undefined, vod: "v1", mode: "replay" }))).statusCode).toBe(204);
+    expect(sponsorStats.counts("s1")!.sponsors[ICA].surfaces.corner.live).toMatchObject({ viewers: 1, seen: 1, starts: 0 });
+    expect(sponsorStats.counts("v1")!.sponsors[ICA].surfaces.corner.replay).toMatchObject({ viewers: 1, seen: 1 });
+  });
+
   it("never puts the viewer's id in an answer or a log line", async () => {
     const answers = [
       await send(event()),
